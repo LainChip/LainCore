@@ -11,6 +11,8 @@ module core_backend(
     input logic clk,
     input logic rst_n,
 
+    input logic[7:0] int_i, // 中断输入
+
     input frontend_req_t frontend_req_i,
     output frontend_resp_t frontend_resp_o,
 
@@ -33,20 +35,61 @@ module core_backend(
                   pipeline_data_m2_q,pipeline_data_m2_fwd,
                   pipeline_data_wb_q;
   // TODO: PIPELINE ME
-  pipeline_wdata_t [1:0] pipeline_wdata_ex,pipeline_wdata_m1_q,
-                   pipeline_wdata_m1,pipeline_wdata_m2_q,
-                   pipeline_wdata_m2,pipeline_wdata_wb_q,
+  pipeline_wdata_t [1:0] pipeline_wdata_ex,
+                   pipeline_wdata_m1_q,pipeline_wdata_m1,
+                   pipeline_wdata_m2_q,pipeline_wdata_m2,
                    pipeline_wdata_wb;
 
   fwd_data_t [1:0] fwd_data_ex,fwd_data_m1,fwd_data_m2,fwd_data_wb;
 
   // TODO: PIPELINE ME
-  exc_flow_t [1:0] exc_is,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
+  exc_flow_t [1:0] exc_skid,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
 
   logic ex_stall;
   logic m1_stall;
   logic m2_stall;
   logic wb_stall;
+
+  // 流水线处理, TODO: 可复位部分
+  always_ff @(posedge clk) begin
+    if(!ex_stall) begin
+      exc_ex_q <= exc_skid;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!m1_stall) begin
+      exc_m1_q <= exc_ex_q;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!m2_stall) begin
+      exc_m2_q <= exc_m1_q;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!wb_stall) begin
+      exc_wb_q <= exc_m2_q;
+    end
+  end
+
+  // 流水线处理，不可复位部分
+  always_ff @(posedge clk) begin
+    if(!ex_stall) begin
+      pipeline_ctrl_ex_q <= pipeline_ctrl_ex;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!m1_stall) begin
+      pipeline_ctrl_m1_q <= pipeline_ctrl_m1;
+      pipeline_wdata_m1_q <= pipeline_wdata_m1;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!m2_stall) begin
+      pipeline_ctrl_m2_q <= pipeline_ctrl_m2;
+      pipeline_wdata_m2_q <= pipeline_wdata_m2;
+    end
+  end
 
   logic[1:0] ex_stall_req;
   logic[1:0] m1_stall_req;

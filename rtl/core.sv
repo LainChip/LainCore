@@ -35,6 +35,7 @@ module core(
   core_backend  core_backend_inst (
                   .clk(clk),
                   .rst_n(rst_n),
+				  .int_i(int_i),
                   .frontend_req_i(frontend_req),
                   .frontend_resp_o(frontend_resp),
                   .bus_resp_i(dbus_resp),
