@@ -1,5 +1,5 @@
 `include "pipeline.svh"
-`include "../lsu/lsu_types.svh"
+`include "lsu.svh"
 // 这个function应该放在前端，在fetch阶段和写入fifo阶段之间，合成inst_t的阶段进行。
 function reg_info_t get_register_info(
     input is_t decode_info,

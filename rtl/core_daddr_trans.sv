@@ -1,4 +1,4 @@
-`include "../pipeline/pipeline.svh"
+`include "pipeline.svh"
 
 module core_daddr_trans#(
     parameter bit ENABLE_TLB = 1'b0,
@@ -16,7 +16,8 @@ module core_daddr_trans#(
     input csr_t csr_i,
     input logic flush_trans_i, // trigger when address translation change.
 
-    output tlb_s_req_t tlb_req_o,
+    // output tlb_s_req_t tlb_req_o,
+    logic[31:12] vppn_o,
     output logic tlb_req_valid_o,
 
     input logic tlb_req_ready_i,

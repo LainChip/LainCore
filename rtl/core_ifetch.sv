@@ -1,5 +1,5 @@
-`include "../pipeline/pipeline.svh"
-`include "../lsu/cached_lsu_v4/cached_lsu_v4.svh"
+`include "pipeline.svh"
+`include "lsu.svh"
 
 /*--JSON--{"module_name":"icache","module_ver":"4","module_type":"module"}--JSON--*/
 

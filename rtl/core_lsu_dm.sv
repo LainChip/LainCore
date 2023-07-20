@@ -1,4 +1,4 @@
-`include "cached_lsu_v4.svh"
+`include "lsu.svh"
 
 // 注意，这些函数用于做 bank 选择使用。
 // 模块假定处理 bank0 的输入，
@@ -734,7 +734,6 @@ module core_lsu_dm#(
   // CACHE 总线交互机制
   always_comb begin
     // TODO:根据 FSM 状态及总线状态及时的赋值
-    bus_req_o.data_ok;
   end
 
   // UNCACHE 写 buffer

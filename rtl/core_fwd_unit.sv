@@ -1,4 +1,4 @@
-`include "../pipeline.svh"
+`include "pipeline.svh"
 
 
 module dyn_fwd_single#(

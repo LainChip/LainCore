@@ -1,4 +1,4 @@
-`include "../pipeline/pipeline.svh"
+`include "pipeline.svh"
 `include "csr.svh"
 
 module core_csr(

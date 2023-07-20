@@ -1,4 +1,4 @@
-`include "../pipeline/pipeline.svh"
+`include "pipeline.svh"
 
 module tlb_lookup_0_stage#(
     parameter int TLB_ENTRY_NUM = 32,

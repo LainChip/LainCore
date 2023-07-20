@@ -1,4 +1,4 @@
-`include "../pipeline/pipeline.svh"
+`include "pipeline.svh"
 
 function logic check_inv(tlb_entry_t entry, tlb_inv_req_t inv_req);
   check_inv = '0;

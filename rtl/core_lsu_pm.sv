@@ -1,4 +1,4 @@
-`include "cached_lsu_v4.svh"
+`include "lsu.svh"
 
 module core_lsu_pm #(
     parameter int WAY_CNT = `_DWAY_CNT

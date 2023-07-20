@@ -1,4 +1,4 @@
-`include "../pipeline/pipeline.svh"
+`include "pipeline.svh"
 
 module core_divider_manager(
     input logic clk,

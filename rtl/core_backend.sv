@@ -1,5 +1,5 @@
 `include "pipeline.svh"
-`include "../lsu/lsu_types.svh"
+`include "lsu.svh"
 
 function fwd_data_t mkfwddata(pipeline_wdata_t in);
   mkfwddata.valid = in.w_flow.valid;
