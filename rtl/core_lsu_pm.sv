@@ -1,6 +1,6 @@
 `include "cached_lsu_v4.svh"
 
-module lsu #(
+module core_lsu_pm #(
     parameter int WAY_CNT = `_DWAY_CNT
   ) (
     input logic clk,

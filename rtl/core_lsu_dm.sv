@@ -27,7 +27,7 @@ function logic[31:0] oh_waysel(logic[`_DWAY_CNT - 1 : 0] way_sel, logic[`_DWAY_C
   end
   return oh_waysel;
 endfunction
-module lsu_dm#(
+module core_lsu_dm#(
     parameter int PIPE_MANAGE_NUM = 2,
     parameter int BANK_NUM = `_DBANK_CNT, // This two parameter is FIXED ACTUALLY.
     parameter int WAY_CNT = `_DWAY_CNT,

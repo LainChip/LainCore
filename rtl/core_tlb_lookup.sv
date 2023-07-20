@@ -61,7 +61,7 @@ module tlb_lookup_0_stage#(
   end
 endmodule
 
-module tlb_lookup_1_stage#(
+module core_tlb_lookup#(
     parameter TLB_ENTRY_NUM = 32,
     parameter bit TLB_SUPPORT_4M_PAGE = 0
   )(

@@ -1,7 +1,7 @@
 `include "../pipeline/pipeline.svh"
 `include "csr.svh"
 
-module la_csr(
+module core_csr(
     input logic clk,
     input logic rst_n,
     input excp_flow_t excp_i, // M2 EXCPTION IN

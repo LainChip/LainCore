@@ -1,6 +1,6 @@
 `include "../pipeline/pipeline.svh"
 
-module divider_manager(
+module core_divider_manager(
     input logic clk,
     input logic rst_n,
 

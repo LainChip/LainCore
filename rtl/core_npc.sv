@@ -29,7 +29,7 @@ function logic[1:0] gen_next_lphr(logic[1:0] old, logic direction);
   endcase
 endfunction
 
-module npc(
+module core_npc(
     input logic clk,
     input logic rst_n,
 

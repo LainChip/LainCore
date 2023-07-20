@@ -7,7 +7,7 @@ function fwd_data_t mkfwddata(pipeline_wdata_t in);
   mkfwddata.data = in.w_data;
 endfunction
 
-module backend(
+module core_backend(
     input logic clk,
     input logic rst_n,
 

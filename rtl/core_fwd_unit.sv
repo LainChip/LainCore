@@ -35,7 +35,7 @@ module dyn_fwd_single#(
 
 endmodule
 
-module dyn_fwd_unit #(
+module core_fwd_unit #(
     parameter int SRC_NUM = 3
   ) (
     input  fwd_data_t [SRC_NUM-1:0][1:0] fwd_bus_i,

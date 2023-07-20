@@ -1,6 +1,6 @@
 `include "decoder.svh"
 
-module detachable_alu #(
+module core_detachable_alu #(
     parameter bit USE_LI = 0,
     parameter bit USE_INT = 1,
     parameter bit USE_MUL = 0,

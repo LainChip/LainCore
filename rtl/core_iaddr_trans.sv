@@ -1,7 +1,7 @@
 `include "../pipeline/pipeline.svh"
 
 
-module iaddr_trans#(
+module core_iaddr_trans#(
     parameter bit ENABLE_TLB = 1'b0
   )(
     input logic clk,

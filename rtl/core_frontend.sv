@@ -48,7 +48,7 @@ function reg_info_t get_register_info(
   return ret;
 endfunction
 
-module frontend(
+module core_frontend(
     input logic clk,
     input logic rst_n,
     output frontend_req_t frontend_req_o,

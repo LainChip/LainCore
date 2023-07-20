@@ -22,7 +22,7 @@ function logic check_inv(tlb_entry_t entry, tlb_inv_req_t inv_req);
   end
 endfunction
 
-module tlb #(
+module core_tlb #(
     parameter int TLB_ENTRY_NUM = 16
   )
   (

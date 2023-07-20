@@ -1,6 +1,6 @@
 `include "../pipeline/pipeline.svh"
 
-module daddr_trans#(
+module core_daddr_trans#(
     parameter bit ENABLE_TLB = 1'b0,
     parameter bit SUPPORT_32_PADDR = 1'b0
   )(
