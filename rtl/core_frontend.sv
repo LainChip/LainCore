@@ -227,7 +227,7 @@ module core_frontend(
              );
     always_comb begin
       decoder_inst_package[p].decode_info = issue_package;
-      decoder_inst_package[p].ctlb_opcode = d_inst_pack[p].inst[4:0];
+      decoder_inst_package[p].imm_domain = d_inst_pack[p].inst[25:0];
       decoder_inst_package[p].reg_info = get_register_info(issue_package,d_inst_pack[p].inst);
       decoder_inst_package[p].bpu_predict = d_inst_pack[p].bpu_predict;
       decoder_inst_package[p].fetch_excp = d_inst_pack[p].fetch_excp;

@@ -1,3 +1,4 @@
+`include "common.svh"
 `include "pipeline.svh"
 `include "lsu.svh"
 
@@ -5,6 +6,24 @@ function fwd_data_t mkfwddata(pipeline_wdata_t in);
   mkfwddata.valid = in.w_flow.valid;
   mkfwddata.id = in.w_flow.w_id;
   mkfwddata.data = in.w_data;
+endfunction
+
+function logic[25:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
+  case (addr_imm_type)
+    default:/*`_ADDR_IMM_S12:*/
+    begin
+      mkimm_addr = {{14{raw_imm[11]}},raw_imm[11:0]};
+    end
+    `_ADDR_IMM_S14: begin
+      mkimm_addr = {{12{raw_imm[13]}},raw_imm[13:0]};
+    end
+    `_ADDR_IMM_S16: begin
+      mkimm_addr = {{10{raw_imm[15]}},raw_imm[15:0]};
+    end
+    `_ADDR_IMM_S26: begin
+      mkimm_addr = raw_imm;
+    end
+  endcase
 endfunction
 
 module core_backend(
@@ -43,35 +62,26 @@ module core_backend(
   fwd_data_t [1:0] fwd_data_ex,fwd_data_m1,fwd_data_m2,fwd_data_wb;
 
   // TODO: PIPELINE ME
-  exc_flow_t [1:0] exc_skid,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
+  exc_flow_t [1:0] exc_is,exc_skid_q,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
 
   logic ex_stall;
   logic m1_stall;
   logic m2_stall;
   logic wb_stall;
 
-  // 流水线处理, TODO: 可复位部分
-  always_ff @(posedge clk) begin
-    if(!ex_stall) begin
-      exc_ex_q <= exc_skid;
-    end
-  end
-  always_ff @(posedge clk) begin
-    if(!m1_stall) begin
-      exc_m1_q <= exc_ex_q;
-    end
-  end
-  always_ff @(posedge clk) begin
-    if(!m2_stall) begin
-      exc_m2_q <= exc_m1_q;
-    end
-  end
-  always_ff @(posedge clk) begin
-    if(!wb_stall) begin
-      exc_wb_q <= exc_m2_q;
-    end
-  end
+  logic[1:0] ex_stall_req;
+  logic[1:0] m1_stall_req;
+  logic[1:0] m2_stall_req;
+  logic[1:0] wb_stall_req;
+  logic[1:0] lsu_stall_req;
 
+  // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
+  logic m1_refetch;
+  logic [1:0][31:0]m1_jump_target_req;
+  logic [1:0]m1_invalidate, m1_invalidate_req;
+  logic ex_invalidate;
+
+  logic is_skid_q;
   // 流水线处理，不可复位部分
   always_ff @(posedge clk) begin
     if(!ex_stall) begin
@@ -91,20 +101,65 @@ module core_backend(
     end
   end
 
-  logic[1:0] ex_stall_req;
-  logic[1:0] m1_stall_req;
-  logic[1:0] m2_stall_req;
-  logic[1:0] wb_stall_req;
-  logic[1:0] lsu_stall_req;
+  // 流水线处理, TODO: 可复位部分
+  for(genvar p = 0 ; p < 2 ;p ++) begin
+    always_ff @(posedge clk) begin
+      if(~rst_n) begin
+        exc_ex_q[p] <= '0;
+      end
+      else begin
+        if(!ex_stall) begin
+          exc_ex_q[p] <= is_skid_q ? exc_skid_q : exc_is;
+        end
+      end
+    end
 
-  // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
-  logic m1_refetch;
-  logic [1:0][31:0]m1_jump_target_req;
-  logic [1:0]m1_invalidate, m1_invalidate_req;
-  logic ex_invalidate;
+    always_ff @(posedge clk) begin
+      if(~rst_n) begin
+        exc_m1_q[p] <= '0;
+      end
+      else begin
+        if(!m1_stall) begin
+          exc_m1_q[p].valid_inst <= exc_ex_q[p].valid_inst;
+          if(ex_invalidate) begin
+            exc_m1_q[p].need_commit <= '0;
+          end
+          else begin
+            exc_m1_q[p].need_commit <= exc_ex_q[p].need_commit;
+          end
+        end
+      end
+    end
 
-  logic is_skid_q;
+    always_ff @(posedge clk) begin
+      if(~rst_n) begin
+        exc_m2_q[p] <= '0;
+      end
+      else begin
+        if(!m2_stall) begin
+          exc_m2_q[p].valid_inst <= exc_m1_q[p].valid_inst;
+          if(m1_invalidate[p]) begin
+            exc_m2_q[p].need_commit <= '0;
+          end
+          else begin
+            exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
+          end
+        end
+      end
+    end
 
+    always_ff @(posedge clk) begin
+      if(~rst_n) begin
+        exc_wb_q[p] <= '0;
+      end
+      else begin
+        if(!wb_stall) begin
+          exc_wb_q[p].valid_inst <= exc_m2_q[p].valid_inst;
+          exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
+        end
+      end
+    end
+  end
   // STALL MANAGER
   // 后续级可以阻塞前级
   // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
@@ -352,10 +407,12 @@ module core_backend(
   logic is_ready;
   logic ex_skid_ready_q,ex_skid_valid;
   logic [1:0] issue;
+  inst_t[1:0] is_inst_pack;
+  assign is_inst_pack = frontend_req_i.inst;
   issue issue_inst (
           .clk(clk),
           .rst_n(rst_n),
-          .inst_i(frontend_req_i.inst),
+          .inst_i(is_inst_pack),
           .d_valid_i(frontend_req_i.inst_valid & {is_ready,is_ready}),
           .ex_ready_i(ex_skid_ready_q),
           .ex_valid_o(ex_skid_valid),
@@ -437,7 +494,32 @@ module core_backend(
       end
     end
   end
+  always_ff @(posedge clk) begin
+    if(!is_skid_q) begin
+      pipeline_ctrl_skid_q <= pipeline_ctrl_is;
+      exc_skid_q <= exc_is;
+    end
+  end
   /* SKID BUF 结束*/
+  // 流水线间信息传递: TODO
+  always_comb begin
+    pipeline_ctrl_ex = is_skid_q ? pipeline_ctrl_skid_q : pipeline_ctrl_is;
+  end
+  for(genvar p = 0 ; p < 2 ; p++) begin
+    // 产生 pipeline_ctrl_is 用于控制流水线
+    always_comb begin
+      pipeline_ctrl_is[p].decode_info = is_inst_pack[p].inst.decode_info;
+      pipeline_ctrl_is[p].w_reg = is_inst_pack[p].inst.reg_info.w_reg;
+      ;
+      pipeline_ctrl_is[p].w_id = is_w_id;
+      pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].inst.bpu_predict;
+      pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].inst.fetch_excp;
+      pipeline_ctrl_is[p].ctlb_opcode = is_inst_pack[p].inst.imm_domain[4:0];
+      pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].inst.addr_imm_type, is_inst_pack[p].inst.imm_domain);
+      exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
+      exc_is[p].need_commit = frontend_req_i.inst_valid[p];
+    end
+  end
   /* ------ ------ ------ ------ ------ EX 级 ------ ------ ------ ------ ------ */
   for(genvar p = 0 ; p < 2 ; p++) begin
     // EX 级别
@@ -524,7 +606,6 @@ module core_backend(
       pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
       pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
       pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
-      pipeline_ctrl_m1[p].ctlb_opcode = pipeline_ctrl_ex[p].ctlb_opcode;
       pipeline_ctrl_m1[p].csr_id = pipeline_ctrl_ex_q[p].addr_imm[13:0];
       pipeline_ctrl_m1[p].jump_target = jump_target;
       pipeline_ctrl_m1[p].vaddr = vaddr;
@@ -631,10 +712,10 @@ module core_backend(
     // 流水线间信息传递
     always_comb begin
       pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
-      pipeline_ctrl_m2[p].ctlb_opcode = pipeline_ctrl_m1[p].ctlb_opcode;
-      pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1[p].vaddr;
+      pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
+      pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
       pipeline_ctrl_m2[p].paddr = paddr;
-      pipeline_ctrl_m2[p].pc = pipeline_ctrl_ex_q[p].pc;
+      pipeline_ctrl_m2[p].pc = pipeline_ctrl_m1_q[p].pc;
     end
   end
   /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */

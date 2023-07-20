@@ -136,7 +136,7 @@ typedef struct packed {
 // 输入到后端的指令流
 typedef struct packed {
           is_t decode_info;
-          logic[4:0] ctlb_opcode;
+          logic[25:0] imm_domain;
           reg_info_t reg_info;
           bpu_into_t bpu_predict;
           fetch_excp_t fetch_excp;
@@ -149,7 +149,6 @@ typedef struct packed{
           logic[2:0] w_id;
           bpu_predict_t bpu_predict;
           fetch_excp_t fetch_excp;
-          logic[4:0] ctlb_opcode;
           logic[25:0] addr_imm;
           logic[31:0] pc;
         } pipeline_ctrl_ex_t; // 移位寄存器实现的部分
@@ -158,7 +157,6 @@ typedef struct packed{
           m1_t decode_info;  // 指令控制信息 ::: 不需要 rst clr | 跳转 clr
           bpu_predict_t bpu_predict;
           excp_flow_t excp_flow;
-          logic[4:0] ctlb_opcode;
           logic[13:0] csr_id;
           logic[31:0] jump_target;
           logic[31:0] vaddr;
@@ -167,7 +165,7 @@ typedef struct packed{
 
 typedef struct packed{
           m2_t decode_info;  // 指令控制信息 ::: 不需要 rst clr | 跳转 clr
-          logic[4:0] ctlb_opcode;
+          logic[13:0] csr_id;
           logic[31:0] vaddr;
           logic[31:0] paddr;
           logic[31:0] pc;

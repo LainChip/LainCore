@@ -1,4 +1,3 @@
-/*--JSON--{"module_name":"reg_file","module_ver":"2","module_type":"module"}--JSON--*/
 module reg_file #(
     parameter int DATA_WIDTH = 32 
 )(
