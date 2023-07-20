@@ -26,6 +26,24 @@ function logic[25:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
   endcase
 endfunction
 
+function logic[31:0] mkimm_data(logic[2:0] data_imm_type, logic[25:0] raw_imm);
+  // !!! CAUTIOUS !!! : DOESN'T SUPPORT IMM U16 | IMM S21 FOR NOW
+  case(data_imm_type[1:0])
+    default/*IMM U5*/: begin
+      mkimm_data = {27'd0, raw_imm[15:10]};
+    end
+    `_IMM_U12: begin
+      mkimm_data = {20'd0, raw_imm[21:10]};
+    end
+    `_IMM_S12: begin
+      mkimm_data = {{20{raw_imm[21]}}, raw_imm[21:10]};
+    end
+    `_IMM_S20: begin
+      mkimm_data = {{12{raw_imm[24]}}, raw_imm[24:5]};
+    end
+  endcase
+endfunction
+
 module core_backend(
     input logic clk,
     input logic rst_n,
@@ -518,6 +536,17 @@ module core_backend(
       pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].inst.addr_imm_type, is_inst_pack[p].inst.imm_domain);
       exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
       exc_is[p].need_commit = frontend_req_i.inst_valid[p];
+      pipeline_data_is[p].r_data[0] = is_inst_pack[p].inst.decode_info.reg_type_r0 == `_REG_R0_IMM ?
+                      mkimm_data(is_inst_pack[p].inst.decode_info.imm_type,
+                                 is_inst_pack[p].inst.imm_domain) :
+                      is_r_data[p][0];
+      pipeline_data_is[p].r_data[1] = is_r_data[p][1];
+      pipeline_data_is[p].r_flow.r_addr[0] = is_r_addr[p][0];
+      pipeline_data_is[p].r_flow.r_addr[1] = is_r_addr[p][1];
+      pipeline_data_is[p].r_flow.r_id[0] = is_r_id[p][0];
+      pipeline_data_is[p].r_flow.r_id[1] = is_r_id[p][1];
+      pipeline_data_is[p].r_flow.r_ready[0] = is_r_ready[p][0];
+      pipeline_data_is[p].r_flow.r_ready[1] = is_r_ready[p][1];
     end
   end
   /* ------ ------ ------ ------ ------ EX 级 ------ ------ ------ ------ ------ */
