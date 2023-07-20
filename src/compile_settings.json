@@ -1,0 +1,11 @@
+{
+    "icache" :{
+        "module_ver" : "4"
+    },
+    "lsu" :{
+        "module_ver" : "100"
+    },
+    "reg_file" :{
+        "module_ver" : "2"
+    }
+}

@@ -1,0 +1,151 @@
+{
+    "const": {
+        "_BRANCH_INVALID": "2'b00",
+        "_BRANCH_CONDITION": "2'b01",
+        "_BRANCH_NOCONDITION": "2'b10",
+        "_TARGET_REL": "1'b0",
+        "_TARGET_ABS": "1'b1",
+        "_CMP_E": "3'd0",
+        "_CMP_NE": "3'd1",
+        "_CMP_LE": "3'd2",
+        "_CMP_GT": "3'd3",
+        "_CMP_LT": "3'd4",
+        "_CMP_GE": "3'd5",
+        "_CMP_LTU": "3'd6",
+        "_CMP_GEU": "3'd7"
+    },
+    "signal": {
+        "branch_type": {
+            "length": 2,
+            "stage": "m1",
+            "default_value": 0,
+            "invalid_value": 0
+        },
+        "target_type": {
+            "length": 1,
+            "stage": "ex",
+            "default_value": 0,
+            "invalid_value": 0
+        },
+        "cmp_type": {
+            "length": 3,
+            "stage": "m1",
+            "default_value": 0,
+            "invalid_value": 0
+        }
+    },
+    "inst": {
+        "jirl": {
+            "opcode": "010011",
+            "alu_grand_op": "`_ALU_GTYPE_LI",
+            "alu_op": "`_ALU_STYPE_PCPLUS4",
+            "branch_type": "`_BRANCH_NOCONDITION",
+            "target_type": "`_TARGET_ABS",
+            "reg_type_r0": "`_REG_R0_NONE",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "reg_type_w": "`_REG_W_RD",
+            "latest_r0_ex": 1,
+            "latest_r1_ex": 1,
+            "fu_sel_ex": "`_FUSEL_EX_ALU"
+        },
+        "b": {
+            "opcode": "010100",
+            "branch_type": "`_BRANCH_NOCONDITION",
+            "target_type": "`_TARGET_REL",
+            "reg_type_r0": "`_REG_R0_NONE",
+            "addr_imm_type": "`_ADDR_IMM_S26",
+            "reg_type_r1": "`_REG_R1_NONE",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_ex": 1,
+            "latest_r1_ex": 1,
+            "fu_sel_ex": "`_FUSEL_EX_ALU"
+        },
+        "bl": {
+            "opcode": "010101",
+            "alu_grand_op": "`_ALU_GTYPE_LI",
+            "alu_op": "`_ALU_STYPE_PCPLUS4",
+            "branch_type": "`_BRANCH_NOCONDITION",
+            "target_type": "`_TARGET_REL",
+            "reg_type_r0": "`_REG_R0_NONE",
+            "addr_imm_type": "`_ADDR_IMM_S26",
+            "reg_type_r1": "`_REG_R1_NONE",
+            "reg_type_w": "`_REG_W_BL1",
+            "latest_r0_ex": 1,
+            "latest_r1_ex": 1,
+            "fu_sel_ex": "`_FUSEL_EX_ALU"
+        },
+        "beq": {
+            "opcode": "010110",
+            "branch_type": "`_BRANCH_CONDITION",
+            "target_type": "`_TARGET_REL",
+            "cmp_type": "`_CMP_E",
+            "reg_type_r0": "`_REG_R0_RD",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_m1": 1,
+            "latest_r1_m1": 1
+        },
+        "bne": {
+            "opcode": "010111",
+            "branch_type": "`_BRANCH_CONDITION",
+            "target_type": "`_TARGET_REL",
+            "cmp_type": "`_CMP_NE",
+            "reg_type_r0": "`_REG_R0_RD",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_m1": 1,
+            "latest_r1_m1": 1
+        },
+        "blt": {
+            "opcode": "011000",
+            "branch_type": "`_BRANCH_CONDITION",
+            "target_type": "`_TARGET_REL",
+            "cmp_type": "`_CMP_LT",
+            "reg_type_r0": "`_REG_R0_RD",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_m1": 1,
+            "latest_r1_m1": 1
+        },
+        "bge": {
+            "opcode": "011001",
+            "branch_type": "`_BRANCH_CONDITION",
+            "target_type": "`_TARGET_REL",
+            "cmp_type": "`_CMP_GE",
+            "reg_type_r0": "`_REG_R0_RD",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_m1": 1,
+            "latest_r1_m1": 1
+        },
+        "bltu": {
+            "opcode": "011010",
+            "branch_type": "`_BRANCH_CONDITION",
+            "target_type": "`_TARGET_REL",
+            "cmp_type": "`_CMP_LTU",
+            "reg_type_r0": "`_REG_R0_RD",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_m1": 1,
+            "latest_r1_m1": 1
+        },
+        "bgeu": {
+            "opcode": "011011",
+            "branch_type": "`_BRANCH_CONDITION",
+            "target_type": "`_TARGET_REL",
+            "cmp_type": "`_CMP_GEU",
+            "reg_type_r0": "`_REG_R0_RD",
+            "reg_type_r1": "`_REG_R1_RJ",
+            "addr_imm_type": "`_ADDR_IMM_S16",
+            "reg_type_w": "`_REG_W_NONE",
+            "latest_r0_m1": 1,
+            "latest_r1_m1": 1
+        }
+    }
+}

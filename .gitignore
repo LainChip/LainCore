@@ -1,0 +1,22 @@
+*logs
+*obj_dir
+*.vcd
+*.dat
+*.vscode
+*.log
+*.pb
+*.dir
+*.dir
+*.sublime-project
+*.sublime-workspace
+*.idea
+# *.gtkw
+*DVEfiles
+src/inst/decoder.sv
+src/inst/decoder.svh
+.gitconfig
+dist
+
+# self trial
+rtl/test
+rtl/pipeline/issue/decoder.svh

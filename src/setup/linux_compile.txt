@@ -1,0 +1,8 @@
+make ARCH=loongarch CROSS_COMPILE=loongarch32r-linux-gnusf- la32_defconfig
+make ARCH=loongarch CROSS_COMPILE=loongarch32r-linux-gnusf-
+
+make ARCH=loongarch CROSS_COMPILE=loongarch32r-linux-gnusf- uImage.gz
+
+# 官方 见其readme
+提供initrd_pck32
+./la_build.sh

@@ -1,0 +1,12 @@
+ifconfig dmfe0 192.168.0.2
+load tftp://192.168.0.1/vmlinux
+g console=ttyS0,115200 rdinit=sbin/init
+
+
+mtd_erase /dev/mtd0r
+mtd_erase /dev/mtd1r
+ifconfig dmfe0 192.168.0.2
+devcp tftp://192.168.0.1/vmlinux_strip /dev/mtd0
+set mtdparts nand-flash:50M@0(kernel)ro,-(rootfs)
+set al /dev/mtd0
+set append "console=ttyS0,115200 rdinit=/sbin/init initcall_debug=1 loglevel=20"
