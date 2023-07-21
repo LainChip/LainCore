@@ -109,7 +109,7 @@ module core_lsu_pm #(
 
   // M1 嗅探电路
   logic[WAY_CNT - 1 : 0][31:0] m1_data_q,m1_data,m2_data_q,m2_data;
-  dcache_tag_t[WAY_CNT - 1 : 0] m1_tag_q,m1_tag;
+  dcache_tag_t[WAY_CNT - 1 : 0] m1_tag_q,m1_tag,m2_tag_q,m2_tag;
   always_ff @(posedge clk) begin
     m1_data_q <= m1_data;
     m1_tag_q <= m1_tag;
@@ -174,6 +174,7 @@ module core_lsu_pm #(
     m2_hit_q  <= m2_hit;
     m2_miss_q <= m2_miss;
     m2_data_q <= m2_data;
+    m2_tag_q <= m2_tag;
   end
 
   // M2 状态机
@@ -297,24 +298,6 @@ module core_lsu_pm #(
     endcase
   end
 
-  // M2 MISS / HIT 维护
-  always_comb begin
-    if(!m2_stall_i) begin
-      m2_hit = m1_hit;
-      m2_miss = m1_miss;
-    end
-    else begin
-      // 时刻监控对 tag 的读写，以维护新的 hit / miss
-      m2_hit = m2_hit_q;
-      for(integer i = 0 ; i < WAY_CNT ; i++) begin
-        if(dm_snoop_i.tag_we[i] && dm_snoop_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
-          m2_hit = cache_hit(dm_snoop_i.tag_wdata, m2_paddr_i);
-        end
-      end
-      m2_miss = ~|m2_hit;
-    end
-  end
-
   // M2 数据维护
   always_comb begin
     if(!m2_stall_i) begin
@@ -337,6 +320,38 @@ module core_lsu_pm #(
       end
     end
   end
+  // M2 TAG 维护
+  always_comb begin
+    if(!m2_stall_i) begin
+      m2_tag = m1_tag;
+    end
+    else begin
+      m2_tag = m2_tag_q;
+      for(integer i = 0 ; i < WAY_CNT ; i++) begin
+        if(dm_snoop_i.tag_we[i] && dm_snoop_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
+          m2_tag[i] = dm_snoop_i.tag_wdata;
+        end
+      end
+    end
+  end
+
+  // M2 MISS / HIT 维护
+  always_comb begin
+    if(!m2_stall_i) begin
+      m2_hit = m1_hit;
+      m2_miss = m1_miss;
+    end
+    else begin
+      // 时刻监控对 tag 的读写，以维护新的 hit / miss
+      m2_hit = m2_hit_q;
+      for(integer i = 0 ; i < WAY_CNT ; i++) begin
+        if(dm_snoop_i.tag_we[i] && dm_snoop_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
+          m2_hit[i] = cache_hit(dm_snoop_i.tag_wdata, m2_paddr_i);
+        end
+      end
+      m2_miss = ~|m2_hit;
+    end
+  end
 
   // M2 写数据维护
   always_comb begin
@@ -345,9 +360,6 @@ module core_lsu_pm #(
 
   // 产生向 DM 的请求
   always_comb begin
-    dm_req_o.op_type = m2_op_i;
-    dm_req_o.op_valid = (m2_fsm_q & (M2_FSM_CACHE_OP | M2_FSM_UREAD_WAIT)) != 0;
-    dm_req_o.op_addr = m2_paddr_i;
     dm_req_o.we_valid = (m2_op_i == `_DCAHE_OP_WRITE) && (m2_uncached_i || !m2_miss_q) &&
                       (m2_fsm_q & (M2_FSM_WRITE_WAIT | M2_FSM_NORMAL)) != 0;
     dm_req_o.uncached = m2_uncached_i;
@@ -355,6 +367,10 @@ module core_lsu_pm #(
     dm_req_o.size = m2_size_i;
     dm_req_o.we_sel = m2_hit_q;
     dm_req_o.wdata = m2_wdata;
+    dm_req_o.op_type = m2_op_i;
+    dm_req_o.op_valid = (m2_fsm_q & (M2_FSM_CACHE_OP | M2_FSM_UREAD_WAIT)) != 0;
+    dm_req_o.op_addr = m2_paddr_i;
+    dm_req_o.old_tags = m2_tag_q;
   end
 
   // 输出管理

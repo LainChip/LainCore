@@ -275,7 +275,7 @@ module core_backend(
   dram_manager_req_t[1:0] dm_req;
   dram_manager_resp_t[1:0] dm_resp;
   dram_manager_snoop_t dm_snoop;
-  lsu_dm # (
+  core_lsu_dm # (
            .PIPE_MANAGE_NUM(2),
            .BANK_NUM(2),
            .WAY_CNT(1),
@@ -303,7 +303,7 @@ module core_backend(
   logic[1:0][31:0] m2_mem_wdata;
   logic[1:0][2:0] m2_mem_op;
   for(genvar p = 0 ; p < 2 ; p ++) begin
-    lsu # (
+    core_lsu_pm # (
           .WAY_CNT(1)
         )
         lsu_inst (
