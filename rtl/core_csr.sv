@@ -22,7 +22,7 @@ module core_csr(
     input tlb_entry_t tlb_entry_i,
     input logic llbit_set_i,
     input logic llbit_i,
-  
+
 
     output logic[31:0] csr_r_data_o,
     output csr_t csr_o
@@ -205,12 +205,15 @@ module core_csr(
   // estat
   logic estat_we,estat_re;
   logic timer_en;
+  //ticlr
+  logic ticlr_we,ticlr_re;
+  logic tcfg_we,tcfg_re;
   assign estat_we = csr_we && (csr_w_addr_i == `_CSR_ESTAT);
   always_ff @(posedge clk) begin
     if (!rst_n) begin
-      estat_q[ 1: 0] <= 2'b0; 
-		  estat_q[10]    <= 1'b0;
-		  estat_q[12]    <= 1'b0;
+      estat_q[ 1: 0] <= 2'b0;
+      estat_q[10]    <= 1'b0;
+      estat_q[12]    <= 1'b0;
       estat_q[15:13] <= 3'b0;
       estat_q[31]    <= 1'b0;
 
@@ -219,7 +222,7 @@ module core_csr(
     else begin
       if (ticlr_we && csr_w_data[`_TICLR_CLR]) begin
         estat_q[11] <= 1'b0;
-      end 
+      end
       else if (tcfg_we) begin
         timer_en <= csr_w_data[`_TCFG_EN];
       end
@@ -298,14 +301,14 @@ module core_csr(
     if(!rst_n) begin
       tlbidx_q[23: 5] <= 19'b0;
       tlbidx_q[30]    <= 1'b0;
-		  tlbidx_q[`_TLBIDX_INDEX]<= '0;
+      tlbidx_q[`_TLBIDX_INDEX]<= '0;
     end
     else begin
       if(tlbidx_we) begin
         tlbidx_q[`_TLBIDX_INDEX] <= csr_w_data[`_TLBIDX_INDEX];
         tlbidx_q[`_TLBIDX_PS]    <= csr_w_data[`_TLBIDX_PS];
         tlbidx_q[`_TLBIDX_NE]    <= csr_w_data[`_TLBIDX_NE];
-      end 
+      end
       else if (tlb_op_i.tlbsrch) begin
         if (tlb_srch_i.found) begin
           tlbidx_q[`_TLBIDX_INDEX] <= tlb_srch_i.index;
@@ -318,7 +321,7 @@ module core_csr(
       else if (tlbrd_valid_wr_en) begin
         tlbidx_q[`_TLBIDX_PS] <= tlb_entry_i.ps;
         tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.e;
-      end 
+      end
       else if (tlbrd_invalid_wr_en) begin
         tlbidx_q[`_TLBIDX_PS] <= 6'b0;
         tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.e;
@@ -388,7 +391,7 @@ module core_csr(
   end
   assign csr_o.tlbelo0 = tlbelo0_q;
 
-//tlblo1
+  //tlblo1
   logic tlbelo1_we,tlbelo1_re;
   assign tlbelo1_we = csr_we && (csr_w_addr_i == `_CSR_TLBELO1);
   always_ff @(posedge clk) begin
@@ -446,7 +449,7 @@ module core_csr(
   end
   assign csr_o.asid = asid_q;
 
-//pgdl
+  //pgdl
   logic pgdl_we,pgdl_re;
   assign pgdl_we = csr_we && (csr_w_addr_i == `_CSR_PGDL);
   always_ff @(posedge clk) begin
@@ -561,7 +564,6 @@ module core_csr(
   assign csr_o.tid = tid_q;
 
   //tcfg
-  logic tcfg_we,tcfg_re;
   assign tcfg_we = csr_we && (csr_w_addr_i == `_CSR_TCFG);
   always_ff @(posedge clk) begin
     if(!rst_n) begin
@@ -576,7 +578,7 @@ module core_csr(
     end
   end
   assign csr_o.tcfg = tcfg_q;
-  
+
   //tval
   logic tval_we,tval_re;
   assign tval_we = csr_we && (csr_w_addr_i == `_CSR_TVAL);
@@ -615,8 +617,6 @@ module core_csr(
   end
   assign csr_o.cntc = cntc_q;
 
-  //ticlr
-  logic ticlr_we,ticlr_re;
   assign ticlr_we = csr_we && (csr_w_addr_i == `_CSR_TICLR);
   always_ff @(posedge clk) begin
     if(!rst_n) begin
@@ -631,7 +631,9 @@ module core_csr(
   end
   assign csr_o.ticlr = ticlr_q;
 
-//llbctl TODO
+  //llbctl TODO
+  //llbit
+  logic llbit_q;
   logic llbctl_we,llbctl_re;
   assign llbctl_we = csr_we && (csr_w_addr_i == `_CSR_LLBCTL);
   always_ff @(posedge clk) begin
@@ -652,7 +654,7 @@ module core_csr(
       end
       else if(llbctl_we) begin
         llbctl_q[`_LLBCT_KLO] <= csr_w_data[`_LLBCT_KLO];
-        if (csr_w_data[`_LLBCT_WCLLB] == 1'b1)begin
+        if (csr_w_data[`_LLBCT_WCLLB] == 1'b1) begin
           llbit_q <= 1'b0;
         end
       end
@@ -663,7 +665,7 @@ module core_csr(
   end
   assign csr_o.llbctl = llbctl_q;
 
-//tlbrentry
+  //tlbrentry
   logic tlbrentry_we,tlbrentry_re;
   assign tlbrentry_we = csr_we && (csr_w_addr_i == `_CSR_TLBRENTRY);
   always_ff @(posedge clk) begin
@@ -678,7 +680,7 @@ module core_csr(
   end
   assign csr_o.tlbrentry = tlbrentry_q;
 
-//ctag
+  //ctag
   logic ctag_we,ctag_re;
   assign ctag_we = csr_we && (csr_w_addr_i == `_CSR_CTAG);
   always_ff @(posedge clk) begin
@@ -693,7 +695,7 @@ module core_csr(
   end
   assign csr_o.ctag = ctag_q;
 
-//dmw0
+  //dmw0
   logic dmw0_we,dmw0_re;
   assign dmw0_we = csr_we && (csr_w_addr_i == `_CSR_DMW0);
   always_ff @(posedge clk) begin
@@ -731,17 +733,6 @@ module core_csr(
   end
   assign csr_o.dmw1 = dmw1_q;
 
-  //llbit
-  logic llbit_q;
-  always_ff @(posedge clk) begin
-    if(!rst_n) begin
-      llbit_q <= /*DEFAULT VALUE*/'0;
-    end
-    else begin
-      // TODO
-    end
-  end
-
   // 读取逻辑
   assign crmd_re = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_CRMD;
   assign prmd_re = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_PRMD;
@@ -774,7 +765,7 @@ module core_csr(
   assign dmw0_re = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_DMW0;
   assign dmw1_re = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_DMW1;
   logic cntid_re,cntl_re,cnth_re;
-  assign cntid_re = rdcnt_i == `_RDCNT_ID;
+  assign cntid_re = rdcnt_i == `_RDCNT_ID_VLOW;
   assign cntl_re = rdcnt_i == `_RDCNT_VLOW;
   assign cnth_re = rdcnt_i == `_RDCNT_VHIGH;
 

@@ -100,6 +100,19 @@ module core_backend(
   logic ex_invalidate;
 
   logic is_skid_q;
+  // 读取寄存器堆，或者生成立即数
+  logic[1:0][1:0][4:0] is_r_addr;
+  logic[1:0][1:0][31:0] is_r_data;
+  logic[1:0][1:0] is_r_ready;
+  logic[1:0][1:0][3:0] is_r_id;
+  logic[1:0][4:0] is_w_addr;
+  logic[2:0] is_w_id;
+
+  logic[1:0][4:0] wb_w_addr;
+  logic[1:0][31:0] wb_w_data;
+  logic[2:0] wb_w_id;
+  logic[1:0] wb_valid;
+  logic[1:0] wb_commit;
   // 流水线处理，不可复位部分
   always_ff @(posedge clk) begin
     if(!ex_stall) begin
@@ -357,11 +370,41 @@ module core_backend(
               );
 
   // 除法器例化 TODO: FIXME
+  logic[1:0] div_req;
+  logic[1:0][1:0][31:0] div_input_req;
+  logic div_valid;
+  logic div_ready;
+  logic[2:0] div_push_id; // EX
+  logic[2:0] div_pop_id;  // M2
+  logic[1:0][31:0] div_input;
+
+  logic[1:0] div_request_req;
+  logic div_request;
+  logic div_request_ready;
   logic[31:0] div_result;
   logic div_result_valid;
+  always_comb begin
+    div_valid = |div_req;
+    div_input = div_req[0] ? div_input_req[0] : div_input_req[1];
+    div_request = |div_request_req;
+  end
+  core_divider_manager  core_divider_manager_inst (
+                          .clk(clk),
+                          .rst_n(rst_n),
+                          .r0_i(div_input[0]),
+                          .r1_i(div_input[1]),
+                          .unsigned_i(unsigned_i),
+                          .push_valid_i(div_valid),
+                          .push_ready_o(div_ready),
+                          .push_id_i(div_push_id),
+                          .wb_stall_i(wb_stall),
+                          .pop_id_i(div_pop_id),
+                          .result_valid_o(div_request_ready),
+                          .result_o(result_o)
+                        );
+
 
   // TODO: CONNECT CSR
-
   // CSR 接入 (M1)
   logic[13:0] csr_r_addr;
   logic csr_rdcnt;
@@ -375,7 +418,7 @@ module core_backend(
   logic csr_we;
   logic csr_valid,csr_commit;
   logic[31:0] csr_badv;
-  excp_flow_t [1:0] csr_excp;
+  excp_flow_t csr_excp;
   logic[13:0] csr_w_addr;
   logic[31:0] csr_r_data,csr_w_data,csr_w_mask;
   always_comb begin
@@ -394,28 +437,28 @@ module core_backend(
   // CSR output
   csr_t csr_value;
 
-  la_csr  la_csr_inst (
-            .clk(clk),
-            .rst_n(rst_n),
-            .excp_i(csr_excp),
-            .valid_i(csr_valid),
-            .commit_i(csr_commit),
-            .m2_stall_i(m2_stall),
-            .csr_r_addr_i(csr_r_addr),
-            .rdcnt_i(csr_rdcnt),
-            .csr_we_i(csr_we),
-            .csr_w_addr_i(csr_w_addr),
-            .csr_w_mask_i(csr_w_mask),
-            .csr_w_data_i(csr_w_data),
-            .badv_i(csr_badv),
-            .tlb_op_i(tlb_op),
-            .tlb_srch_i(/*TODO*/),
-            .tlb_entry_i(/*TODO*/),
-            .llbit_set_i(/*TODO*/),
-            .llbit_i(/*TODO*/),
-            .csr_r_data_o(csr_r_data),
-            .csr_o(csr_value)
-          );
+  core_csr core_csr_inst (
+             .clk(clk),
+             .rst_n(rst_n),
+             .excp_i(csr_excp),
+             .valid_i(csr_valid),
+             .commit_i(csr_commit),
+             .m2_stall_i(m2_stall),
+             .csr_r_addr_i(csr_r_addr),
+             .rdcnt_i(csr_rdcnt),
+             .csr_we_i(csr_we),
+             .csr_w_addr_i(csr_w_addr),
+             .csr_w_mask_i(csr_w_mask),
+             .csr_w_data_i(csr_w_data),
+             .badv_i(csr_badv),
+             .tlb_op_i(tlb_op),
+             .tlb_srch_i(/*TODO*/),
+             .tlb_entry_i(/*TODO*/),
+             .llbit_set_i(/*TODO*/),
+             .llbit_i(/*TODO*/),
+             .csr_r_data_o(csr_r_data),
+             .csr_o(csr_value)
+           );
 
   /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
 
@@ -438,19 +481,6 @@ module core_backend(
         );
   assign frontend_resp_o.issue = issue;
 
-  // 读取寄存器堆，或者生成立即数
-  logic[1:0][1:0][4:0] is_r_addr;
-  logic[1:0][1:0][31:0] is_r_data;
-  logic[1:0][1:0] is_r_ready;
-  logic[1:0][1:0][3:0] is_r_id;
-  logic[1:0][4:0] is_w_addr;
-  logic[2:0] is_w_id;
-
-  logic[1:0][4:0] wb_w_addr;
-  logic[1:0][31:0] wb_w_data;
-  logic[2:0] wb_w_id;
-  logic[1:0] wb_valid;
-  logic[1:0] wb_commit;
   reg_file # (
              .DATA_WIDTH(32)
            )
@@ -635,7 +665,9 @@ module core_backend(
       pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
       pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
       pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
-      pipeline_ctrl_m1[p].csr_id = pipeline_ctrl_ex_q[p].addr_imm[13:0];
+      pipeline_ctrl_m1[p].csr_id = (decode_info.need_csr) ?
+                      pipeline_ctrl_ex_q[p].addr_imm[23:10] :
+                      {pipeline_ctrl_ex_q[p].addr_imm[23:15],pipeline_ctrl_ex_q[p].addr_imm[4:0]};
       pipeline_ctrl_m1[p].jump_target = jump_target;
       pipeline_ctrl_m1[p].vaddr = vaddr;
       pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
@@ -747,6 +779,12 @@ module core_backend(
       pipeline_ctrl_m2[p].pc = pipeline_ctrl_m1_q[p].pc;
     end
   end
+
+  // CSR 相关指令接入，注意： 只会在第一条管线
+  assign csr_r_addr = pipeline_ctrl_m1_q[0].csr_id;
+  assign csr_rdcnt = pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt |
+         (pipeline_ctrl_m1_q[0].csr_id[4:0] != 0 ? 2'b10 : 2'b00);
+
   /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
   for(genvar p = 0 ; p < 2 ; p++) begin
     m1_t decode_info;
@@ -792,29 +830,53 @@ module core_backend(
           decode_info.tlbsrch_en};
       end
     end
+    logic[1:0] csr_excp_req;
+    logic[1:0] m2_valid_req;
+    logic[1:0] m2_commit_req;
+    logic[1:0][31:0] m2_badv_req;
+    excp_flow_t [1:0] m2_excp_req;
 
     // M2 的数据选择
-    always_comb begin
-      pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-      case(pipeline_ctrl_m2_q[p].fu_sel_m1)
-        default: begin
-          // NOTING TO DO
-        end
-        `_FUSEL_M2_ALU: begin
-          pipeline_wdata_m2[p].w_data = alu_result;
-          pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
-        end
-        `_FUSEL_M2_MEM: begin
-          pipeline_wdata_m2[p].w_data = lsu_result;
-          pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
-        end
-        `_FUSEL_M2_CSR: begin
-          pipeline_wdata_m2[p].w_data = csr_result;
-          pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
-        end
-      endcase
+    if(p == 0) begin
+      always_comb begin
+        pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
+        case(pipeline_ctrl_m2_q[p].fu_sel_m1)
+          default: begin
+            // NOTING TO DO
+          end
+          `_FUSEL_M2_ALU: begin
+            pipeline_wdata_m2[p].w_data = alu_result;
+            pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+          end
+          `_FUSEL_M2_MEM: begin
+            pipeline_wdata_m2[p].w_data = lsu_result;
+            pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+          end
+          `_FUSEL_M2_CSR: begin
+            pipeline_wdata_m2[p].w_data = csr_result;
+            pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+          end
+        endcase
+      end
     end
-
+    else begin
+      always_comb begin
+        pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
+        case(pipeline_ctrl_m2_q[p].fu_sel_m1)
+          default: begin
+            // NOTING TO DO
+          end
+          `_FUSEL_M2_ALU: begin
+            pipeline_wdata_m2[p].w_data = alu_result;
+            pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+          end
+          `_FUSEL_M2_MEM: begin
+            pipeline_wdata_m2[p].w_data = lsu_result;
+            pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+          end
+        endcase
+      end
+    end
     // 接入转发源
     always_comb begin
       fwd_data_m2[p] = mkfwddata(pipeline_wdata_m2[p]);
@@ -837,6 +899,15 @@ module core_backend(
       pipeline_ctrl_wb[p].pc = pipeline_ctrl_m2_q[p].pc;
     end
   end
+  // CSR 控制接线，一定在流水线级1
+  assign ctlb_opcode = pipeline_ctrl_m2_q[0].csr_id[4:0];
+  assign csr_w_addr = pipeline_ctrl_m2_q[0].csr_id;
+  assign csr_w_data = pipeline_data_m2_q[0].r_data[0];
+  assign csr_w_mask = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
+         32'hffffffff :
+         pipeline_data_m2_q[0].r_data[1];
+  assign csr_we = pipeline_ctrl_m2_q[0].csr_op_en;
+
   /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
   // 不存在数据前递
 

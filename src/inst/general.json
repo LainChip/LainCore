@@ -18,10 +18,10 @@
         "_IMM_S16" : "3'd4",
         "_IMM_S21" : "3'd5",
 
-        "_ADDR_IMM_S12": "2'd0",
-        "_ADDR_IMM_S14": "2'd1",
-        "_ADDR_IMM_S16": "2'd2",
-        "_ADDR_IMM_S26": "2'd3",
+        "_ADDR_IMM_S26": "2'd0",
+        "_ADDR_IMM_S12": "2'd1",
+        "_ADDR_IMM_S14": "2'd2",
+        "_ADDR_IMM_S16": "2'd3",
 
         "_FUSEL_EX_NONE": "1'd0",
         "_FUSEL_EX_ALU": "1'd1",
@@ -153,7 +153,7 @@
         "addr_imm_type": {
             "length": 2,
             "stage": "ex",
-            "default_value": "`_ADDR_IMM_S12"
+            "default_value": "`_ADDR_IMM_S26"
         }
     }
 }
