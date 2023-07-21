@@ -121,16 +121,27 @@ typedef struct packed {
           logic tlbr;
           logic pif;
           logic ppi;
+          logic ine;
+          logic ipe;
         } fetch_excp_t;
 typedef struct packed {
+          logic m1int;
+          logic pil;
+          logic pis;
+          logic pme;
+          logic ppi;
           logic adem;
           logic ale;
+          logic sys;
+          logic brk;
+          logic tlbr;
 
           // FRONTEND
           logic adef;
           logic itlbr;
           logic pif;
           logic ippi;
+          logic ine;
         } excp_flow_t;
 
 // 输入到后端的指令流

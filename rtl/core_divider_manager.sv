@@ -6,7 +6,7 @@ module core_divider_manager(
 
     input logic[31:0] r0_i,
     input logic[31:0] r1_i,
-    input logic unsigned_i,
+    input logic[1:0] op_i,
     input logic push_valid_i,
     output logic push_ready_o,
     input logic[2:0] push_id_i,
@@ -20,7 +20,7 @@ module core_divider_manager(
   logic div_finish;
   logic[31:0] mod_result, div_result;
   logic[2:0] calculating_id_q;
-  logic calculating_mod_q;
+  logic calculating_mod_q,calculating_mod;
   // VALID TABLE
   logic[7:0] valid_table_q;
   logic[7:0][31:0] result_q;
@@ -55,9 +55,12 @@ module core_divider_manager(
     end
     else begin
       div_busy_q <= div_busy;
+      calculating_mod_q <= calculating_mod;
     end
   end
   always_comb begin
+    div_busy = div_busy_q;
+    calculating_mod = calculating_mod_q;
     if(div_busy_q) begin
       if(div_finish) begin
         div_busy = '0;
@@ -66,6 +69,7 @@ module core_divider_manager(
     else begin
       if(push_valid_i) begin
         div_busy = '1;
+        calculating_mod = op_i[1];
       end
     end
   end
@@ -78,7 +82,7 @@ module core_divider_manager(
              .div_ready(),
              .res_valid(div_finish),
              .res_ready(1'b1),
-             .div_signed_i(unsigned_i),
+             .div_signed_i(op_i[0]),
              .Z_i(r1_i),
              .D_i(r0_i),
              .q_o(div_result),

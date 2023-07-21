@@ -371,9 +371,11 @@ module core_backend(
 
   // 除法器例化 TODO: FIXME
   logic[1:0] div_req;
+  logic[1:0][1:0] div_op_req;
   logic[1:0][1:0][31:0] div_input_req;
   logic div_valid;
   logic div_ready;
+  logic[1:0] div_op;
   logic[2:0] div_push_id; // EX
   logic[2:0] div_pop_id;  // M2
   logic[1:0][31:0] div_input;
@@ -386,6 +388,7 @@ module core_backend(
   always_comb begin
     div_valid = |div_req;
     div_input = div_req[0] ? div_input_req[0] : div_input_req[1];
+    div_op = div_req[0] ? div_op_req[0] : div_op_req[1];
     div_request = |div_request_req;
   end
   core_divider_manager  core_divider_manager_inst (
@@ -393,7 +396,7 @@ module core_backend(
                           .rst_n(rst_n),
                           .r0_i(div_input[0]),
                           .r1_i(div_input[1]),
-                          .unsigned_i(unsigned_i),
+                          .op_i(div_op),
                           .push_valid_i(div_valid),
                           .push_ready_o(div_ready),
                           .push_id_i(div_push_id),
@@ -586,14 +589,16 @@ module core_backend(
     logic[31:0] alu_result;
     logic[31:0] jump_target;
     logic[31:0] vaddr, rel_target;
+    ex_t decode_info;
+    assign decode_info = pipeline_ctrl_ex_q[p].decode_info;
     detachable_alu #(
                      .USE_LI(1),
                      .USE_INT(0),
                      .USE_SFT(0),
                      .USE_CMP(0)
                    )ex_alu(
-                     .grand_op_i(pipeline_ctrl_ex_q[p].decode_info.alu_grand_op),
-                     .op_i(pipeline_ctrl_ex_q[p].decode_info.alu_op),
+                     .grand_op_i(decode_info.alu_grand_op),
+                     .op_i(decode_info.alu_op),
 
                      .mul_i('0),
                      .r0_i(pipeline_data_ex_q[p].r_data[0]),
@@ -604,9 +609,25 @@ module core_backend(
                    );
 
     excp_flow_t ex_excp_flow;
-    // ex_excp_flow 产生逻辑: TODO
+    // ex_excp_flow 产生逻辑
     always_comb begin
+      ex_excp_flow.m1int = '0;
+      ex_excp_flow.pil = '0;
+      ex_excp_flow.pis = '0;
+      ex_excp_flow.pme = '0;
+      ex_excp_flow.ppi = '0;
+      ex_excp_flow.adem = '0;
+      ex_excp_flow.ale = '0;
+      ex_excp_flow.tlbr = '0;
 
+      ex_excp_flow.sys = decode_info.syscall_inst;
+      ex_excp_flow.brk = decode_info.break_inst;
+
+      ex_excp_flow.adef = pipeline_ctrl_ex_q[p].fetch_excp.adef;
+      ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr;
+      ex_excp_flow.pif = pipeline_ctrl_ex_q[p].fetch_excp.pif;
+      ex_excp_flow.ippi = pipeline_ctrl_ex_q[p].fetch_excp.ppi;
+      ex_excp_flow.ine = pipeline_ctrl_ex_q[p].fetch_excp.ine;
     end
     // EX 的额外部分
     // EX 级别的访存地址计算 / 地址翻译逻辑
@@ -644,8 +665,9 @@ module core_backend(
     // 接入暂停请求
     always_comb begin
       ex_stall_req[p] = ((pipeline_ctrl_ex_q[p].latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
-                         (pipeline_ctrl_ex_q[p].latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) ) &
-                  exc_ex_q.valid_inst & exc_ex_q.need_commit; // LUT6 - 1
+                         (pipeline_ctrl_ex_q[p].latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) |
+                         (decode_info.need_div & !div_ready)) &
+                  exc_ex_q.valid_inst & exc_ex_q.need_commit; // 2 * LUT6 - MUXF7 - 1
     end
 
     // 接入 dcache
@@ -654,10 +676,18 @@ module core_backend(
 
     // 接入 mul
     always_comb begin
-      mul_req[p] = pipeline_ctrl_ex_q[p].decode_info.need_mul;
-      mul_op_req[p] = pipeline_ctrl_ex_q[p].decode_info.alu_op;
+      mul_req[p] = decode_info.need_mul;
+      mul_op_req[p] = decode_info.alu_op;
       mul_r0_req[p] = pipeline_data_ex_q[p].r_data[0];
       mul_r1_req[p] = pipeline_data_ex_q[p].r_data[1];
+    end
+
+    // 接入 div
+    always_comb begin
+      div_req[p] = decode_info.need_div;
+      div_op_req[p] = decode_info.alu_op;
+      div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
+      div_input_req[p][1] = pipeline_data_ex_q[p].r_data[1];
     end
 
     // 流水线间信息传递
@@ -683,7 +713,7 @@ module core_backend(
     assign decode_info = pipeline_ctrl_m1_q[p].decode_info;
     logic[31:0] alu_result, lsu_result, paddr;
     logic[31:0] excp_target; // TODO: CONNECT ME
-    excp_flow_t m1_excp_flow; // TODO: FIXME
+    excp_flow_t m1_excp_flow;
     logic lsu_valid;
     detachable_alu #(
                      .USE_LI(0),
@@ -719,15 +749,16 @@ module core_backend(
             .miss_o(m1_missed_branch[p])
           );
     // 异常的处理：完成相关模块
-    excp_handler m1_excp(
-                   .clk(clk),
-                   .rst_n(rst_n),
-                   .csr_i(csr_value),
-                   .valid_i(!m1_stall && exc_m1_q.valid_inst && exc_m1_q.need_commit),
-                   .excp_flow_i(m1_excp_flow),
-                   .target_o(excp_target),
-                   .trigger_o(m1_excp_detect)
-                 );
+    core_excp_handler m1_excp(
+                        .clk(clk),
+                        .rst_n(rst_n),
+                        .csr_i(csr_value),
+                        .valid_i(!m1_stall && exc_m1_q.valid_inst && exc_m1_q.need_commit),
+                        .ertn_inst_i(decode_info.ertn_inst),
+                        .excp_flow_i(m1_excp_flow),
+                        .target_o(excp_target),
+                        .trigger_o(m1_excp_detect)
+                      );
 
     assign m1_target[p] = m1_excp_detect[p] ? excp_target : pipeline_ctrl_m1_q[p].jump_target;
 
@@ -761,6 +792,26 @@ module core_backend(
     // 接入转发源
     always_comb begin
       fwd_data_m1[p] = mkfwddata(pipeline_wdata_m1[p]);
+    end
+
+    // m1_excp_flow 产生逻辑
+    always_comb begin
+      m1_excp_flow.m1int = '0; // TODO: FIXME
+      m1_excp_flow.pil = '0;
+      m1_excp_flow.pis = '0;
+      m1_excp_flow.pme = '0;
+      m1_excp_flow.ppi = '0;
+      m1_excp_flow.adem = '0;
+      m1_excp_flow.ale = '0;
+      m1_excp_flow.tlbr = '0; // TODO: FIXME
+
+      m1_excp_flow.sys = ex_excp_flow.sys;
+      m1_excp_flow.brk = ex_excp_flow.brk;
+      m1_excp_flow.adef = ex_excp_flow.adef;
+      m1_excp_flow.itlbr = ex_excp_flow.itlbr;
+      m1_excp_flow.pif = ex_excp_flow.pif;
+      m1_excp_flow.ippi = ex_excp_flow.ippi;
+      m1_excp_flow.ine = ex_excp_flow.ine;
     end
 
     // 接入暂停请求
