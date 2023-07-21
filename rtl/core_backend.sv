@@ -202,11 +202,15 @@ module core_backend(
   end
 
   // M2 级的跳转寄存器设计位 : TODO CONNECT ME
+
   logic[31:0] m2_jump_target_q;
+  bpu_correct_t[1:0] m1_bpu_feedback_req;
+  bpu_correct_t m2_bpu_feedback_q;
   logic m2_jump_valid_q;
   always_ff @(posedge clk) begin
     m2_jump_valid_q <= |m1_invalidate_req | m1_refetch;
     m2_jump_target_q <= (m1_invalidate_req[1]) ? m1_jump_target_req[1] : m1_jump_target_req[0];
+    m2_bpu_feedback_q <= (m1_invalidate_req[1]) ? m1_bpu_feedback_req[1] : m1_bpu_feedback_req[0];
   end
 
 
@@ -705,7 +709,7 @@ module core_backend(
   end
 
   /* ------ ------ ------ ------ ------ M1 级 ------ ------ ------ ------ ------ */
-  logic[1:0] m1_missed_branch, m1_excp_detect;
+  logic[1:0] m1_excp_detect;
   logic[1:0][31:0] m1_target;
   for(genvar p = 0 ; p < 2 ; p++) begin
     // M1 的 FU 部分，接入 ALU、LSU（EARLY）
@@ -736,7 +740,9 @@ module core_backend(
 
     // M1 的额外部分
     // 跳转的处理：TODO 完成相关模块
-    b_cmp m1_cmp(
+    bpu_correct_t m1_bpu_feedback_req;
+    logic branch_jmp_req;
+    core_jmp m1_cmp(
             .clk(clk),
             .rst_n(rst_n),
             .valid_i(!m1_stall && exc_m1_q.valid_inst && exc_m1_q.need_commit),
@@ -746,7 +752,7 @@ module core_backend(
             .target_i(pipeline_ctrl_m1_q[p].jump_target),
             .r0_i(pipeline_data_m1_q[p].r_data[0]),
             .r1_i(pipeline_data_m1_q[p].r_data[1]),
-            .miss_o(m1_missed_branch[p])
+            .jmp_o(branch_jmp_req)
           );
     // 异常的处理：完成相关模块
     core_excp_handler m1_excp(
