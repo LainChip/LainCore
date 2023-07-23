@@ -20,10 +20,27 @@ module core_detachable_alu #(
   );
   logic [31:0] g0_result, g1_result, g2_result, g3_result;
   // BW : definitely exist
-  if((USE_LI || USE_INT || USE_MUL) && (USE_SFT || USE_CMP)) begin
+  // always_comb begin
+  //   case(grand_op_i)
+  //     default: /*00*/
+  //     begin
+  //       res_o = g0_result;
+  //     end
+  //     `_ALU_GTYPE_INT: begin
+  //       res_o = g1_result;
+  //     end
+  //     `_ALU_GTYPE_SFT: begin
+  //       res_o = g2_result;
+  //     end
+  //     `_ALU_GTYPE_CMP: begin
+  //       res_o = g3_result;
+  //     end
+  //   endcase
+  // end
+  if((USE_LI || USE_INT || USE_MUL) && USE_SFT && USE_CMP) begin
     // FULL 4 - 1
     always_comb begin
-      case(op_i)
+      case(grand_op_i)
         default: /*00*/
         begin
           res_o = g0_result;
@@ -44,7 +61,7 @@ module core_detachable_alu #(
   if((USE_LI || USE_INT || USE_MUL) && !(USE_SFT || USE_CMP)) begin
     // ONLY 2 - 1
     always_comb begin
-      case(op_i[0])
+      case(grand_op_i[0])
         default: /*0*/
         begin
           res_o = g0_result;
@@ -59,7 +76,7 @@ module core_detachable_alu #(
   if(!(USE_LI || USE_INT || USE_MUL) && (USE_SFT || USE_CMP)) begin
     // ONLY 2 - 1 | 3 - 1
     always_comb begin
-      case(op_i[1])
+      case(grand_op_i[1])
         default: /*0*/
         begin
           res_o = g0_result;
@@ -72,7 +89,7 @@ module core_detachable_alu #(
             res_o = g3_result;
           end
           else begin
-            res_o = op_i[0] ? g3_result : g2_result;
+            res_o = grand_op_i[0] ? g3_result : g2_result;
           end
         end
       endcase

@@ -113,7 +113,7 @@ module core_backend (
     // 流水线处理，不可复位部分
     always_ff @(posedge clk) begin
       if(!ex_stall) begin
-        pipeline_ctrl_ex_q <= pipeline_ctrl_ex;
+        pipeline_ctrl_ex_q  <= pipeline_ctrl_ex;
         pipeline_wdata_ex_q <= pipeline_wdata_ex;
       end
     end
@@ -184,7 +184,7 @@ module core_backend (
         else begin
           if(!wb_stall) begin
             exc_wb_q[p].valid_inst <= exc_m2_q[p].valid_inst;
-            exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
+            exc_wb_q[p].need_commit <= exc_m2_q[p].need_commit;
           end
         end
       end
@@ -584,11 +584,11 @@ module core_backend (
       always_comb begin
         pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
         pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
-        ;
         pipeline_ctrl_is[p].w_id = is_w_id;
         pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
         pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
         pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].decode_info.addr_imm_type, is_inst_pack[p].imm_domain);
+        pipeline_ctrl_is[p].pc = is_inst_pack[p].pc;
         exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
         exc_is[p].need_commit = frontend_req_i.inst_valid[p];
         pipeline_data_is[p].r_data[0] = is_inst_pack[p].decode_info.reg_type_r0 == `_REG_R0_IMM ?
@@ -914,11 +914,6 @@ module core_backend (
             decode_info.tlbsrch_en};
         end
       end
-      logic[1:0] csr_excp_req;
-      logic[1:0] m2_valid_req;
-      logic[1:0] m2_commit_req;
-      logic[1:0][31:0] m2_badv_req;
-      excp_flow_t [1:0] m2_excp_req;
 
       // M2 的数据选择
       if(p == 0) begin
@@ -1133,6 +1128,38 @@ module core_backend (
     .pc      ('0/*TODO*/),
     .cycleCnt('0/*TODO*/),
     .instrCnt('0/*TODO*/)
+  );
+
+  DifftestCSRRegState DifftestCSRRegState_inst (
+    .clock    (clk                                        ),
+    .coreid   (0                                          ),
+    .crmd     (csr_value_q.crmd                           ),
+    .prmd     (csr_value_q.prmd                           ),
+    .euen     (csr_value_q.euen                           ),
+    .ecfg     (csr_value_q.ectl                           ),
+    .estat    (csr_value_q.estat                          ),
+    .era      (csr_value_q.era                            ),
+    .badv     (csr_value_q.badv                           ),
+    .eentry   (csr_value_q.eentry                         ),
+    .tlbidx   (csr_value_q.tlbidx                         ),
+    .tlbehi   (csr_value_q.tlbehi                         ),
+    .tlbelo0  (csr_value_q.tlbelo0                        ),
+    .tlbelo1  (csr_value_q.tlbelo1                        ),
+    .asid     (csr_value_q.asid                           ),
+    .pgdl     (csr_value_q.pgdl                           ),
+    .pgdh     (csr_value_q.pgdh                           ),
+    .save0    (csr_value_q.save0                          ),
+    .save1    (csr_value_q.save1                          ),
+    .save2    (csr_value_q.save2                          ),
+    .save3    (csr_value_q.save3                          ),
+    .tid      (csr_value_q.tid                            ),
+    .tcfg     (csr_value_q.tcfg                           ),
+    .tval     (csr_value_q.tval                           ),
+    .ticlr    (csr_value_q.ticlr                          ),
+    .tlbrentry(csr_value_q.tlbrentry                      ),
+    .dmw0     (csr_value_q.dmw0                           ),
+    .dmw1     (csr_value_q.dmw1                           ),
+    .llbctl   ({csr_value_q.llbctl,1'b0,csr_value_q.llbit})
   );
 
     `endif
