@@ -1,3 +1,5 @@
+/*--JSON--{"module_name":"mycpu_top","module_ver":"1","module_type":"module"}--JSON--*/
+
 module mycpu_top(
     input           aclk,
     input           aresetn,

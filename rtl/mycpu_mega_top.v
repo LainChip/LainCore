@@ -1,3 +1,5 @@
+/*--JSON--{"module_name":"mycpu_top","module_ver":"2","module_type":"module"}--JSON--*/
+
 module mycpu_mega_top(
     input           aclk,
     input           aresetn,

@@ -45,9 +45,9 @@ module reg_file #(parameter int DATA_WIDTH = 32) (
       if(!rst_n) begin
         ref_regs[i] <= '0;
       end else if(w_en_i[0] && w_addr_i[0] == i[4:0] && i != 0) begin
-        reg_regs[i] <= w_data_i[0];
+        ref_regs[i] <= w_data_i[0];
       end else if(w_en_i[1] && w_addr_i[1] == i[4:0] && i != 0) begin
-        reg_regs[i] <= w_data_i[1];
+        ref_regs[i] <= w_data_i[1];
       end
     end
   end
@@ -87,5 +87,5 @@ module reg_file #(parameter int DATA_WIDTH = 32) (
     .gpr_30(ref_regs[30]),
     .gpr_31(ref_regs[31])
   );
-      `endif _DIFFTEST_ENABLE
+      `endif
 endmodule
