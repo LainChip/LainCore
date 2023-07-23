@@ -147,4 +147,6 @@ module scoreboard (
     end
   end
 
+  assign issue_ready_o = ~invalidate_wait_q;
+
 endmodule
