@@ -302,7 +302,7 @@ module core_backend (
     logic[1:0][31:0] m1_mem_rdata,m2_mem_rdata;
     logic[1:0][31:0] m2_mem_wdata;
     logic[1:0][2:0] m2_mem_op;
-    for(genvar p = 0 ; p < 2 ; p ++) begin
+    for(genvar p = 0 ; p < 2 ; p ++) begin : lsu_pm_block
       core_lsu_pm # (
         .WAY_CNT(1)
       )
@@ -1034,6 +1034,112 @@ module core_backend (
       end
     end
     assign wb_w_id = pipeline_wdata_wb[0].w_flow.w_id;
+
+
+`ifdef _DIFFTEST_ENABLE
+    // 接入差分测试
+    logic[63:0] timer_64_diff;
+    csr_t csr_value_q;
+    always_ff @(posedge clk) begin
+      timer_64_diff <= core_csr_inst.timer_64_q;
+      csr_value_q   <= csr_value;
+    end
+    logic [4:0] debug_rand_index; // TODO: CONNECT ME
+    // WB 的信号，全部打一拍，以等待写操作完成。
+    // 注意，csr_value 跟着打一拍
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      is_t  cm_inst_info;
+      logic wb_wen,cm_wen;
+      logic[4:0] wb_waddr,cm_waddr;
+      logic wb_valid,cm_valid;
+      logic[31:0] wb_pc,cm_pc;
+      logic[31:0] wb_instr,cm_instr;
+      logic[31:0] wb_wdata,cm_wdata;
+      logic[31:0] m2_mdata,wb_mdata,cm_mdata;
+      logic[31:0] m2_vaddr,wb_vaddr,cm_vaddr;
+      logic[31:0] m2_paddr,wb_paddr,cm_paddr;
+      assign m2_mdata = lsu_pm_block[p].lsu_inst.m2_wdata;
+      assign m2_vaddr = pipeline_ctrl_m2[p].vaddr;
+      assign m2_paddr = pipeline_ctrl_m2[p].paddr;
+
+      assign wb_wen   = pipeline_wdata_wb[p].w_flow.w_valid && exc_wb_q[p].need_commit;
+      assign wb_waddr = pipeline_wdata_wb[p].w_flow.w_addr;
+      assign wb_valid = exc_wb_q[p].valid_inst && exc_wb_q[p].need_commit;
+      assign wb_pc    = pipeline_ctrl_wb_q[p].pc;
+      assign wb_instr = pipeline_ctrl_wb_q[p].decode_info.debug_inst;
+      assign wb_wdata = pipeline_wdata_wb[p].w_data;
+      always_ff @(posedge clk) begin
+        if(!wb_stall) begin
+          wb_mdata <= m2_mdata;
+          wb_vaddr <= m2_vaddr;
+          wb_paddr <= m2_paddr;
+        end
+      end
+      always_ff @(posedge clk) begin
+        cm_pc    <= wb_pc;
+        cm_instr <= wb_instr;
+        cm_wdata <= wb_wdata;
+        cm_valid <= wb_valid;
+        cm_waddr <= wb_waddr;
+        cm_wen   <= wb_wen;
+        cm_mdata <= wb_mdata;
+        cm_vaddr <= wb_vaddr;
+        cm_paddr <= wb_paddr;
+      end
+      decoder  decoder_inst_p (
+        .inst_i(wb_instr),
+        .fetch_err_i('0),
+        .is_o(cm_inst_info)
+      );
+      DifftestInstrCommit DifftestInstrCommit_p (
+        .clock         (clk             ),
+        .coreid        ('0              ),
+        .index         (p               ),
+        .valid         (cm_valid        ),
+        .pc            (cm_pc           ),
+        .instr         (cm_instr        ),
+        .skip          ('0              ),
+        .is_TLBFILL    ('0              ), // TODO: FIXME
+        .TLBFILL_index (debug_rand_index),
+        .is_CNTinst    (cm_inst_info.csr_rdcnt != '0),
+        .timer_64_value(timer_64_diff   ),
+        .wen           (cm_wen          ),
+        .wdest         (cm_waddr        ),
+        .wdata         (cm_wdata        ),
+        .csr_rstat     (p == 0          ),
+        .csr_data      (csr_value_q.estat)
+      );
+      DifftestStoreEvent DifftestStoreEvent_p (
+        .clock     (clk),
+        .coreid    (0  ),
+        .index     (p  ),
+        .valid     (cm_valid && cm_inst_info.mem_write),
+        .storePAddr(cm_paddr),
+        .storeVAddr(cm_vaddr),
+        .storeData (cm_mdata)
+      );
+      DifftestLoadEvent DifftestLoadEvent_p (
+        .clock (clk),
+        .coreid(0),
+        .index (p),
+        .valid (cm_valid && cm_inst_info.mem_read),
+        .paddr (cm_paddr),
+        .vaddr (cm_vaddr)
+      );
+    end
+
+  DifftestTrapEvent DifftestTrapEvent (
+    .clock   (clk       ),
+    .coreid  (0         ),
+    .valid   ('0/*TODO*/),
+    .code    ('0/*TODO*/),
+    .pc      ('0/*TODO*/),
+    .cycleCnt('0/*TODO*/),
+    .instrCnt('0/*TODO*/)
+  );
+
+    `endif
+
 
   endmodule
 

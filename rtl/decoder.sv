@@ -19,6 +19,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -69,6 +70,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -119,6 +121,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -169,6 +172,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -219,6 +223,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -269,6 +274,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -319,6 +325,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -369,6 +376,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -419,6 +427,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -469,6 +478,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -503,7 +513,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_S20;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -519,6 +529,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -553,7 +564,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_S20;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -563,12 +574,13 @@ module decoder(
                 is_o.alu_op = 2'd0;
                 is_o.ertn_inst = 1'd0;
                 is_o.priv_inst = 1'd1;
-                is_o.refetch = 1'd0;
+                is_o.refetch = 1'd1;
                 is_o.wait_inst = 1'd0;
                 is_o.invalid_inst = 1'd0;
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd1;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -582,7 +594,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -603,7 +615,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -619,6 +631,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -669,6 +682,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -719,6 +733,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -753,7 +768,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_S12;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -769,6 +784,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -803,7 +819,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_S12;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -819,6 +835,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -853,7 +870,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_S12;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -869,6 +886,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -903,7 +921,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U12;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -919,6 +937,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -953,7 +972,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U12;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -969,6 +988,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1003,7 +1023,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U12;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1019,6 +1039,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1069,6 +1090,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1119,6 +1141,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1169,6 +1192,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1219,6 +1243,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1269,6 +1294,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1319,6 +1345,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1369,6 +1396,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1419,6 +1447,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1469,6 +1498,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1503,7 +1533,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1519,6 +1549,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1553,7 +1584,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1569,6 +1600,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1603,7 +1635,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1619,6 +1651,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1653,7 +1686,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1669,6 +1702,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1703,7 +1737,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1719,6 +1753,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1753,7 +1788,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1769,6 +1804,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1803,7 +1839,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1819,6 +1855,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1853,7 +1890,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1869,6 +1906,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1903,7 +1941,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1919,6 +1957,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -1953,7 +1992,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -1969,6 +2008,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2003,7 +2043,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2019,6 +2059,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2053,7 +2094,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2069,6 +2110,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2103,7 +2145,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2119,6 +2161,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2153,7 +2196,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2169,6 +2212,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2203,7 +2247,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2219,6 +2263,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2253,7 +2298,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2269,6 +2314,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2303,7 +2349,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2319,6 +2365,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2353,7 +2400,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2369,6 +2416,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2403,7 +2451,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2416,9 +2464,10 @@ module decoder(
                 is_o.refetch = 1'd0;
                 is_o.wait_inst = 1'd0;
                 is_o.invalid_inst = 1'd0;
-                is_o.syscall_inst = 1'd1;
+                is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2432,7 +2481,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -2453,7 +2502,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2469,6 +2518,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd1;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2482,7 +2532,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -2503,7 +2553,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2519,6 +2569,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2553,7 +2604,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2569,6 +2620,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2603,7 +2655,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2619,6 +2671,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2653,7 +2706,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_RD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2663,12 +2716,13 @@ module decoder(
                 is_o.alu_op = 2'd0;
                 is_o.ertn_inst = 1'd0;
                 is_o.priv_inst = 1'd1;
-                is_o.refetch = 1'd1;
+                is_o.refetch = 1'd0;
                 is_o.wait_inst = 1'd1;
                 is_o.invalid_inst = 1'd0;
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2682,7 +2736,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -2703,7 +2757,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2719,6 +2773,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2732,7 +2787,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -2753,7 +2808,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_RJ;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2769,6 +2824,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2803,7 +2859,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2819,6 +2875,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2853,7 +2910,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2869,6 +2926,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = `_RDCNT_ID_VLOW;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2882,7 +2940,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -2900,10 +2958,10 @@ module decoder(
                 is_o.fu_sel_m2 = `_FUSEL_M2_CSR;
                 is_o.fu_sel_wb = 1'd0;
                 is_o.reg_type_r0 = `_REG_R0_NONE;
-                is_o.reg_type_r1 = `_REG_R1_RJ;
+                is_o.reg_type_r1 = `_REG_R0_NONE;
                 is_o.reg_type_w = `_REG_W_RJD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2919,6 +2977,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = `_RDCNT_VHIGH;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2932,7 +2991,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -2953,7 +3012,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_RJD;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -2969,6 +3028,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd1;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -2982,7 +3042,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -3003,7 +3063,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -3019,6 +3079,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd1;
                 is_o.tlbwr_en = 1'd0;
@@ -3032,7 +3093,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -3053,7 +3114,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -3069,6 +3130,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd1;
@@ -3082,7 +3144,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -3103,7 +3165,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -3119,6 +3181,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -3132,7 +3195,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -3153,7 +3216,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -3169,6 +3232,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
@@ -3182,7 +3246,7 @@ module decoder(
                 is_o.ibarrier = 1'd0;
                 is_o.dbarrier = 1'd0;
                 is_o.debug_inst = inst_i;
-                is_o.need_csr = 1'd0;
+                is_o.need_csr = 1'd1;
                 is_o.need_mul = 1'd0;
                 is_o.need_div = 1'd0;
                 is_o.need_lsu = 1'd0;
@@ -3203,7 +3267,7 @@ module decoder(
                 is_o.reg_type_r1 = `_REG_R1_NONE;
                 is_o.reg_type_w = `_REG_W_NONE;
                 is_o.imm_type = `_IMM_U5;
-                is_o.addr_imm_type = `_ADDR_IMM_S12;
+                is_o.addr_imm_type = `_ADDR_IMM_S26;
                 is_o.branch_type = 2'd0;
                 is_o.target_type = 1'd0;
                 is_o.cmp_type = 3'd0;
@@ -3219,6 +3283,7 @@ module decoder(
                 is_o.syscall_inst = 1'd0;
                 is_o.break_inst = 1'd0;
                 is_o.csr_op_en = 1'd0;
+                is_o.csr_rdcnt = 2'd0;
                 is_o.tlbsrch_en = 1'd0;
                 is_o.tlbrd_en = 1'd0;
                 is_o.tlbwr_en = 1'd0;
