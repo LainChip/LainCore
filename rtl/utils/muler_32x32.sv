@@ -1,4 +1,4 @@
-`include "../pipeline/decoder.svh"
+`include "decoder.svh"
 
 module muler_32x32(
     input wire clk,

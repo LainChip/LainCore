@@ -151,7 +151,7 @@ typedef struct packed {
           is_t decode_info;
           logic[25:0] imm_domain;
           reg_info_t reg_info;
-          bpu_into_t bpu_predict;
+          bpu_predict_t bpu_predict;
           fetch_excp_t fetch_excp;
           logic[31:0] pc;
         } inst_t;

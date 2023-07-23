@@ -1,5 +1,5 @@
 `include "common.svh"
-`include "lsu_types.svh"
+`include "lsu.svh"
 
 
 `ifdef __AXI_CONVERTER_VER_1

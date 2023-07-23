@@ -1,4 +1,5 @@
 `include "pipeline.svh"
+`include "lsu.svh"
 
 module core(
     input clk,

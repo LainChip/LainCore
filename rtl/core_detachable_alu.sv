@@ -7,6 +7,8 @@ module core_detachable_alu #(
     parameter bit USE_SFT = 1,
     parameter bit USE_CMP = 1
   )(
+    input   logic clk,
+    input   logic rst_n,
     input   logic [31:0] mul_i,
     input   logic [31:0] r0_i,
     input   logic [31:0] r1_i,

@@ -3,7 +3,7 @@
 `include "lsu.svh"
 
 function fwd_data_t mkfwddata(pipeline_wdata_t in);
-  mkfwddata.valid = in.w_flow.valid;
+  mkfwddata.valid = in.w_flow.w_valid;
   mkfwddata.id = in.w_flow.w_id;
   mkfwddata.data = in.w_data;
 endfunction
@@ -595,7 +595,7 @@ module core_backend(
     logic[31:0] vaddr, rel_target;
     ex_t decode_info;
     assign decode_info = pipeline_ctrl_ex_q[p].decode_info;
-    detachable_alu #(
+    core_detachable_alu #(
                      .USE_LI(1),
                      .USE_INT(0),
                      .USE_SFT(0),
@@ -646,7 +646,7 @@ module core_backend(
     end
     always_comb begin
       // TODO
-      jump_target = pipeline_ctrl_ex_q[p].target_type == `_TARGET_ABS ?
+      jump_target = decode_info.target_type == `_TARGET_ABS ?
                   vaddr : rel_target;
     end
 
@@ -656,7 +656,7 @@ module core_backend(
       pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
       pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
       pipeline_wdata_ex[p].w_flow.w_valid =
-                       pipeline_ctrl_ex_q[p].fu_sel_ex == `_FUSEL_EX_ALU ? (
+                       decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
                          (&pipeline_data_ex_q[p].r_flow.r_ready)) :
                        '0;
     end
@@ -668,10 +668,9 @@ module core_backend(
 
     // 接入暂停请求
     always_comb begin
-      ex_stall_req[p] = ((pipeline_ctrl_ex_q[p].latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
-                         (pipeline_ctrl_ex_q[p].latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) |
-                         (decode_info.need_div & !div_ready)) &
-                  exc_ex_q.valid_inst & exc_ex_q.need_commit; // 2 * LUT6 - MUXF7 - 1
+      ex_stall_req[p] = ((decode_info.latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
+                         (decode_info.latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) ) &
+                  exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit; // LUT6 - 1
     end
 
     // 接入 dcache
@@ -719,7 +718,7 @@ module core_backend(
     logic[31:0] excp_target; // TODO: CONNECT ME
     excp_flow_t m1_excp_flow;
     logic lsu_valid;
-    detachable_alu #(
+    core_detachable_alu #(
                      .USE_LI(0),
                      .USE_INT(1),
                      .USE_SFT(1),
@@ -735,7 +734,7 @@ module core_backend(
                      .r1_i(pipeline_data_m1_q[p].r_data[1]),
                      .pc_i(pipeline_ctrl_m1_q[p].pc),
 
-                     .result_o(alu_result)
+                     .res_o(alu_result)
                    );
 
     // M1 的额外部分
@@ -849,7 +848,7 @@ module core_backend(
     // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
     logic[31:0] alu_result, lsu_result, mul_result, csr_result;
     // MUL 结果复用 ALU 传回
-    detachable_alu #(
+    core_detachable_alu #(
                      .USE_LI(0),
                      .USE_INT(0),
                      .USE_MUL(1),
@@ -866,7 +865,7 @@ module core_backend(
                      .r1_i(pipeline_data_m2_q[p].r_data[1]),
                      .pc_i(pipeline_ctrl_m2_q[p].pc),
 
-                     .result_o(alu_result)
+                     .res_o(alu_result)
                    );
 
     // M2 的额外部分
@@ -874,11 +873,11 @@ module core_backend(
     if( p == 0) begin
       always_comb begin
         {
-          tlb_op_req.invtlb,
-          tlb_op_req.tlbfill,
-          tlb_op_req.tlbwr,
-          tlb_op_req.tlbrd,
-          tlb_op_req.tlbsrch
+          tlb_op.invtlb,
+          tlb_op.tlbfill,
+          tlb_op.tlbwr,
+          tlb_op.tlbrd,
+          tlb_op.tlbsrch
         } = {
           decode_info.invtlb_en,
           decode_info.tlbfill_en,
