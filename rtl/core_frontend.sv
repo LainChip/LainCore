@@ -243,6 +243,7 @@ module core_frontend(
   end
   assign frontend_req_o.inst_valid = d_valid;
   assign frontend_req_o.inst = decoder_inst_package;
+  assign d_num = frontend_resp_i.issue[0] + frontend_resp_i.issue[1];
   // BACKEND
 
 endmodule
