@@ -63,17 +63,18 @@ module core_npc(
       pc_o[0] <= 32'h1fc00000;
       pc_o[1] <= 32'h1fc00004;
     end
-    pc <= ppc;
-    pc_o[0][2] <= '0;
-    pc_o[1][2] <= '0;
     if(!f_stall_i) begin
+      pc_o[0][2] <= '0;
+      pc_o[1][2] <= '0;
       {pc_o[0][31:3],pc_o[0][1:0]} <= {ppc[31:3],ppc[1:0]};
       {pc_o[1][31:3],pc_o[1][1:0]} <= {ppc[31:3],ppc[1:0]};
+      pc <= ppc;
+      bht_addr_q <= get_bht_addr(ppc);
     end
   end
 
   // lpht gen
-  assign lpht_addr = get_lpht_addr(bht_data, ppc);
+  assign lpht_addr = get_lpht_addr(bht_data, pc);
 
   // 本周期 pc 对应的预测依据
   logic predict_dir_type_q;
@@ -86,8 +87,8 @@ module core_npc(
     predict_target_type_q = btb_q.branch_type;
     predict_dir_jmp = |lpht[1] && hit;
   end
-  assign hit = btb_q.tag == get_btb_tag(ppc) && (!ppc[2] || btb_q.fsc);
-
+  assign hit = btb_q.tag == get_btb_tag(pc) && (!pc[2] || btb_q.fsc);
+  assign btb_target = {btb_q.target_pc, 2'b00};
   // ppc 以及 VALID 输出逻辑
   always_comb begin
     valid_o = pc[2] ? 2'b10 : 2'b11;
@@ -182,7 +183,7 @@ module core_npc(
   assign ppcplus4 = {ppc[31:3],1'b1,ppc[1:0]};
 
   // NPC 逻辑
-  assign npc_target = pc + 32'd8;
+  assign npc_target = pc_o[0] + 32'd8;
 
   // BTB 地址逻辑
   assign btb_addr = get_btb_addr(ppc);

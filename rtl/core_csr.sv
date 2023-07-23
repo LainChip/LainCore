@@ -4,6 +4,7 @@
 module core_csr(
     input logic clk,
     input logic rst_n,
+    input logic[7:0] int_i,
     input excp_flow_t excp_i, // M2 EXCPTION IN
     input logic valid_i,
     input logic commit_i,
@@ -231,7 +232,7 @@ module core_csr(
         timer_en    <= tcfg_q[`_TCFG_PERIODIC];
       end
 
-      estat_q[9:2] <= excp_int;
+      estat_q[9:2] <= int_i;
       if (excp_valid) begin
         estat_q[`_ESTAT_ECODE   ] <= ecode;
         estat_q[`_ESTAT_ESUBCODE] <= esubcode;

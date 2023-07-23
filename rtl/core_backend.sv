@@ -471,6 +471,7 @@ module core_backend (
   core_csr core_csr_inst (
     .clk         (clk       ),
     .rst_n       (rst_n     ),
+    .int_i       (int_i     ),
     .excp_i      (csr_excp  ),
     .valid_i     (csr_valid ),
     .commit_i    (csr_commit),
@@ -675,10 +676,9 @@ module core_backend (
         pipeline_wdata_ex[p].w_data = alu_result;
         pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
         pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
-        pipeline_wdata_ex[p].w_flow.w_valid = 
-          decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
-            (&pipeline_data_ex_q[p].r_flow.r_ready)) :
-          '0;
+        pipeline_wdata_ex[p].w_flow.w_valid = decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
+          (&pipeline_data_ex_q[p].r_flow.r_ready)) :
+        '0;
       end
 
       // 接入转发源
@@ -697,10 +697,10 @@ module core_backend (
       // 接入 addr-trans 模块
       assign ex_mem_read[p] = decode_info.mem_read;
       if(p == 0) begin
-        assign ex_mem_vaddr[p] = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
+        assign ex_mem_vaddr[p]     = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
         assign ex_addr_trans_valid = decode_info.need_lsu | decode_info.tlbsrch_en;
       end else begin
-        assign ex_mem_vaddr[p] = vaddr;
+        assign ex_mem_vaddr[p]     = vaddr;
         assign ex_addr_trans_valid = decode_info.need_lsu;
       end
 

@@ -141,7 +141,7 @@ module core_lsu_dm#(
   always_comb begin
     dreq_fsm = dreq_fsm_q;
     case(dreq_fsm_q)
-      DREQ_FSM_NORMAL: begin
+      default/*DREQ_FSM_NORMAL*/: begin
         if(dram_preemption_valid) begin
           dreq_fsm = DREQ_FSM_PREEMPTION;
         end
@@ -303,7 +303,7 @@ module core_lsu_dm#(
   always_comb begin
     op_old_tag = op_old_tag_q;
     op = op_q;
-    wsize_q = wsize;
+    wsize = wsize_q;
     op_valid = op_valid_q;
     op_addr = op_addr_q;
     op_sel = op_sel_q;
@@ -393,7 +393,7 @@ module core_lsu_dm#(
     main_fsm = main_fsm_q;
     op_ready = '0;
     case(main_fsm_q)
-      MAIN_FSM_NORMAL: begin
+      default/*MAIN_FSM_NORMAL*/: begin
         if(op_valid_q && sleep_end_q) begin
           if(op_q == MAIN_C_REFILL && dirty_rdata[op_sel_q][refill_sel_q]) begin
             if(bus_lock) begin
@@ -564,7 +564,7 @@ module core_lsu_dm#(
   always_comb begin
     uncacw_fsm = uncacw_fsm_q;
     case(uncacw_fsm_q)
-      UNCAC_FSM_NORMAL: begin
+      default/*UNCAC_FSM_NORMAL*/: begin
         if((|uncac_wreq_valid) && uncac_fifo_full) begin
           uncacw_fsm = UNCAC_FSM_FULL;
         end
@@ -898,7 +898,7 @@ module core_lsu_dm#(
   always_comb begin
     fifo_fsm = fifo_fsm_q;
     case(fifo_fsm_q)
-      S_FEMPTY: begin
+      default/*S_FEMPTY*/: begin
         if(pw_w_e) begin
           fifo_fsm = S_FADR;
         end
