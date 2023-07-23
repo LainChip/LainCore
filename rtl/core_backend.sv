@@ -8,20 +8,20 @@ mkfwddata.id = in.w_flow.w_id;
 mkfwddata.data = in.w_data;
 endfunction
 
-  function logic[25:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
+  function logic[27:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
     case (addr_imm_type)
       default : /*`_ADDR_IMM_S12:*/
         begin
-          mkimm_addr = {{14{raw_imm[11]}},raw_imm[11:0]};
+          mkimm_addr = {{16{raw_imm[21]}},raw_imm[21:10]};
         end
       `_ADDR_IMM_S14 : begin
-        mkimm_addr = {{12{raw_imm[13]}},raw_imm[13:0]};
+        mkimm_addr = {{12{raw_imm[23]}},raw_imm[23:10],2'b00};
       end
       `_ADDR_IMM_S16 : begin
-        mkimm_addr = {{10{raw_imm[15]}},raw_imm[15:0]};
+        mkimm_addr = {{10{raw_imm[25]}},raw_imm[25:10],2'b00};
       end
       `_ADDR_IMM_S26 : begin
-        mkimm_addr = raw_imm;
+        mkimm_addr = {raw_imm[9:0],raw_imm[25:10],2'b00};
       end
     endcase
   endfunction
@@ -129,6 +129,12 @@ module core_backend (
         pipeline_wdata_m2_q <= pipeline_wdata_m2;
       end
     end
+    always_ff @(posedge clk) begin
+      if(!wb_stall) begin
+        pipeline_ctrl_wb_q <= pipeline_ctrl_wb;
+      end
+    end
+
 
     // 流水线处理, TODO: 可复位部分
     for(genvar p = 0 ; p < 2 ;p ++) begin : PIPELINE_MANAGE
@@ -654,12 +660,12 @@ module core_backend (
       // EX 的额外部分
       // EX 级别的访存地址计算 / 地址翻译逻辑
       always_comb begin
-        vaddr = {{6{pipeline_ctrl_ex_q[p].addr_imm[25]}},
+        vaddr = {{4{pipeline_ctrl_ex_q[p].addr_imm[27]}},
           pipeline_ctrl_ex_q[p].addr_imm} +
         pipeline_data_ex_q[p].r_data[1];
       end
       always_comb begin
-        rel_target = pipeline_ctrl_ex_q[p].pc + {{6{pipeline_ctrl_ex_q[p].addr_imm[25]}},
+        rel_target = pipeline_ctrl_ex_q[p].pc + {{4{pipeline_ctrl_ex_q[p].addr_imm[27]}},
           pipeline_ctrl_ex_q[p].addr_imm};
       end
       always_comb begin
@@ -723,8 +729,8 @@ module core_backend (
         pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
         pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
         pipeline_ctrl_m1[p].csr_id = (decode_info.need_csr) ?
-          pipeline_ctrl_ex_q[p].addr_imm[23:10] :
-            {pipeline_ctrl_ex_q[p].addr_imm[23:15],pipeline_ctrl_ex_q[p].addr_imm[4:0]};
+          pipeline_ctrl_ex_q[p].addr_imm[13:0] :
+            {pipeline_ctrl_ex_q[p].addr_imm[13:5],pipeline_ctrl_ex_q[p].addr_imm[20:16]};
         pipeline_ctrl_m1[p].jump_target = jump_target;
         pipeline_ctrl_m1[p].vaddr = vaddr;
         pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
@@ -764,7 +770,7 @@ module core_backend (
       // M1 的额外部分
       // 跳转的处理：TODO 完成相关模块
       bpu_correct_t m1_bpu_feedback_req;
-      logic         branch_jmp_req     ;
+      logic         m1_branch_jmp_req  ;
     core_jmp m1_cmp (
       .clk          (clk                                                           ),
       .rst_n        (rst_n                                                         ),
@@ -772,11 +778,14 @@ module core_backend (
       .branch_type_i(decode_info.branch_type                                       ),
       .cmp_type_i   (decode_info.cmp_type                                          ),
       .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict                             ),
+      .bpu_correct_o(m1_bpu_feedback_req                                           ),
       .target_i     (pipeline_ctrl_m1_q[p].jump_target                             ),
       .r0_i         (pipeline_data_m1_q[p].r_data[0]                               ),
       .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
-      .jmp_o        (branch_jmp_req                                                )
+      .jmp_o        (m1_branch_jmp_req                                             )
     );
+    assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
+    assign m1_invalidate_req[p] = m1_branch_jmp_req;
       // 异常的处理：完成相关模块
     core_excp_handler m1_excp (
       .clk        (clk                                                           ),
@@ -800,7 +809,7 @@ module core_backend (
 
       // M1 的结果选择部分: 注意： 转发逻辑不受跳转逻辑影响。 对于跳转指令，本身后续指令流就会被丢弃。
       always_comb begin
-        pipeline_wdata_m1[p] = pipeline_wdata_ex[p]; // TODO: FIXME
+        pipeline_wdata_m1[p] = pipeline_wdata_ex_q[p]; // TODO: FIXME
         case(decode_info.fu_sel_m1)
           default : begin
             // NOTING TO DO

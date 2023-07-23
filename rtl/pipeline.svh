@@ -162,7 +162,7 @@ typedef struct packed{
           logic[2:0] w_id;
           bpu_predict_t bpu_predict;
           fetch_excp_t fetch_excp;
-          logic[25:0] addr_imm;
+          logic[27:0] addr_imm;
           logic[31:0] pc;
         } pipeline_ctrl_ex_t; // 移位寄存器实现的部分
 
