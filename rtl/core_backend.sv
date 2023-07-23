@@ -93,7 +93,7 @@ module core_backend (
     // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
     logic             m1_refetch        ;
     logic [1:0][31:0] m1_jump_target_req;
-    logic [1:0]       m1_invalidate, m1_invalidate_req;
+    logic [1:0]       m1_invalidate, m1_invalidate_req, m1_invalidate_exclude_self;
     logic             ex_invalidate     ;
 
     logic is_skid_q;
@@ -144,7 +144,7 @@ module core_backend (
         end
         else begin
           if(!ex_stall) begin
-            exc_ex_q[p] <= is_skid_q ? exc_skid_q : exc_is;
+            exc_ex_q[p] <= is_skid_q ? exc_skid_q[p] : exc_is[p];
           end
         end
       end
@@ -217,13 +217,15 @@ module core_backend (
       m2_jump_target_q  <= (m1_invalidate_req[1]) ? m1_jump_target_req[1] : m1_jump_target_req[0];
       m2_bpu_feedback_q <= (m1_invalidate_req[1]) ? m1_bpu_feedback_req[1] : m1_bpu_feedback_req[0];
     end
+    assign frontend_resp_o.rst_jmp = m2_jump_valid_q;
+    assign frontend_resp_o.rst_jmp_target = m2_jump_target_q;
 
 
     // INVALIDATE MANAGER
     always_comb begin
       ex_invalidate    = |m1_invalidate_req | m1_refetch;
-      m1_invalidate[0] = m1_invalidate_req[0];
-      m1_invalidate[1] = m1_invalidate_req[0] | m1_invalidate_req[1];
+      m1_invalidate[0] = m1_invalidate_req[0] & !m1_invalidate_exclude_self[0];
+      m1_invalidate[1] = m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[0]);
     end
 
     // forwarding manager
@@ -590,13 +592,15 @@ module core_backend (
       always_comb begin
         pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
         pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
+        is_r_addr[p] = is_inst_pack[p].reg_info.r_reg;
+        is_w_addr[p] = is_inst_pack[p].reg_info.w_reg;
         pipeline_ctrl_is[p].w_id = is_w_id;
         pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
         pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
         pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].decode_info.addr_imm_type, is_inst_pack[p].imm_domain);
         pipeline_ctrl_is[p].pc = is_inst_pack[p].pc;
-        exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
-        exc_is[p].need_commit = frontend_req_i.inst_valid[p];
+        exc_is[p].valid_inst = issue[p];
+        exc_is[p].need_commit = issue[p];
         pipeline_data_is[p].r_data[0] = is_inst_pack[p].decode_info.reg_type_r0 == `_REG_R0_IMM ?
           mkimm_data(is_inst_pack[p].decode_info.imm_type,
             is_inst_pack[p].imm_domain) :
@@ -679,9 +683,9 @@ module core_backend (
         pipeline_wdata_ex[p].w_data = alu_result;
         pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
         pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
-        pipeline_wdata_ex[p].w_flow.w_valid = decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
+        pipeline_wdata_ex[p].w_flow.w_valid = exc_ex_q[p].valid_inst && (decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
           (&pipeline_data_ex_q[p].r_flow.r_ready)) :
-        '0;
+        '0);
       end
 
       // 接入转发源
@@ -786,6 +790,7 @@ module core_backend (
     );
     assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
     assign m1_invalidate_req[p] = m1_branch_jmp_req;
+    assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
       // 异常的处理：完成相关模块
     core_excp_handler m1_excp (
       .clk        (clk                                                           ),
@@ -816,11 +821,11 @@ module core_backend (
           end
           `_FUSEL_M1_ALU : begin
             pipeline_wdata_m1[p].w_data = alu_result;
-            pipeline_wdata_m1[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+            pipeline_wdata_m1[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
           end
           `_FUSEL_M1_MEM : begin
             pipeline_wdata_m1[p].w_data = lsu_result;
-            pipeline_wdata_m1[p].w_flow.w_valid = lsu_valid;
+            pipeline_wdata_m1[p].w_flow.w_valid = exc_ex_q[p].valid_inst && lsu_valid;
           end
         endcase
       end
@@ -934,15 +939,15 @@ module core_backend (
             end
             `_FUSEL_M2_ALU: begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
             end
             `_FUSEL_M2_MEM: begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
             end
             `_FUSEL_M2_CSR: begin
               pipeline_wdata_m2[p].w_data = csr_r_data;
-              pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
             end
           endcase
         end
@@ -956,11 +961,11 @@ module core_backend (
             end
             `_FUSEL_M2_ALU: begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
             end
             `_FUSEL_M2_MEM: begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
             end
           endcase
         end
@@ -1011,7 +1016,7 @@ module core_backend (
         pipeline_wdata_wb[p] = pipeline_wdata_m2_q[p];
         if(decode_info.fu_sel_wb == `_FUSEL_WB_DIV) begin
           pipeline_wdata_wb[p].w_data = div_result;
-          pipeline_wdata_wb[p].w_flow.w_valid = div_result_valid;
+          pipeline_wdata_wb[p].w_flow.w_valid = exc_ex_q[p].valid_inst && div_result_valid;
         end
       end
 

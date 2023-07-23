@@ -62,7 +62,7 @@ module core_npc(
       pc <= 32'h1c000000;
       pc_o[0] <= 32'h1c000000;
       pc_o[1] <= 32'h1c000004;
-    end else if(!f_stall_i) begin
+    end else if(!f_stall_i || rst_jmp) begin
       pc_o[0][2] <= '0;
       pc_o[1][2] <= '0;
       {pc_o[0][31:3],pc_o[0][1:0]} <= {ppc[31:3],ppc[1:0]};

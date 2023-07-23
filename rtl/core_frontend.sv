@@ -143,7 +143,7 @@ module core_frontend(
                 .paddr_o(m_ppc),
                 .fetch_excp_o(m_excp),
                 .csr_i(frontend_resp_i.csr_reg),
-                .flush_i(flush_i),
+                .flush_i('0 /*TODO: CONNECT ME*/),
                 .uncached_o(uncached),
                 .tlb_req_vppn(tlb_req_vppn),
                 .tlb_req_valid_o(tlb_req_valid),

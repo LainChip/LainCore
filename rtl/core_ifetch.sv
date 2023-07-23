@@ -78,7 +78,7 @@ module core_ifetch#(
   logic[1:0][31:0] refill_data_q;
   logic skid_q;
   always_ff @(posedge clk) begin
-    if(~rst_n) begin
+    if(~rst_n || clr_i) begin
       f1_valid_q <= '0;
     end else if(ready_o) begin
       f1_vpc_q <= vpc_i;

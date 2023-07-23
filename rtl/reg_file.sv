@@ -32,8 +32,8 @@ module reg_file #(parameter int DATA_WIDTH = 32) (
     .wd1_i     (w_data_i[1]                     ),
     .wa0_i     (w_addr_i[0]                     ),
     .wa1_i     (w_addr_i[1]                     ),
-    .we0_i     (w_en_i[0] & ~(w_addr_i[0] == '0)),
-    .we1_i     (w_en_i[1] & ~(w_addr_i[1] == '0)),
+    .we0_i     (w_en_i[0] && (w_addr_i[0] != '0)),
+    .we1_i     (w_en_i[1] && (w_addr_i[1] != '0)),
     // signal
     .conflict_o(                                )
   );
