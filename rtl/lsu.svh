@@ -102,7 +102,7 @@ endfunction
 function logic[`_DIDX_LEN - 1 : 2] dramaddr(logic[31:0] va);
   return va[`_DIDX_LEN - 1 : 2];
 endfunction
-function logic[`_DIDX_LEN - 1 : 3] bankeddramaddr(logic[31:0] va);
+function logic[`_DIDX_LEN - 1 : 3] bdramaddr(logic[31:0] va);
   return va[`_DIDX_LEN - 1 : 3];
 endfunction
 function logic cache_hit(dcache_tag_t tag,logic[31:0] pa);

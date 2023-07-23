@@ -85,7 +85,7 @@ module core_frontend(
   assign f_stall = !icache_ready | !mimo_ready | idle_lock;
   assign icache_stall = !icache_ready | !mimo_ready;
   assign f_pc = pc_vaddr[0];
-  npc  npc_inst (
+  core_npc  npc_inst (
          .clk(clk),
          .rst_n(rst_n),
          .rst_jmp(frontend_resp_i.rst_jmp),
@@ -109,7 +109,7 @@ module core_frontend(
     else if(frontend_resp_i.icache_op_valid) begin
       icacheop_valid <= '1;
       icacheop <= frontend_resp_i.icache_op;
-      icacheop_addr <= frontend_resp_i.icache_addr;
+      icacheop_addr <= frontend_resp_i.icacheop_addr;
     end
     else if(icacheop_ready) begin
       icacheop_valid <= '0;
@@ -125,7 +125,7 @@ module core_frontend(
 
   logic paddr_ready;
   logic[31:0] m_ppc;
-  iaddr_trans # (
+  core_iaddr_trans # (
                 .ENABLE_TLB(1'b0)
               )
               iaddr_trans_inst (
@@ -145,7 +145,7 @@ module core_frontend(
                 .tlb_resp_i('0)
               );
 
-  ifetch # (
+  core_ifetch # (
            .ATTACHED_INFO_WIDTH($bits(bpu_predict_t))
          )
          ifetch_inst (

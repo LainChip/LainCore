@@ -4,21 +4,21 @@ module core_excp_handler(
     input logic clk,
     input logic rst_n,
 
-    input csr_t csr_value,
+    input csr_t csr_i,
     input logic valid_i,
     input logic ertn_inst_i,
-    input excp_flow_t m1_excp_flow,
-    output logic[31:0] excp_target_o,
+    input excp_flow_t excp_flow_i,
+    output logic[31:0] target_o,
     output logic trigger_o
   );
 
   always_comb begin
-    excp_target_o = csr_value.eentry;
+    target_o = csr_i.eentry;
     if(ertn_inst_i) begin
-      excp_target_o = csr_value.era;
+      target_o = csr_i.era;
     end
-    else if(m1_excp_flow.tlbr || m1_excp_flow.itlbr) begin
-      excp_target_o = csr_value.tlbrentry;
+    else if(excp_flow_i.tlbr || excp_flow_i.itlbr) begin
+      target_o = csr_i.tlbrentry;
     end
   end
 
@@ -27,7 +27,7 @@ module core_excp_handler(
     if(!valid_i) begin
         trigger_o = '0;
     end else begin
-        trigger_o = |m1_excp_flow | ertn_inst_i;
+        trigger_o = |excp_flow_i | ertn_inst_i;
     end
   end
 

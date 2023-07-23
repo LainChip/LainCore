@@ -74,8 +74,8 @@ module core_csr(
   logic tlbrd_valid_wr_en, tlbrd_invalid_wr_en;  // TODO
 
   assign va_error = excp_tlbr | excp_adef | excp_adem | excp_ale | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi;
-  assign tlbrd_valid_wr_en = tlb_op_i.tlbrd && tlb_entry_i.e;
-  assign tlbrd_invalid_wr_en = tlb_op_i.tlbrd && !tlb_entry_i.e;
+  assign tlbrd_valid_wr_en = tlb_op_i.tlbrd && tlb_entry_i.key.e;
+  assign tlbrd_invalid_wr_en = tlb_op_i.tlbrd && !tlb_entry_i.key.e;
   // csr register
   logic [31:0] crmd_q;
   logic [31:0] prmd_q;
@@ -319,12 +319,12 @@ module core_csr(
         end
       end
       else if (tlbrd_valid_wr_en) begin
-        tlbidx_q[`_TLBIDX_PS] <= tlb_entry_i.ps;
-        tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.e;
+        tlbidx_q[`_TLBIDX_PS] <= tlb_entry_i.key.ps;
+        tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.key.e;
       end
       else if (tlbrd_invalid_wr_en) begin
         tlbidx_q[`_TLBIDX_PS] <= 6'b0;
-        tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.e;
+        tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.key.e;
       end
     end
   end
@@ -342,7 +342,7 @@ module core_csr(
         tlbehi_q[`_TLBEHI_VPPN] <= csr_w_data[`_TLBEHI_VPPN];
       end
       else if (tlbrd_valid_wr_en) begin
-        tlbehi_q[`_TLBEHI_VPPN] <= tlb_entry_i.vppn;
+        tlbehi_q[`_TLBEHI_VPPN] <= tlb_entry_i.key.vppn;
       end
       else if (tlbrd_invalid_wr_en) begin
         tlbehi_q[`_TLBEHI_VPPN] <= '0;
@@ -372,12 +372,12 @@ module core_csr(
         tlbelo0_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
       end
       else if (tlbrd_valid_wr_en) begin
-        tlbelo0_q[`_TLBELO_TLB_V] <= tlb_entry_i.v0;
-        tlbelo0_q[`_TLBELO_TLB_D] <= tlb_entry_i.d0;
-        tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.plv0;
-        tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.mat0;
-        tlbelo0_q[`_TLBELO_TLB_G] <= tlb_entry_i.g;
-        tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.ppn0;
+        tlbelo0_q[`_TLBELO_TLB_V] <= tlb_entry_i.value[0].v;
+        tlbelo0_q[`_TLBELO_TLB_D] <= tlb_entry_i.value[0].d;
+        tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.value[0].plv;
+        tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.value[0].mat;
+        tlbelo0_q[`_TLBELO_TLB_G] <= tlb_entry_i.key.g;
+        tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.value[0].ppn;
       end
       else if (tlbrd_invalid_wr_en) begin
         tlbelo0_q[`_TLBELO_TLB_V] <= '0;
@@ -409,12 +409,12 @@ module core_csr(
         tlbelo1_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
       end
       else if (tlbrd_valid_wr_en) begin
-        tlbelo1_q[`_TLBELO_TLB_V] <= tlb_entry_i.v1;
-        tlbelo1_q[`_TLBELO_TLB_D] <= tlb_entry_i.d1;
-        tlbelo1_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.plv1;
-        tlbelo1_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.mat1;
-        tlbelo1_q[`_TLBELO_TLB_G] <= tlb_entry_i.g;
-        tlbelo1_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.ppn1;
+        tlbelo0_q[`_TLBELO_TLB_V] <= tlb_entry_i.value[1].v;
+        tlbelo0_q[`_TLBELO_TLB_D] <= tlb_entry_i.value[1].d;
+        tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.value[1].plv;
+        tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.value[1].mat;
+        tlbelo0_q[`_TLBELO_TLB_G] <= tlb_entry_i.key.g;
+        tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.value[1].ppn;
       end
       else if (tlbrd_invalid_wr_en) begin
         tlbelo1_q[`_TLBELO_TLB_V] <= '0;
@@ -440,7 +440,7 @@ module core_csr(
         asid_q[`_ASID] <= csr_w_data[`_ASID];
       end
       else if (tlbrd_valid_wr_en) begin
-        asid_q[`_ASID] <= tlb_entry_i.asid;
+        asid_q[`_ASID] <= tlb_entry_i.key.asid;
       end
       else if (tlbrd_invalid_wr_en) begin
         asid_q[`_ASID] <= 10'b0;

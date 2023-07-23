@@ -194,10 +194,11 @@ module core_backend(
   // STALL MANAGER
   // 后续级可以阻塞前级
   // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
+  logic[1:0] m1_lsu_busy,m2_lsu_busy;
   always_comb begin
-    ex_stall = |ex_stall_req | |m1_stall_req | |m2_stall_req | |wb_stall_req;
-    m1_stall = |m1_stall_req | |m2_stall_req | |wb_stall_req;
-    m2_stall = |m2_stall_req | |wb_stall_req;
+    ex_stall = |ex_stall_req | |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
+    m1_stall = |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
+    m2_stall = |m2_stall_req | |wb_stall_req | |m2_lsu_busy;
     wb_stall = |wb_stall_req;
   end
 
@@ -224,17 +225,17 @@ module core_backend(
   // forwarding manager
   /* 所有级流水的前递模块在这里实例化*/
   for(genvar p = 0 ; p < 2 ; p++) begin
-    dyn_fwd_unit #(2) is_fwd(
+    core_fwd_unit #(2) is_fwd(
                    {fwd_data_wb, fwd_data_ex},
                    pipeline_data_is[p],
                    pipeline_data_is_fwd[p]
                  );
-    dyn_fwd_unit #(2) is_skid_fwd(
+    core_fwd_unit #(2) is_skid_fwd(
                    {fwd_data_wb, fwd_data_ex},
                    pipeline_data_skid_q[p],
                    pipeline_data_skid_fwd[p]
                  );
-    dyn_fwd_unit #(3) ex_fwd(
+    core_fwd_unit #(3) ex_fwd(
                    {fwd_data_wb, fwd_data_m2, fwd_data_m1},
                    pipeline_data_ex_q[p],
                    pipeline_data_ex_fwd[p]
@@ -247,7 +248,7 @@ module core_backend(
         pipeline_data_ex_q[p] <= is_skid_q ? pipeline_data_skid_fwd[p]: pipeline_data_is_fwd[p];
       end
     end
-    dyn_fwd_unit #(2) m1_fwd(
+    core_fwd_unit #(2) m1_fwd(
                    {fwd_data_wb, fwd_data_m2},
                    pipeline_data_m1_q[p],
                    pipeline_data_m1_fwd[p]
@@ -260,7 +261,7 @@ module core_backend(
         pipeline_data_m1_q[p] <= pipeline_data_ex_fwd[p];
       end
     end
-    dyn_fwd_unit #(1) m2_fwd(
+    core_fwd_unit #(1) m2_fwd(
                    {fwd_data_wb},
                    pipeline_data_m2_q[p],
                    pipeline_data_m2_fwd[p]
@@ -296,7 +297,6 @@ module core_backend(
            .bus_busy_o(bus_busy_o)
          );
   // LSU 端口实例化
-  logic m1_lsu_busy,m2_lsu_busy;
   logic[1:0] ex_mem_read,m1_mem_read,m2_mem_valid,m1_mem_uncached,m2_mem_uncached;
   logic[1:0][1:0] m2_mem_size;
   logic[1:0][31:0] ex_mem_vaddr,m1_mem_vaddr,m1_mem_paddr,m2_mem_vaddr,m2_mem_paddr;
@@ -314,14 +314,14 @@ module core_backend(
           .clk(clk),
           .rst_n(rst_n),
           .ex_vaddr_i(ex_mem_vaddr[p]),
-          .ex_valid_i(ex_mem_read[p]),
+          .ex_read_i(ex_mem_read[p]),
           .m1_vaddr_i(m1_mem_vaddr[p]),
           .m1_paddr_i(m1_mem_paddr[p]),
           .m1_strobe_i(m1_mem_strobe[p]),
           .m1_read_i(m1_mem_read[p]),
           .m1_uncached_i(m1_mem_uncached[p]),
           .m1_busy_o(m1_lsu_busy[p]),
-          .m1_stall_i(m1_stall[p]),
+          .m1_stall_i(m1_stall),
           .m1_rdata_o(m1_mem_rdata[p]),
           .m1_rvalid_o(m1_mem_rvalid[p]),
           .m2_vaddr_i(m2_mem_vaddr[p]),
@@ -332,12 +332,10 @@ module core_backend(
           .m2_uncached_i(m2_mem_uncached[p]),
           .m2_size_i(m2_mem_size[p]),
           .m2_busy_o(m2_lsu_busy[p]),
-          .m2_stall_i(m2_stall[p]),
+          .m2_stall_i(m2_stall),
           .m2_op_i(m2_mem_op[p]),
           .m2_rdata_o(m2_mem_rdata[p]),
           .m2_rvalid_o(m2_mem_rvalid[p]),
-          .wb_rdata_o(),
-          .wb_rvalid_o(),
           .dm_req_o(dm_req[p]),
           .dm_resp_i(dm_resp[p]),
           .dm_snoop_i(dm_snoop)
@@ -563,19 +561,18 @@ module core_backend(
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 产生 pipeline_ctrl_is 用于控制流水线
     always_comb begin
-      pipeline_ctrl_is[p].decode_info = is_inst_pack[p].inst.decode_info;
-      pipeline_ctrl_is[p].w_reg = is_inst_pack[p].inst.reg_info.w_reg;
+      pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
+      pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
       ;
       pipeline_ctrl_is[p].w_id = is_w_id;
-      pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].inst.bpu_predict;
-      pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].inst.fetch_excp;
-      pipeline_ctrl_is[p].ctlb_opcode = is_inst_pack[p].inst.imm_domain[4:0];
-      pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].inst.addr_imm_type, is_inst_pack[p].inst.imm_domain);
+      pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
+      pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
+      pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].decode_info.addr_imm_type, is_inst_pack[p].imm_domain);
       exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
       exc_is[p].need_commit = frontend_req_i.inst_valid[p];
-      pipeline_data_is[p].r_data[0] = is_inst_pack[p].inst.decode_info.reg_type_r0 == `_REG_R0_IMM ?
-                      mkimm_data(is_inst_pack[p].inst.decode_info.imm_type,
-                                 is_inst_pack[p].inst.imm_domain) :
+      pipeline_data_is[p].r_data[0] = is_inst_pack[p].decode_info.reg_type_r0 == `_REG_R0_IMM ?
+                      mkimm_data(is_inst_pack[p].decode_info.imm_type,
+                                 is_inst_pack[p].imm_domain) :
                       is_r_data[p][0];
       pipeline_data_is[p].r_data[1] = is_r_data[p][1];
       pipeline_data_is[p].r_flow.r_addr[0] = is_r_addr[p][0];
@@ -744,7 +741,7 @@ module core_backend(
     core_jmp m1_cmp(
             .clk(clk),
             .rst_n(rst_n),
-            .valid_i(!m1_stall && exc_m1_q.valid_inst && exc_m1_q.need_commit),
+            .valid_i(!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
             .branch_type_i(decode_info.branch_type),
             .cmp_type_i(decode_info.cmp_type),
             .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict),
@@ -758,7 +755,7 @@ module core_backend(
                         .clk(clk),
                         .rst_n(rst_n),
                         .csr_i(csr_value),
-                        .valid_i(!m1_stall && exc_m1_q.valid_inst && exc_m1_q.need_commit),
+                        .valid_i(!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
                         .ertn_inst_i(decode_info.ertn_inst),
                         .excp_flow_i(m1_excp_flow),
                         .target_o(excp_target),
@@ -774,7 +771,7 @@ module core_backend(
     // M1 的结果选择部分: 注意： 转发逻辑不受跳转逻辑影响。 对于跳转指令，本身后续指令流就会被丢弃。
     always_comb begin
       pipeline_wdata_m1[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-      case(pipeline_ctrl_m1_q[p].fu_sel_m1)
+      case(decode_info.fu_sel_m1)
         default: begin
           // NOTING TO DO
         end
@@ -810,20 +807,20 @@ module core_backend(
       m1_excp_flow.ale = '0;
       m1_excp_flow.tlbr = '0; // TODO: FIXME
 
-      m1_excp_flow.sys = ex_excp_flow.sys;
-      m1_excp_flow.brk = ex_excp_flow.brk;
-      m1_excp_flow.adef = ex_excp_flow.adef;
-      m1_excp_flow.itlbr = ex_excp_flow.itlbr;
-      m1_excp_flow.pif = ex_excp_flow.pif;
-      m1_excp_flow.ippi = ex_excp_flow.ippi;
-      m1_excp_flow.ine = ex_excp_flow.ine;
+      m1_excp_flow.sys = pipeline_ctrl_m1_q[p].excp_flow.sys;
+      m1_excp_flow.brk = pipeline_ctrl_m1_q[p].excp_flow.brk;
+      m1_excp_flow.adef = pipeline_ctrl_m1_q[p].excp_flow.adef;
+      m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr;
+      m1_excp_flow.pif = pipeline_ctrl_m1_q[p].excp_flow.pif;
+      m1_excp_flow.ippi = pipeline_ctrl_m1_q[p].excp_flow.ippi;
+      m1_excp_flow.ine = pipeline_ctrl_m1_q[p].excp_flow.ine;
     end
 
     // 接入暂停请求
     always_comb begin
-      m1_stall_req[p] = ((pipeline_ctrl_m1_q[p].latest_r0_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[0]) |
-                         (pipeline_ctrl_m1_q[p].latest_r1_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[1]) ) &
-                  exc_m1_q.valid_inst & exc_m1_q.need_commit; // LUT6 - 1
+      m1_stall_req[p] = ((decode_info.latest_r0_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[0]) |
+                         (decode_info.latest_r1_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[1]) ) &
+                  exc_m1_q[p].valid_inst & exc_m1_q[p].need_commit; // LUT6 - 1
     end
 
     // 流水线间信息传递
@@ -846,7 +843,8 @@ module core_backend(
     m1_t decode_info;
     assign decode_info = pipeline_ctrl_m2_q[p].decode_info;
     // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
-    logic[31:0] alu_result, lsu_result, mul_result, csr_result;
+    logic[31:0] alu_result, lsu_result;
+    assign lsu_result = m2_mem_rdata[p];
     // MUL 结果复用 ALU 传回
     core_detachable_alu #(
                      .USE_LI(0),
@@ -896,7 +894,7 @@ module core_backend(
     if(p == 0) begin
       always_comb begin
         pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-        case(pipeline_ctrl_m2_q[p].fu_sel_m1)
+        case(decode_info.fu_sel_m1)
           default: begin
             // NOTING TO DO
           end
@@ -909,7 +907,7 @@ module core_backend(
             pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
           end
           `_FUSEL_M2_CSR: begin
-            pipeline_wdata_m2[p].w_data = csr_result;
+            pipeline_wdata_m2[p].w_data = csr_r_data;
             pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
           end
         endcase
@@ -918,7 +916,7 @@ module core_backend(
     else begin
       always_comb begin
         pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-        case(pipeline_ctrl_m2_q[p].fu_sel_m1)
+        case(decode_info.fu_sel_m1)
           default: begin
             // NOTING TO DO
           end
@@ -943,7 +941,7 @@ module core_backend(
       m2_stall_req[p] = ((decode_info.latest_r0_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[0]) |
                          (decode_info.latest_r1_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[1]) |
                          lsu_stall_req[p]) &
-                  exc_m2_q.valid_inst & exc_m2_q.need_commit; // LUT6 + MUXF7
+                  exc_m2_q[p].valid_inst & exc_m2_q[p].need_commit; // LUT6 + MUXF7
     end
 
 
@@ -962,7 +960,7 @@ module core_backend(
   assign csr_w_mask = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
          32'hffffffff :
          pipeline_data_m2_q[0].r_data[1];
-  assign csr_we = pipeline_ctrl_m2_q[0].csr_op_en;
+  assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en;
 
   /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
   // 不存在数据前递
@@ -990,7 +988,7 @@ module core_backend(
 
     // 接入暂停请求
     always_comb begin
-      wb_stall_req[p] = exc_ex_q.valid_inst & exc_ex_q.need_commit
+      wb_stall_req[p] = exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit
                   & decode_info.need_div & !div_result_valid; // 4 - 1
     end
 
@@ -998,8 +996,8 @@ module core_backend(
     always_comb begin
       wb_w_data[p] = pipeline_wdata_wb[p].w_data;
       wb_w_addr[p] = pipeline_wdata_wb[p].w_flow.w_addr;
-      wb_commit[p] = exc_wb_q.need_commit;
-      wb_valid[p] = exc_wb_q.valid_inst;
+      wb_commit[p] = exc_wb_q[p].need_commit;
+      wb_valid[p] = exc_wb_q[p].valid_inst;
     end
   end
   assign wb_w_id = pipeline_wdata_wb[0].w_flow.w_id;

@@ -55,7 +55,6 @@ module core_iaddr_trans#(
   else begin
     logic[31:0] paddr_q;
     logic dmw0_hit, dmw1_hit;
-    assign paddr_q[31:29] = '0;
     assign paddr_o = paddr_q;
     assign ready_o = 1'b1;
     logic uncached;
@@ -66,13 +65,16 @@ module core_iaddr_trans#(
         fetch_excp_o.adef <= (|vaddr_i[1:0]) || (!da_mode && !dmw0_hit && !dmw1_hit);
         uncached_o <= uncached;
       end
+      fetch_excp_o.tlbr <= '0;
+      fetch_excp_o.pif <= '0;
+      fetch_excp_o.ppi <= '0;
     end
     // assign fetch_excp_o.adef = ;
     assign dmw0_hit = ((dmw0_plv0 & plv0) || (dmw0_plv3 & plv3)) && dmw0_vseg == vaddr_i[31:29];
     assign dmw1_hit = ((dmw1_plv0 & plv0) || (dmw1_plv3 & plv3)) && dmw1_vseg == vaddr_i[31:29];
-    assign fetch_excp_o.tlbr = '0;
-    assign fetch_excp_o.pif = '0;
-    assign fetch_excp_o.ppi = '0;
+    // assign fetch_excp_o.tlbr = '0;
+    // assign fetch_excp_o.pif = '0;
+    // assign fetch_excp_o.ppi = '0;
     assign tlb_req_vppn = '0;
     assign tlb_req_valid_o = '0;
     always_comb begin

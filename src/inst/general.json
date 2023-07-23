@@ -47,7 +47,7 @@
         },
         "need_csr": {
             "length": 1,
-            "stage": "is",
+            "stage": "m1",
             "default_value": 0
         },
         "need_mul": {

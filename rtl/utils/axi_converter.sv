@@ -1,9 +1,6 @@
 `include "common.svh"
 `include "lsu.svh"
 
-
-`ifdef __AXI_CONVERTER_VER_1
-
 module axi_converter#(
     parameter int CACHE_PORT_NUM = 1
 )(
@@ -202,5 +199,3 @@ module axi_converter#(
 	end
 
 endmodule
-
-`endif
