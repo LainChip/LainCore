@@ -33,10 +33,6 @@ module core_lsu_pm #(
     output logic [31:0] m2_rdata_o,
     output logic m2_rvalid_o,  // 需要 fmt 的结果级
 
-    output logic [31:0] wb_rdata_o,
-    output logic wb_rvalid_o,
-
-
     output dram_manager_req_t dm_req_o,
     input dram_manager_resp_t dm_resp_i,
     input dram_manager_snoop_t dm_snoop_i
@@ -377,22 +373,9 @@ module core_lsu_pm #(
 
   // output logic [31:0] m2_rdata_o,
   // output logic m2_rvalid_o,  // 需要 fmt 的结果级
-
-  // output logic [31:0] wb_rdata_o,
-  // output logic wb_rvalid_o,
   always_comb begin
     m2_rdata_o = mkstrobe(mkrsft(m2_data_q,m2_vaddr_i), m2_strobe_i);
     m2_rvalid_o = !m2_busy_o && m2_valid_i && m2_op_i == `_DCAHE_OP_READ;
-  end
-
-  always_ff @(posedge clk) begin
-    if(!m2_stall_i) begin
-      wb_rdata_o <= m2_rdata_o;
-      wb_rvalid_o <= m2_rvalid_o;
-    end
-    else begin
-      wb_rvalid_o <= '0;
-    end
   end
 
 endmodule

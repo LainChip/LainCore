@@ -125,6 +125,11 @@ module core_frontend(
 
   logic paddr_ready;
   logic[31:0] m_ppc;
+
+  logic tlb_req_valid,tlb_req_ready; // TODO: CONNECT ME
+  tlb_s_resp_t tlb_resp;
+
+  logic uncached;
   core_iaddr_trans # (
                 .ENABLE_TLB(1'b0)
               )
@@ -139,12 +144,14 @@ module core_frontend(
                 .fetch_excp_o(m_excp),
                 .csr_i(frontend_resp_i.csr_reg),
                 .flush_i(flush_i),
+                .uncached_o(uncached),
                 .tlb_req_vppn(tlb_req_vppn),
-                .tlb_req_valid_o(),
-                .tlb_req_ready_i('0), // TODO: CONNECT ME
-                .tlb_resp_i('0)
+                .tlb_req_valid_o(tlb_req_valid),
+                .tlb_req_ready_i(tlb_req_ready), // TODO: CONNECT ME
+                .tlb_resp_i(tlb_resp)
               );
 
+  logic[31:0] ppc_nc;
   core_ifetch # (
            .ATTACHED_INFO_WIDTH($bits(bpu_predict_t))
          )
@@ -160,9 +167,9 @@ module core_frontend(
            .attached_i(f_predict),
            .ppc_i(m_ppc),
            .paddr_valid_i(paddr_ready),
-           .uncached_i(),
+           .uncached_i(uncached),
            .vpc_o(m_pc),
-           .ppc_o(),
+           .ppc_o(ppc_nc),
            .ready_i(mimo_ready),
            .valid_o(m_valid),
            .attached_o(m_predict),

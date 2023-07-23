@@ -3,1004 +3,1037 @@
 `include "lsu.svh"
 
 function fwd_data_t mkfwddata(pipeline_wdata_t in);
-  mkfwddata.valid = in.w_flow.w_valid;
-  mkfwddata.id = in.w_flow.w_id;
-  mkfwddata.data = in.w_data;
+mkfwddata.valid = in.w_flow.w_valid;
+mkfwddata.id = in.w_flow.w_id;
+mkfwddata.data = in.w_data;
 endfunction
 
-function logic[25:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
-  case (addr_imm_type)
-    default:/*`_ADDR_IMM_S12:*/
-    begin
-      mkimm_addr = {{14{raw_imm[11]}},raw_imm[11:0]};
-    end
-    `_ADDR_IMM_S14: begin
-      mkimm_addr = {{12{raw_imm[13]}},raw_imm[13:0]};
-    end
-    `_ADDR_IMM_S16: begin
-      mkimm_addr = {{10{raw_imm[15]}},raw_imm[15:0]};
-    end
-    `_ADDR_IMM_S26: begin
-      mkimm_addr = raw_imm;
-    end
-  endcase
-endfunction
-
-function logic[31:0] mkimm_data(logic[2:0] data_imm_type, logic[25:0] raw_imm);
-  // !!! CAUTIOUS !!! : DOESN'T SUPPORT IMM U16 | IMM S21 FOR NOW
-  case(data_imm_type[1:0])
-    default/*IMM U5*/: begin
-      mkimm_data = {27'd0, raw_imm[15:10]};
-    end
-    `_IMM_U12: begin
-      mkimm_data = {20'd0, raw_imm[21:10]};
-    end
-    `_IMM_S12: begin
-      mkimm_data = {{20{raw_imm[21]}}, raw_imm[21:10]};
-    end
-    `_IMM_S20: begin
-      mkimm_data = {{12{raw_imm[24]}}, raw_imm[24:5]};
-    end
-  endcase
-endfunction
-
-module core_backend(
-    input logic clk,
-    input logic rst_n,
-
-    input logic[7:0] int_i, // 中断输入
-
-    input frontend_req_t frontend_req_i,
-    output frontend_resp_t frontend_resp_o,
-
-    input cache_bus_resp_t bus_resp_i,
-    output cache_bus_req_t bus_req_o
-  );
-
-  /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
-  // TODO: PIPELINE ME
-  pipeline_ctrl_ex_t[1:0] pipeline_ctrl_is,pipeline_ctrl_skid_q,
-                    pipeline_ctrl_ex,pipeline_ctrl_ex_q;
-  pipeline_ctrl_m1_t[1:0] pipeline_ctrl_m1,pipeline_ctrl_m1_q;
-  pipeline_ctrl_m2_t[1:0] pipeline_ctrl_m2,pipeline_ctrl_m2_q;
-  pipeline_ctrl_wb_t[1:0] pipeline_ctrl_wb,pipeline_ctrl_wb_q;
-
-  pipeline_data_t [1:0] pipeline_data_is,pipeline_data_is_fwd,
-                  pipeline_data_skid_q,pipeline_data_skid_fwd,
-                  pipeline_data_ex_q,pipeline_data_ex_fwd,
-                  pipeline_data_m1_q,pipeline_data_m1_fwd,
-                  pipeline_data_m2_q,pipeline_data_m2_fwd,
-                  pipeline_data_wb_q;
-  // TODO: PIPELINE ME
-  pipeline_wdata_t [1:0] pipeline_wdata_ex,
-                   pipeline_wdata_m1_q,pipeline_wdata_m1,
-                   pipeline_wdata_m2_q,pipeline_wdata_m2,
-                   pipeline_wdata_wb;
-
-  fwd_data_t [1:0] fwd_data_ex,fwd_data_m1,fwd_data_m2,fwd_data_wb;
-
-  // TODO: PIPELINE ME
-  exc_flow_t [1:0] exc_is,exc_skid_q,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
-
-  logic ex_stall;
-  logic m1_stall;
-  logic m2_stall;
-  logic wb_stall;
-
-  logic[1:0] ex_stall_req;
-  logic[1:0] m1_stall_req;
-  logic[1:0] m2_stall_req;
-  logic[1:0] wb_stall_req;
-  logic[1:0] lsu_stall_req;
-
-  // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
-  logic m1_refetch;
-  logic [1:0][31:0]m1_jump_target_req;
-  logic [1:0]m1_invalidate, m1_invalidate_req;
-  logic ex_invalidate;
-
-  logic is_skid_q;
-  // 读取寄存器堆，或者生成立即数
-  logic[1:0][1:0][4:0] is_r_addr;
-  logic[1:0][1:0][31:0] is_r_data;
-  logic[1:0][1:0] is_r_ready;
-  logic[1:0][1:0][3:0] is_r_id;
-  logic[1:0][4:0] is_w_addr;
-  logic[2:0] is_w_id;
-
-  logic[1:0][4:0] wb_w_addr;
-  logic[1:0][31:0] wb_w_data;
-  logic[2:0] wb_w_id;
-  logic[1:0] wb_valid;
-  logic[1:0] wb_commit;
-  // 流水线处理，不可复位部分
-  always_ff @(posedge clk) begin
-    if(!ex_stall) begin
-      pipeline_ctrl_ex_q <= pipeline_ctrl_ex;
-    end
-  end
-  always_ff @(posedge clk) begin
-    if(!m1_stall) begin
-      pipeline_ctrl_m1_q <= pipeline_ctrl_m1;
-      pipeline_wdata_m1_q <= pipeline_wdata_m1;
-    end
-  end
-  always_ff @(posedge clk) begin
-    if(!m2_stall) begin
-      pipeline_ctrl_m2_q <= pipeline_ctrl_m2;
-      pipeline_wdata_m2_q <= pipeline_wdata_m2;
-    end
-  end
-
-  // 流水线处理, TODO: 可复位部分
-  for(genvar p = 0 ; p < 2 ;p ++) begin
-    always_ff @(posedge clk) begin
-      if(~rst_n) begin
-        exc_ex_q[p] <= '0;
-      end
-      else begin
-        if(!ex_stall) begin
-          exc_ex_q[p] <= is_skid_q ? exc_skid_q : exc_is;
+  function logic[25:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
+    case (addr_imm_type)
+      default : /*`_ADDR_IMM_S12:*/
+        begin
+          mkimm_addr = {{14{raw_imm[11]}},raw_imm[11:0]};
         end
+      `_ADDR_IMM_S14 : begin
+        mkimm_addr = {{12{raw_imm[13]}},raw_imm[13:0]};
+      end
+      `_ADDR_IMM_S16 : begin
+        mkimm_addr = {{10{raw_imm[15]}},raw_imm[15:0]};
+      end
+      `_ADDR_IMM_S26 : begin
+        mkimm_addr = raw_imm;
+      end
+    endcase
+  endfunction
+
+  function logic[31:0] mkimm_data(logic[2:0] data_imm_type, logic[25:0] raw_imm);
+    // !!! CAUTIOUS !!! : DOESN'T SUPPORT IMM U16 | IMM S21 FOR NOW
+    case(data_imm_type[1:0])
+      default/*IMM U5*/: begin
+        mkimm_data = {27'd0, raw_imm[15:10]};
+      end
+      `_IMM_U12 : begin
+        mkimm_data = {20'd0, raw_imm[21:10]};
+      end
+      `_IMM_S12 : begin
+        mkimm_data = {{20{raw_imm[21]}}, raw_imm[21:10]};
+      end
+      `_IMM_S20 : begin
+        mkimm_data = {{12{raw_imm[24]}}, raw_imm[24:5]};
+      end
+    endcase
+  endfunction
+
+module core_backend (
+  input  logic            clk            ,
+  input  logic            rst_n          ,
+  input  logic [7:0]      int_i          , // 中断输入
+  input  frontend_req_t   frontend_req_i ,
+  output frontend_resp_t  frontend_resp_o,
+  input  cache_bus_resp_t bus_resp_i     ,
+  output cache_bus_req_t  bus_req_o
+);
+
+    /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
+    // TODO: PIPELINE ME
+    pipeline_ctrl_ex_t[1:0] pipeline_ctrl_is,pipeline_ctrl_skid_q,
+      pipeline_ctrl_ex,pipeline_ctrl_ex_q;
+    pipeline_ctrl_m1_t[1:0] pipeline_ctrl_m1,pipeline_ctrl_m1_q;
+    pipeline_ctrl_m2_t[1:0] pipeline_ctrl_m2,pipeline_ctrl_m2_q;
+    pipeline_ctrl_wb_t[1:0] pipeline_ctrl_wb,pipeline_ctrl_wb_q;
+
+    pipeline_data_t [1:0] pipeline_data_is,pipeline_data_is_fwd,
+      pipeline_data_skid_q,pipeline_data_skid_fwd,
+        pipeline_data_ex_q,pipeline_data_ex_fwd,
+          pipeline_data_m1_q,pipeline_data_m1_fwd,
+            pipeline_data_m2_q,pipeline_data_m2_fwd,
+              pipeline_data_wb_q;
+    // TODO: PIPELINE ME
+    pipeline_wdata_t [1:0] pipeline_wdata_ex,
+      pipeline_wdata_m1_q,pipeline_wdata_m1,
+        pipeline_wdata_m2_q,pipeline_wdata_m2,
+          pipeline_wdata_wb;
+
+    fwd_data_t [1:0] fwd_data_ex,fwd_data_m1,fwd_data_m2,fwd_data_wb;
+
+    // TODO: PIPELINE ME
+    exc_flow_t [1:0] exc_is,exc_skid_q,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
+
+    logic ex_stall;
+    logic m1_stall;
+    logic m2_stall;
+    logic wb_stall;
+
+    logic[1:0] ex_stall_req;
+    logic[1:0] m1_stall_req;
+    logic[1:0] m2_stall_req;
+    logic[1:0] wb_stall_req;
+    logic[1:0] lsu_stall_req;
+
+    // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
+    logic             m1_refetch        ;
+    logic [1:0][31:0] m1_jump_target_req;
+    logic [1:0]       m1_invalidate, m1_invalidate_req;
+    logic             ex_invalidate     ;
+
+    logic is_skid_q;
+    // 读取寄存器堆，或者生成立即数
+    logic[1:0][1:0][4:0] is_r_addr;
+    logic[1:0][1:0][31:0] is_r_data;
+    logic[1:0][1:0] is_r_ready;
+    logic[1:0][1:0][3:0] is_r_id;
+    logic[1:0][4:0] is_w_addr;
+    logic[2:0] is_w_id;
+
+    logic[1:0][4:0] wb_w_addr;
+    logic[1:0][31:0] wb_w_data;
+    logic[2:0] wb_w_id;
+    logic[1:0] wb_valid;
+    logic[1:0] wb_commit;
+    // 流水线处理，不可复位部分
+    always_ff @(posedge clk) begin
+      if(!ex_stall) begin
+        pipeline_ctrl_ex_q <= pipeline_ctrl_ex;
+      end
+    end
+    always_ff @(posedge clk) begin
+      if(!m1_stall) begin
+        pipeline_ctrl_m1_q  <= pipeline_ctrl_m1;
+        pipeline_wdata_m1_q <= pipeline_wdata_m1;
+      end
+    end
+    always_ff @(posedge clk) begin
+      if(!m2_stall) begin
+        pipeline_ctrl_m2_q  <= pipeline_ctrl_m2;
+        pipeline_wdata_m2_q <= pipeline_wdata_m2;
       end
     end
 
-    always_ff @(posedge clk) begin
-      if(~rst_n) begin
-        exc_m1_q[p] <= '0;
-      end
-      else begin
-        if(!m1_stall) begin
-          exc_m1_q[p].valid_inst <= exc_ex_q[p].valid_inst;
-          if(ex_invalidate) begin
-            exc_m1_q[p].need_commit <= '0;
-          end
-          else begin
-            exc_m1_q[p].need_commit <= exc_ex_q[p].need_commit;
+    // 流水线处理, TODO: 可复位部分
+    for(genvar p = 0 ; p < 2 ;p ++) begin
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_ex_q[p] <= '0;
+        end
+        else begin
+          if(!ex_stall) begin
+            exc_ex_q[p] <= is_skid_q ? exc_skid_q : exc_is;
           end
         end
       end
-    end
 
-    always_ff @(posedge clk) begin
-      if(~rst_n) begin
-        exc_m2_q[p] <= '0;
-      end
-      else begin
-        if(!m2_stall) begin
-          exc_m2_q[p].valid_inst <= exc_m1_q[p].valid_inst;
-          if(m1_invalidate[p]) begin
-            exc_m2_q[p].need_commit <= '0;
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_m1_q[p] <= '0;
+        end
+        else begin
+          if(!m1_stall) begin
+            exc_m1_q[p].valid_inst <= exc_ex_q[p].valid_inst;
+            if(ex_invalidate) begin
+              exc_m1_q[p].need_commit <= '0;
+            end
+            else begin
+              exc_m1_q[p].need_commit <= exc_ex_q[p].need_commit;
+            end
           end
-          else begin
+        end
+      end
+
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_m2_q[p] <= '0;
+        end
+        else begin
+          if(!m2_stall) begin
+            exc_m2_q[p].valid_inst <= exc_m1_q[p].valid_inst;
+            if(m1_invalidate[p]) begin
+              exc_m2_q[p].need_commit <= '0;
+            end
+            else begin
+              exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
+            end
+          end
+        end
+      end
+
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_wb_q[p] <= '0;
+        end
+        else begin
+          if(!wb_stall) begin
+            exc_wb_q[p].valid_inst <= exc_m2_q[p].valid_inst;
             exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
           end
         end
       end
     end
+    // STALL MANAGER
+    // 后续级可以阻塞前级
+    // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
+    logic[1:0] m1_lsu_busy,m2_lsu_busy;
+    always_comb begin
+      ex_stall = |ex_stall_req | |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
+      m1_stall = |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
+      m2_stall = |m2_stall_req | |wb_stall_req | |m2_lsu_busy;
+      wb_stall = |wb_stall_req;
+    end
 
+    // M2 级的跳转寄存器设计位 : TODO CONNECT ME
+
+    logic[31:0] m2_jump_target_q;
+    bpu_correct_t[1:0] m1_bpu_feedback_req;
+    bpu_correct_t m2_bpu_feedback_q;
+    logic         m2_jump_valid_q  ;
     always_ff @(posedge clk) begin
-      if(~rst_n) begin
-        exc_wb_q[p] <= '0;
+      m2_jump_valid_q   <= |m1_invalidate_req | m1_refetch;
+      m2_jump_target_q  <= (m1_invalidate_req[1]) ? m1_jump_target_req[1] : m1_jump_target_req[0];
+      m2_bpu_feedback_q <= (m1_invalidate_req[1]) ? m1_bpu_feedback_req[1] : m1_bpu_feedback_req[0];
+    end
+
+
+    // INVALIDATE MANAGER
+    always_comb begin
+      ex_invalidate    = |m1_invalidate_req | m1_refetch;
+      m1_invalidate[0] = m1_invalidate_req[0];
+      m1_invalidate[1] = m1_invalidate_req[0] | m1_invalidate_req[1];
+    end
+
+    // forwarding manager
+    /* 所有级流水的前递模块在这里实例化*/
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      core_fwd_unit #(2) is_fwd(
+        {fwd_data_wb, fwd_data_ex},
+        pipeline_data_is[p],
+        pipeline_data_is_fwd[p]
+      );
+    core_fwd_unit #(2) is_skid_fwd (
+      {fwd_data_wb, fwd_data_ex},
+      pipeline_data_skid_q[p],
+      pipeline_data_skid_fwd[p]
+    );
+    core_fwd_unit #(3) ex_fwd (
+      {fwd_data_wb, fwd_data_m2, fwd_data_m1},
+      pipeline_data_ex_q[p],
+      pipeline_data_ex_fwd[p]
+    );
+      always_ff@(posedge clk) begin
+        if(ex_stall) begin
+          pipeline_data_ex_q[p] <= pipeline_data_ex_fwd[p];
+        end
+        else begin
+          pipeline_data_ex_q[p] <= is_skid_q?pipeline_data_skid_fwd[p] : pipeline_data_is_fwd[p];
+        end
       end
-      else begin
-        if(!wb_stall) begin
-          exc_wb_q[p].valid_inst <= exc_m2_q[p].valid_inst;
-          exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
+      core_fwd_unit #(2) m1_fwd(
+        {fwd_data_wb, fwd_data_m2},
+        pipeline_data_m1_q[p],
+        pipeline_data_m1_fwd[p]
+      );
+      always_ff@(posedge clk) begin
+        if(m1_stall) begin
+          pipeline_data_m1_q[p] <= pipeline_data_m1_fwd[p];
+        end
+        else begin
+          pipeline_data_m1_q[p] <= pipeline_data_ex_fwd[p];
+        end
+      end
+      core_fwd_unit #(1) m2_fwd(
+        {fwd_data_wb},
+        pipeline_data_m2_q[p],
+        pipeline_data_m2_fwd[p]
+      );
+      always_ff@(posedge clk) begin
+        if(m1_stall) begin
+          pipeline_data_m2_q[p] <= pipeline_data_m2_fwd[p];
+        end
+        else begin
+          pipeline_data_m2_q[p] <= pipeline_data_m1_fwd[p];
         end
       end
     end
-  end
-  // STALL MANAGER
-  // 后续级可以阻塞前级
-  // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
-  logic[1:0] m1_lsu_busy,m2_lsu_busy;
-  always_comb begin
-    ex_stall = |ex_stall_req | |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
-    m1_stall = |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
-    m2_stall = |m2_stall_req | |wb_stall_req | |m2_lsu_busy;
-    wb_stall = |wb_stall_req;
-  end
 
-  // M2 级的跳转寄存器设计位 : TODO CONNECT ME
+    // DM 模块实例化
+    dram_manager_req_t[1:0] dm_req;
+    dram_manager_resp_t[1:0] dm_resp;
+    dram_manager_snoop_t dm_snoop;
+  core_lsu_dm #(
+    .PIPE_MANAGE_NUM(2),
+    .BANK_NUM       (2),
+    .WAY_CNT        (1),
+    .SLEEP_CNT      (4)
+  ) lsu_dm_inst (
+    .clk       (clk       ),
+    .rst_n     (rst_n     ),
+    .dm_req_i  (dm_req    ),
+    .dm_resp_o (dm_resp   ),
+    .dm_snoop_i(dm_snoop  ),
+    .bus_req_o (bus_req_o ),
+    .bus_resp_i(bus_resp_i),
+    .bus_busy_o(bus_busy_o)
+  );
+    // LSU 端口实例化
+    logic[1:0] ex_mem_read,m1_mem_read,m2_mem_valid,m1_mem_uncached,m2_mem_uncached;
+    logic[1:0][1:0] m2_mem_size;
+    logic[1:0][31:0] ex_mem_vaddr,m1_mem_vaddr,m1_mem_paddr,m2_mem_vaddr,m2_mem_paddr;
+    logic[1:0][3:0] m1_mem_strobe, m2_mem_strobe;
 
-  logic[31:0] m2_jump_target_q;
-  bpu_correct_t[1:0] m1_bpu_feedback_req;
-  bpu_correct_t m2_bpu_feedback_q;
-  logic m2_jump_valid_q;
-  always_ff @(posedge clk) begin
-    m2_jump_valid_q <= |m1_invalidate_req | m1_refetch;
-    m2_jump_target_q <= (m1_invalidate_req[1]) ? m1_jump_target_req[1] : m1_jump_target_req[0];
-    m2_bpu_feedback_q <= (m1_invalidate_req[1]) ? m1_bpu_feedback_req[1] : m1_bpu_feedback_req[0];
-  end
-
-
-  // INVALIDATE MANAGER
-  always_comb begin
-    ex_invalidate = |m1_invalidate_req | m1_refetch;
-    m1_invalidate[0] = m1_invalidate_req[0];
-    m1_invalidate[1] = m1_invalidate_req[0] | m1_invalidate_req[1];
-  end
-
-  // forwarding manager
-  /* 所有级流水的前递模块在这里实例化*/
-  for(genvar p = 0 ; p < 2 ; p++) begin
-    core_fwd_unit #(2) is_fwd(
-                   {fwd_data_wb, fwd_data_ex},
-                   pipeline_data_is[p],
-                   pipeline_data_is_fwd[p]
-                 );
-    core_fwd_unit #(2) is_skid_fwd(
-                   {fwd_data_wb, fwd_data_ex},
-                   pipeline_data_skid_q[p],
-                   pipeline_data_skid_fwd[p]
-                 );
-    core_fwd_unit #(3) ex_fwd(
-                   {fwd_data_wb, fwd_data_m2, fwd_data_m1},
-                   pipeline_data_ex_q[p],
-                   pipeline_data_ex_fwd[p]
-                 );
-    always_ff@(posedge clk) begin
-      if(ex_stall) begin
-        pipeline_data_ex_q[p] <= pipeline_data_ex_fwd[p];
-      end
-      else begin
-        pipeline_data_ex_q[p] <= is_skid_q ? pipeline_data_skid_fwd[p]: pipeline_data_is_fwd[p];
-      end
+    logic[1:0] m1_mem_rvalid,m2_mem_rvalid;
+    logic[1:0][31:0] m1_mem_rdata,m2_mem_rdata;
+    logic[1:0][31:0] m2_mem_wdata;
+    logic[1:0][2:0] m2_mem_op;
+    for(genvar p = 0 ; p < 2 ; p ++) begin
+      core_lsu_pm # (
+        .WAY_CNT(1)
+      )
+      lsu_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .ex_vaddr_i(ex_mem_vaddr[p]),
+        .ex_read_i(ex_mem_read[p]),
+        .m1_vaddr_i(m1_mem_vaddr[p]),
+        .m1_paddr_i(m1_mem_paddr[p]),
+        .m1_strobe_i(m1_mem_strobe[p]),
+        .m1_read_i(m1_mem_read[p]),
+        .m1_uncached_i(m1_mem_uncached[p]),
+        .m1_busy_o(m1_lsu_busy[p]),
+        .m1_stall_i(m1_stall),
+        .m1_rdata_o(m1_mem_rdata[p]),
+        .m1_rvalid_o(m1_mem_rvalid[p]),
+        .m2_vaddr_i(m2_mem_vaddr[p]),
+        .m2_paddr_i(m2_mem_paddr[p]),
+        .m2_wdata_i(m2_mem_wdata[p]),
+        .m2_strobe_i(m2_mem_strobe[p]),
+        .m2_valid_i(m2_mem_valid[p]),
+        .m2_uncached_i(m2_mem_uncached[p]),
+        .m2_size_i(m2_mem_size[p]),
+        .m2_busy_o(m2_lsu_busy[p]),
+        .m2_stall_i(m2_stall),
+        .m2_op_i(m2_mem_op[p]),
+        .m2_rdata_o(m2_mem_rdata[p]),
+        .m2_rvalid_o(m2_mem_rvalid[p]),
+        .dm_req_o(dm_req[p]),
+        .dm_resp_i(dm_resp[p]),
+        .dm_snoop_i(dm_snoop)
+      );
     end
-    core_fwd_unit #(2) m1_fwd(
-                   {fwd_data_wb, fwd_data_m2},
-                   pipeline_data_m1_q[p],
-                   pipeline_data_m1_fwd[p]
-                 );
-    always_ff@(posedge clk) begin
-      if(m1_stall) begin
-        pipeline_data_m1_q[p] <= pipeline_data_m1_fwd[p];
-      end
-      else begin
-        pipeline_data_m1_q[p] <= pipeline_data_ex_fwd[p];
-      end
+    // TODO: DTLB L0 HERE
+    for(genvar p = 0 ; p < 2 ; p++) begin
+
     end
-    core_fwd_unit #(1) m2_fwd(
-                   {fwd_data_wb},
-                   pipeline_data_m2_q[p],
-                   pipeline_data_m2_fwd[p]
-                 );
-    always_ff@(posedge clk) begin
-      if(m1_stall) begin
-        pipeline_data_m2_q[p] <= pipeline_data_m2_fwd[p];
-      end
-      else begin
-        pipeline_data_m2_q[p] <= pipeline_data_m1_fwd[p];
-      end
-    end
-  end
-
-  // DM 模块实例化
-  dram_manager_req_t[1:0] dm_req;
-  dram_manager_resp_t[1:0] dm_resp;
-  dram_manager_snoop_t dm_snoop;
-  core_lsu_dm # (
-           .PIPE_MANAGE_NUM(2),
-           .BANK_NUM(2),
-           .WAY_CNT(1),
-           .SLEEP_CNT(4)
-         )
-         lsu_dm_inst (
-           .clk(clk),
-           .rst_n(rst_n),
-           .dm_req_i(dm_req),
-           .dm_resp_o(dm_resp),
-           .dm_snoop_i(dm_snoop),
-           .bus_req_o(bus_req_o),
-           .bus_resp_i(bus_resp_i),
-           .bus_busy_o(bus_busy_o)
-         );
-  // LSU 端口实例化
-  logic[1:0] ex_mem_read,m1_mem_read,m2_mem_valid,m1_mem_uncached,m2_mem_uncached;
-  logic[1:0][1:0] m2_mem_size;
-  logic[1:0][31:0] ex_mem_vaddr,m1_mem_vaddr,m1_mem_paddr,m2_mem_vaddr,m2_mem_paddr;
-  logic[1:0][3:0] m1_mem_strobe, m2_mem_strobe;
-
-  logic[1:0] m1_mem_rvalid,m2_mem_rvalid;
-  logic[1:0][31:0] m1_mem_rdata,m2_mem_rdata;
-  logic[1:0][31:0] m2_mem_wdata;
-  logic[1:0][2:0] m2_mem_op;
-  for(genvar p = 0 ; p < 2 ; p ++) begin
-    core_lsu_pm # (
-          .WAY_CNT(1)
-        )
-        lsu_inst (
-          .clk(clk),
-          .rst_n(rst_n),
-          .ex_vaddr_i(ex_mem_vaddr[p]),
-          .ex_read_i(ex_mem_read[p]),
-          .m1_vaddr_i(m1_mem_vaddr[p]),
-          .m1_paddr_i(m1_mem_paddr[p]),
-          .m1_strobe_i(m1_mem_strobe[p]),
-          .m1_read_i(m1_mem_read[p]),
-          .m1_uncached_i(m1_mem_uncached[p]),
-          .m1_busy_o(m1_lsu_busy[p]),
-          .m1_stall_i(m1_stall),
-          .m1_rdata_o(m1_mem_rdata[p]),
-          .m1_rvalid_o(m1_mem_rvalid[p]),
-          .m2_vaddr_i(m2_mem_vaddr[p]),
-          .m2_paddr_i(m2_mem_paddr[p]),
-          .m2_wdata_i(m2_mem_wdata[p]),
-          .m2_strobe_i(m2_mem_strobe[p]),
-          .m2_valid_i(m2_mem_valid[p]),
-          .m2_uncached_i(m2_mem_uncached[p]),
-          .m2_size_i(m2_mem_size[p]),
-          .m2_busy_o(m2_lsu_busy[p]),
-          .m2_stall_i(m2_stall),
-          .m2_op_i(m2_mem_op[p]),
-          .m2_rdata_o(m2_mem_rdata[p]),
-          .m2_rvalid_o(m2_mem_rvalid[p]),
-          .dm_req_o(dm_req[p]),
-          .dm_resp_i(dm_resp[p]),
-          .dm_snoop_i(dm_snoop)
-        );
-  end
-  // TODO: DTLB L0 HERE
-  for(genvar p = 0 ; p < 2 ; p++) begin
-
-  end
-  // MUL 端口实例化
-  logic[1:0] mul_req;
-  logic[1:0][1:0] mul_op_req;
-  logic[1:0][31:0] mul_r0_req,mul_r1_req;
-  logic[1:0] mul_op;
-  logic[31:0] mul_r0,mul_r1,mul_result;
-  always_comb begin
-    mul_op = mul_req[0] ? mul_op_req[0] : mul_op_req[1];
-    mul_r0 = mul_req[0] ? mul_r0_req[0] : mul_r0_req[1];
-    mul_r1 = mul_req[0] ? mul_r1_req[0] : mul_r1_req[1];
-  end
-  muler_32x32 mul_i(
-                .clk(clk),
-                .rst_n(rst_n),
-                .op_i(mul_op),
-
-                .ex_stall_i(ex_stall),
-                .m1_stall_i(m1_stall),
-                .m2_stall_i(m2_stall),
-
-                .r0_i(mul_r0),
-                .r1_i(mul_r1),
-
-                .result_o(mul_result)
-              );
-
-  // 除法器例化 TODO: FIXME
-  logic[1:0] div_req;
-  logic[1:0][1:0] div_op_req;
-  logic[1:0][1:0][31:0] div_input_req;
-  logic div_valid;
-  logic div_ready;
-  logic[1:0] div_op;
-  logic[2:0] div_push_id; // EX
-  logic[2:0] div_pop_id;  // M2
-  logic[1:0][31:0] div_input;
-
-  logic[1:0] div_request_req;
-  logic div_request;
-  logic div_request_ready;
-  logic[31:0] div_result;
-  logic div_result_valid;
-  always_comb begin
-    div_valid = |div_req;
-    div_input = div_req[0] ? div_input_req[0] : div_input_req[1];
-    div_op = div_req[0] ? div_op_req[0] : div_op_req[1];
-    div_request = |div_request_req;
-  end
-  core_divider_manager  core_divider_manager_inst (
-                          .clk(clk),
-                          .rst_n(rst_n),
-                          .r0_i(div_input[0]),
-                          .r1_i(div_input[1]),
-                          .op_i(div_op),
-                          .push_valid_i(div_valid),
-                          .push_ready_o(div_ready),
-                          .push_id_i(div_push_id),
-                          .wb_stall_i(wb_stall),
-                          .pop_id_i(div_pop_id),
-                          .result_valid_o(div_request_ready),
-                          .result_o(result_o)
-                        );
-
-
-  // TODO: CONNECT CSR
-  // CSR 接入 (M1)
-  logic[13:0] csr_r_addr;
-  logic csr_rdcnt;
-
-  // CSR 接入 (M2)
-  logic[1:0] csr_excp_req;
-  logic[1:0] m2_valid_req;
-  logic[1:0] m2_commit_req;
-  logic[1:0][31:0] m2_badv_req;
-  excp_flow_t [1:0] m2_excp_req;
-  logic csr_we;
-  logic csr_valid,csr_commit;
-  logic[31:0] csr_badv;
-  excp_flow_t csr_excp;
-  logic[13:0] csr_w_addr;
-  logic[31:0] csr_r_data,csr_w_data,csr_w_mask;
-  always_comb begin
-    csr_valid = (csr_we | csr_excp_req[0]) ? m2_valid_req[0] : m2_valid_req[1];
-    csr_commit = (csr_we | csr_excp_req[0]) ? m2_commit_req[0] : m2_commit_req[1];
-    csr_badv = csr_excp_req[0] ? m2_badv_req[0] : m2_badv_req[1];
-    csr_excp = csr_excp_req[0] ? m2_excp_req[0] : m2_excp_req[1];
-  end
-
-  // TLB REQ 接入
-  tlb_op_t tlb_op; // ONE HOT ENCODING OF TLBSRCH | TLBRD | TLBWR | TLBFILL | INVTLB
-
-  // CACHE | MMU opcode 接入
-  logic[4:0] ctlb_opcode;
-
-  // CSR output
-  csr_t csr_value;
-
-  core_csr core_csr_inst (
-             .clk(clk),
-             .rst_n(rst_n),
-             .excp_i(csr_excp),
-             .valid_i(csr_valid),
-             .commit_i(csr_commit),
-             .m2_stall_i(m2_stall),
-             .csr_r_addr_i(csr_r_addr),
-             .rdcnt_i(csr_rdcnt),
-             .csr_we_i(csr_we),
-             .csr_w_addr_i(csr_w_addr),
-             .csr_w_mask_i(csr_w_mask),
-             .csr_w_data_i(csr_w_data),
-             .badv_i(csr_badv),
-             .tlb_op_i(tlb_op),
-             .tlb_srch_i(/*TODO*/),
-             .tlb_entry_i(/*TODO*/),
-             .llbit_set_i(/*TODO*/),
-             .llbit_i(/*TODO*/),
-             .csr_r_data_o(csr_r_data),
-             .csr_o(csr_value)
-           );
-
-  /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
-
-  /* ------ ------ ------ ------ ------ IS 级 ------ ------ ------ ------ ------ */
-  // ISSUE 级别：
-  // 判定来自前段的指令能否发射
-  logic is_ready;
-  logic ex_skid_ready_q,ex_skid_valid;
-  logic [1:0] issue;
-  inst_t[1:0] is_inst_pack;
-  assign is_inst_pack = frontend_req_i.inst;
-  issue issue_inst (
-          .clk(clk),
-          .rst_n(rst_n),
-          .inst_i(is_inst_pack),
-          .d_valid_i(frontend_req_i.inst_valid & {is_ready,is_ready}),
-          .ex_ready_i(ex_skid_ready_q),
-          .ex_valid_o(ex_skid_valid),
-          .is_o(issue)
-        );
-  assign frontend_resp_o.issue = issue;
-
-  reg_file # (
-             .DATA_WIDTH(32)
-           )
-           reg_file_inst (
-             .clk(clk),
-             .rst_n(rst_n),
-             .r_addr_i(is_r_addr),
-             .r_data_o(is_r_data),
-             .w_addr_i(wb_w_addr),
-             .w_data_i(wb_w_data),
-             .w_en_i(wb_valid & wb_commit)
-           );
-
-  // 读取 scoreboard，判断寄存器值是否有效
-  scoreboard  scoreboard_inst (
-                .clk(clk),
-                .rst_n(rst_n),
-                .invalidate_i(),
-                .issue_ready_o(is_ready),
-                .is_r_addr_i(is_r_addr),
-                .is_r_id_o(is_r_id),
-                .is_r_valid_o(is_r_ready),
-                .is_w_addr_i(is_w_addr),
-                .is_i(issue),
-                .is_w_id_o(is_w_id),
-                .wb_w_addr_i(wb_w_addr),
-                .wb_w_id_i(wb_w_id),
-                .wb_valid_i(wb_valid)
-              );
-
-  // 产生 EX 级的流水线信号 x 2
-  logic ex_ready, ex_valid;
-  // IS 数据前递部分（EX、WB），输入是 pipeline_ctrl_is ，输出 pipeline_ctrl_is_fwd 不完全。
-
-  /* SKID BUF */
-  // SKID 数据前递部分（EX、WB） 不完全。
-  // 输入是 pipeline_ctrl_skid_q，输出 pipeline_ctrl_skid_fwd
-  // SKID BUF 对于 scoreboard 来说应该是透明的，使用 valid-ready 握手
-  // assign ex_skid_ready_q = ~is_skid_q;
-  always_ff @(posedge clk) begin
-    if(~rst_n || ex_invalidate) begin
-      is_skid_q <= '0;
-      ex_skid_ready_q <= '1;
-    end
-    else begin
-      if(is_skid_q) begin
-        if(ex_ready) begin
-          is_skid_q <= '0;
-          ex_skid_ready_q <= '1;
-        end
-        pipeline_data_skid_q <= pipeline_data_skid_fwd;
-      end
-      else begin
-        if(ex_skid_valid & ~ex_ready) begin
-          is_skid_q <= '1;
-          ex_skid_ready_q <= '0;
-        end
-        pipeline_data_skid_q <= pipeline_data_is_fwd;
-      end
-    end
-  end
-  always_ff @(posedge clk) begin
-    if(!is_skid_q) begin
-      pipeline_ctrl_skid_q <= pipeline_ctrl_is;
-      exc_skid_q <= exc_is;
-    end
-  end
-  /* SKID BUF 结束*/
-  // 流水线间信息传递: TODO
-  always_comb begin
-    pipeline_ctrl_ex = is_skid_q ? pipeline_ctrl_skid_q : pipeline_ctrl_is;
-  end
-  for(genvar p = 0 ; p < 2 ; p++) begin
-    // 产生 pipeline_ctrl_is 用于控制流水线
+    // MUL 端口实例化
+    logic[1:0] mul_req;
+    logic[1:0][1:0] mul_op_req;
+    logic[1:0][31:0] mul_r0_req,mul_r1_req;
+    logic[1:0] mul_op;
+    logic[31:0] mul_r0,mul_r1,mul_result;
     always_comb begin
-      pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
-      pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
-      ;
-      pipeline_ctrl_is[p].w_id = is_w_id;
-      pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
-      pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
-      pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].decode_info.addr_imm_type, is_inst_pack[p].imm_domain);
-      exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
-      exc_is[p].need_commit = frontend_req_i.inst_valid[p];
-      pipeline_data_is[p].r_data[0] = is_inst_pack[p].decode_info.reg_type_r0 == `_REG_R0_IMM ?
-                      mkimm_data(is_inst_pack[p].decode_info.imm_type,
-                                 is_inst_pack[p].imm_domain) :
-                      is_r_data[p][0];
-      pipeline_data_is[p].r_data[1] = is_r_data[p][1];
-      pipeline_data_is[p].r_flow.r_addr[0] = is_r_addr[p][0];
-      pipeline_data_is[p].r_flow.r_addr[1] = is_r_addr[p][1];
-      pipeline_data_is[p].r_flow.r_id[0] = is_r_id[p][0];
-      pipeline_data_is[p].r_flow.r_id[1] = is_r_id[p][1];
-      pipeline_data_is[p].r_flow.r_ready[0] = is_r_ready[p][0];
-      pipeline_data_is[p].r_flow.r_ready[1] = is_r_ready[p][1];
+      mul_op = mul_req[0] ? mul_op_req[0] : mul_op_req[1];
+      mul_r0 = mul_req[0] ? mul_r0_req[0] : mul_r0_req[1];
+      mul_r1 = mul_req[0] ? mul_r1_req[0] : mul_r1_req[1];
     end
-  end
-  /* ------ ------ ------ ------ ------ EX 级 ------ ------ ------ ------ ------ */
-  for(genvar p = 0 ; p < 2 ; p++) begin
-    // EX 级别
-    // EX 的 FU 部分，接入 ALU、乘法器、除法队列 pusher（Optional）
-    logic[31:0] alu_result;
-    logic[31:0] jump_target;
-    logic[31:0] vaddr, rel_target;
-    ex_t decode_info;
-    assign decode_info = pipeline_ctrl_ex_q[p].decode_info;
-    core_detachable_alu #(
-                     .USE_LI(1),
-                     .USE_INT(0),
-                     .USE_SFT(0),
-                     .USE_CMP(0)
-                   )ex_alu(
-                     .grand_op_i(decode_info.alu_grand_op),
-                     .op_i(decode_info.alu_op),
+  muler_32x32 mul_i (
+    .clk       (clk       ),
+    .rst_n     (rst_n     ),
+    .op_i      (mul_op    ),
+    
+    .ex_stall_i(ex_stall  ),
+    .m1_stall_i(m1_stall  ),
+    .m2_stall_i(m2_stall  ),
+    
+    .r0_i      (mul_r0    ),
+    .r1_i      (mul_r1    ),
+    
+    .result_o  (mul_result)
+  );
 
-                     .mul_i('0),
-                     .r0_i(pipeline_data_ex_q[p].r_data[0]),
-                     .r1_i(pipeline_data_ex_q[p].r_data[1]),
-                     .pc_i(pipeline_ctrl_ex_q[p].pc),
+    // 除法器例化 TODO: FIXME
+    logic[1:0] div_req;
+    logic[1:0][1:0] div_op_req;
+    logic[1:0][1:0][31:0] div_input_req;
+    logic div_valid;
+    logic div_ready;
+    logic[1:0] div_op;
+    logic[2:0] div_push_id; // EX
+    logic[2:0] div_pop_id;  // M2
+    logic[1:0][31:0] div_input;
 
-                     .res_o(alu_result)
-                   );
-
-    excp_flow_t ex_excp_flow;
-    // ex_excp_flow 产生逻辑
+    logic[1:0] div_request_req;
+    logic div_request      ;
+    logic div_request_ready;
+    logic[31:0] div_result;
+    logic div_result_valid;
     always_comb begin
-      ex_excp_flow.m1int = '0;
-      ex_excp_flow.pil = '0;
-      ex_excp_flow.pis = '0;
-      ex_excp_flow.pme = '0;
-      ex_excp_flow.ppi = '0;
-      ex_excp_flow.adem = '0;
-      ex_excp_flow.ale = '0;
-      ex_excp_flow.tlbr = '0;
-
-      ex_excp_flow.sys = decode_info.syscall_inst;
-      ex_excp_flow.brk = decode_info.break_inst;
-
-      ex_excp_flow.adef = pipeline_ctrl_ex_q[p].fetch_excp.adef;
-      ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr;
-      ex_excp_flow.pif = pipeline_ctrl_ex_q[p].fetch_excp.pif;
-      ex_excp_flow.ippi = pipeline_ctrl_ex_q[p].fetch_excp.ppi;
-      ex_excp_flow.ine = pipeline_ctrl_ex_q[p].fetch_excp.ine;
+      div_valid   = |div_req;
+      div_input   = div_req[0] ? div_input_req[0] : div_input_req[1];
+      div_op      = div_req[0] ? div_op_req[0] : div_op_req[1];
+      div_request = |div_request_req;
     end
-    // EX 的额外部分
-    // EX 级别的访存地址计算 / 地址翻译逻辑
-    always_comb begin
-      vaddr = {{6{pipeline_ctrl_ex_q[p].addr_imm[25]}},
-               pipeline_ctrl_ex_q[p].addr_imm} +
-            pipeline_data_ex_q[p].r_data[1];
-    end
-    always_comb begin
-      rel_target = pipeline_ctrl_ex_q[p].pc + {{6{pipeline_ctrl_ex_q[p].addr_imm[25]}},
-                 pipeline_ctrl_ex_q[p].addr_imm};
-    end
-    always_comb begin
-      // TODO
-      jump_target = decode_info.target_type == `_TARGET_ABS ?
-                  vaddr : rel_target;
-    end
+  core_divider_manager core_divider_manager_inst (
+    .clk           (clk              ),
+    .rst_n         (rst_n            ),
+    .r0_i          (div_input[0]     ),
+    .r1_i          (div_input[1]     ),
+    .op_i          (div_op           ),
+    .push_valid_i  (div_valid        ),
+    .push_ready_o  (div_ready        ),
+    .push_id_i     (div_push_id      ),
+    .wb_stall_i    (wb_stall         ),
+    .pop_id_i      (div_pop_id       ),
+    .result_valid_o(div_request_ready),
+    .result_o      (result_o         )
+  );
 
-    // EX 的结果选择部分
-    always_comb begin
-      pipeline_wdata_ex[p].w_data = alu_result;
-      pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
-      pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
-      pipeline_wdata_ex[p].w_flow.w_valid =
-                       decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
-                         (&pipeline_data_ex_q[p].r_flow.r_ready)) :
-                       '0;
-    end
+    // DADDR_TRANS 接入 (EX - M1)
+    // 注意：暂停信号在 M1 级产生
+    // TLB REQ 接入
+    tlb_op_t tlb_op; // ONE HOT ENCODING OF TLBSRCH | TLBRD | TLBWR | TLBFILL | INVTLB
 
-    // 接入转发源
-    always_comb begin
-      fwd_data_ex[p] = mkfwddata(pipeline_wdata_ex[p]);
-    end
+    // CACHE | MMU opcode 接入
+    logic[4:0] ctlb_opcode;
+    logic flush_trans;
+    assign flush_trans = '0; // TODO: FIXME
 
-    // 接入暂停请求
-    always_comb begin
-      ex_stall_req[p] = ((decode_info.latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
-                         (decode_info.latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) ) &
-                  exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit; // LUT6 - 1
-    end
+    // CSR output
+    csr_t csr_value;
+    logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready;
+    logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CONNECT ME
+    tlb_s_resp_t[1:0] addr_tlb_resp;
+    tlb_s_resp_t[1:0] m1_addr_trans_result;
+    for(genvar p = 0 ; p < 2 ; p++) begin
 
-    // 接入 dcache
-    assign ex_mem_read[p] = decode_info.mem_read;
-    assign ex_mem_vaddr[p] = vaddr;
-
-    // 接入 mul
-    always_comb begin
-      mul_req[p] = decode_info.need_mul;
-      mul_op_req[p] = decode_info.alu_op;
-      mul_r0_req[p] = pipeline_data_ex_q[p].r_data[0];
-      mul_r1_req[p] = pipeline_data_ex_q[p].r_data[1];
+      core_daddr_trans # (
+        .ENABLE_TLB('0),
+        .SUPPORT_32_PADDR('0)
+      )
+      core_daddr_trans_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .valid_i(ex_addr_trans_valid[p]),
+        .vaddr_i(ex_mem_vaddr[p]),
+        .m1_stall_i(m1_stall),
+        .ready_o(m1_addr_trans_ready[p]),
+        .csr_i(csr_value),
+        .flush_trans_i(flush_trans),
+        .tlb_req_valid_o(addr_tlb_req_valid),
+        .tlb_req_ready_i(addr_tlb_req_ready),
+        .tlb_resp_i(addr_tlb_resp[p]),
+        .tlb_raw_result_o(m1_addr_trans_result[p])
+      );
     end
 
-    // 接入 div
-    always_comb begin
-      div_req[p] = decode_info.need_div;
-      div_op_req[p] = decode_info.alu_op;
-      div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
-      div_input_req[p][1] = pipeline_data_ex_q[p].r_data[1];
-    end
+    // DADDR_TRANS 结果流水 (M1 - M2): 提供给 CSR 使用。
 
-    // 流水线间信息传递
-    always_comb begin
-      pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
-      pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
-      pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
-      pipeline_ctrl_m1[p].csr_id = (decode_info.need_csr) ?
-                      pipeline_ctrl_ex_q[p].addr_imm[23:10] :
-                      {pipeline_ctrl_ex_q[p].addr_imm[23:15],pipeline_ctrl_ex_q[p].addr_imm[4:0]};
-      pipeline_ctrl_m1[p].jump_target = jump_target;
-      pipeline_ctrl_m1[p].vaddr = vaddr;
-      pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
-    end
-  end
+    // CSR 接入 (M1)
+    logic[13:0] csr_r_addr;
+    logic csr_rdcnt;
 
-  /* ------ ------ ------ ------ ------ M1 级 ------ ------ ------ ------ ------ */
-  logic[1:0] m1_excp_detect;
-  logic[1:0][31:0] m1_target;
-  for(genvar p = 0 ; p < 2 ; p++) begin
-    // M1 的 FU 部分，接入 ALU、LSU（EARLY）
-    m1_t decode_info;
-    assign decode_info = pipeline_ctrl_m1_q[p].decode_info;
-    logic[31:0] alu_result, lsu_result, paddr;
-    logic[31:0] excp_target; // TODO: CONNECT ME
-    excp_flow_t m1_excp_flow;
-    logic lsu_valid;
-    core_detachable_alu #(
-                     .USE_LI(0),
-                     .USE_INT(1),
-                     .USE_SFT(1),
-                     .USE_CMP(1)
-                   )m1_alu(
-                     .clk(clk),
-                     .rst_n(rst_n),
-                     .grand_op_i(decode_info.alu_grand_op),
-                     .op_i(decode_info.alu_op),
-
-                     .mul_i('0),
-                     .r0_i(pipeline_data_m1_q[p].r_data[0]),
-                     .r1_i(pipeline_data_m1_q[p].r_data[1]),
-                     .pc_i(pipeline_ctrl_m1_q[p].pc),
-
-                     .res_o(alu_result)
-                   );
-
-    // M1 的额外部分
-    // 跳转的处理：TODO 完成相关模块
-    bpu_correct_t m1_bpu_feedback_req;
-    logic branch_jmp_req;
-    core_jmp m1_cmp(
-            .clk(clk),
-            .rst_n(rst_n),
-            .valid_i(!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
-            .branch_type_i(decode_info.branch_type),
-            .cmp_type_i(decode_info.cmp_type),
-            .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict),
-            .target_i(pipeline_ctrl_m1_q[p].jump_target),
-            .r0_i(pipeline_data_m1_q[p].r_data[0]),
-            .r1_i(pipeline_data_m1_q[p].r_data[1]),
-            .jmp_o(branch_jmp_req)
-          );
-    // 异常的处理：完成相关模块
-    core_excp_handler m1_excp(
-                        .clk(clk),
-                        .rst_n(rst_n),
-                        .csr_i(csr_value),
-                        .valid_i(!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
-                        .ertn_inst_i(decode_info.ertn_inst),
-                        .excp_flow_i(m1_excp_flow),
-                        .target_o(excp_target),
-                        .trigger_o(m1_excp_detect)
-                      );
-
-    assign m1_target[p] = m1_excp_detect[p] ? excp_target : pipeline_ctrl_m1_q[p].jump_target;
-
-    // CSR 控制 TODO: FIXME
-
-    // BARRIER 指令的执行（DBAR、 IBAR）。 TODO：FIXME
-
-    // M1 的结果选择部分: 注意： 转发逻辑不受跳转逻辑影响。 对于跳转指令，本身后续指令流就会被丢弃。
-    always_comb begin
-      pipeline_wdata_m1[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-      case(decode_info.fu_sel_m1)
-        default: begin
-          // NOTING TO DO
-        end
-        `_FUSEL_M1_ALU: begin
-          pipeline_wdata_m1[p].w_data = alu_result;
-          pipeline_wdata_m1[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
-        end
-        `_FUSEL_M1_MEM: begin
-          pipeline_wdata_m1[p].w_data = lsu_result;
-          pipeline_wdata_m1[p].w_flow.w_valid = lsu_valid;
-        end
-      endcase
-    end
-
-    // REFETCHER
-    if(p == 0) begin
-      assign m1_refetch = decode_info.refetch;
-    end
-
-    // 接入转发源
-    always_comb begin
-      fwd_data_m1[p] = mkfwddata(pipeline_wdata_m1[p]);
-    end
-
-    // m1_excp_flow 产生逻辑
-    always_comb begin
-      m1_excp_flow.m1int = '0; // TODO: FIXME
-      m1_excp_flow.pil = '0;
-      m1_excp_flow.pis = '0;
-      m1_excp_flow.pme = '0;
-      m1_excp_flow.ppi = '0;
-      m1_excp_flow.adem = '0;
-      m1_excp_flow.ale = '0;
-      m1_excp_flow.tlbr = '0; // TODO: FIXME
-
-      m1_excp_flow.sys = pipeline_ctrl_m1_q[p].excp_flow.sys;
-      m1_excp_flow.brk = pipeline_ctrl_m1_q[p].excp_flow.brk;
-      m1_excp_flow.adef = pipeline_ctrl_m1_q[p].excp_flow.adef;
-      m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr;
-      m1_excp_flow.pif = pipeline_ctrl_m1_q[p].excp_flow.pif;
-      m1_excp_flow.ippi = pipeline_ctrl_m1_q[p].excp_flow.ippi;
-      m1_excp_flow.ine = pipeline_ctrl_m1_q[p].excp_flow.ine;
-    end
-
-    // 接入暂停请求
-    always_comb begin
-      m1_stall_req[p] = ((decode_info.latest_r0_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[0]) |
-                         (decode_info.latest_r1_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[1]) ) &
-                  exc_m1_q[p].valid_inst & exc_m1_q[p].need_commit; // LUT6 - 1
-    end
-
-    // 流水线间信息传递
-    always_comb begin
-      pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
-      pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
-      pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
-      pipeline_ctrl_m2[p].paddr = paddr;
-      pipeline_ctrl_m2[p].pc = pipeline_ctrl_m1_q[p].pc;
-    end
-  end
-
-  // CSR 相关指令接入，注意： 只会在第一条管线
-  assign csr_r_addr = pipeline_ctrl_m1_q[0].csr_id;
-  assign csr_rdcnt = pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt |
-         (pipeline_ctrl_m1_q[0].csr_id[4:0] != 0 ? 2'b10 : 2'b00);
-
-  /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
-  for(genvar p = 0 ; p < 2 ; p++) begin
-    m1_t decode_info;
-    assign decode_info = pipeline_ctrl_m2_q[p].decode_info;
-    // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
-    logic[31:0] alu_result, lsu_result;
-    assign lsu_result = m2_mem_rdata[p];
-    // MUL 结果复用 ALU 传回
-    core_detachable_alu #(
-                     .USE_LI(0),
-                     .USE_INT(0),
-                     .USE_MUL(1),
-                     .USE_SFT(1),
-                     .USE_CMP(0)
-                   )m2_alu(
-                     .clk(clk),
-                     .rst_n(rst_n),
-                     .grand_op_i(pipeline_ctrl_m2_q[p].decode_info.alu_grand_op),
-                     .op_i(pipeline_ctrl_m2_q[p].decode_info.alu_op),
-
-                     .mul_i(mul_result),
-                     .r0_i(pipeline_data_m2_q[p].r_data[0]),
-                     .r1_i(pipeline_data_m2_q[p].r_data[1]),
-                     .pc_i(pipeline_ctrl_m2_q[p].pc),
-
-                     .res_o(alu_result)
-                   );
-
-    // M2 的额外部分
-    // CSR 修改相关指令的执行，如写 CSR、写 TLB、缓存控制均在此处执行。
-    if( p == 0) begin
-      always_comb begin
-        {
-          tlb_op.invtlb,
-          tlb_op.tlbfill,
-          tlb_op.tlbwr,
-          tlb_op.tlbrd,
-          tlb_op.tlbsrch
-        } = {
-          decode_info.invtlb_en,
-          decode_info.tlbfill_en,
-          decode_info.tlbwr_en,
-          decode_info.tlbrd_en,
-          decode_info.tlbsrch_en};
-      end
-    end
+    // CSR 接入 (M2)
     logic[1:0] csr_excp_req;
     logic[1:0] m2_valid_req;
     logic[1:0] m2_commit_req;
     logic[1:0][31:0] m2_badv_req;
     excp_flow_t [1:0] m2_excp_req;
+    logic             csr_we     ;
+    logic             csr_valid,csr_commit;
+    logic[31:0] csr_badv;
+    excp_flow_t csr_excp;
+    logic[13:0] csr_w_addr;
+    logic[31:0] csr_r_data,csr_w_data,csr_w_mask;
+    always_comb begin
+      csr_valid  = (csr_we | csr_excp_req[0]) ? m2_valid_req[0] : m2_valid_req[1];
+      csr_commit = (csr_we | csr_excp_req[0]) ? m2_commit_req[0] : m2_commit_req[1];
+      csr_badv   = csr_excp_req[0] ? m2_badv_req[0] : m2_badv_req[1];
+      csr_excp   = csr_excp_req[0] ? m2_excp_req[0] : m2_excp_req[1];
+    end
 
-    // M2 的数据选择
-    if(p == 0) begin
+
+  core_csr core_csr_inst (
+    .clk         (clk       ),
+    .rst_n       (rst_n     ),
+    .excp_i      (csr_excp  ),
+    .valid_i     (csr_valid ),
+    .commit_i    (csr_commit),
+    .m2_stall_i  (m2_stall  ),
+    .csr_r_addr_i(csr_r_addr),
+    .rdcnt_i     (csr_rdcnt ),
+    .csr_we_i    (csr_we    ),
+    .csr_w_addr_i(csr_w_addr),
+    .csr_w_mask_i(csr_w_mask),
+    .csr_w_data_i(csr_w_data),
+    .badv_i      (csr_badv  ),
+    .tlb_op_i    (tlb_op    ),
+    .tlb_srch_i  (/*TODO*/  ),
+    .tlb_entry_i (/*TODO*/  ),
+    .llbit_set_i (/*TODO*/  ),
+    .llbit_i     (/*TODO*/  ),
+    .csr_r_data_o(csr_r_data),
+    .csr_o       (csr_value )
+  );
+
+    /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
+
+    /* ------ ------ ------ ------ ------ IS 级 ------ ------ ------ ------ ------ */
+    // ISSUE 级别：
+    // 判定来自前段的指令能否发射
+    logic       is_ready       ;
+    logic       ex_skid_ready_q,ex_skid_valid;
+    logic [1:0] issue          ;
+    inst_t[1:0] is_inst_pack;
+    assign is_inst_pack = frontend_req_i.inst;
+  issue issue_inst (
+    .clk       (clk                                            ),
+    .rst_n     (rst_n                                          ),
+    .inst_i    (is_inst_pack                                   ),
+    .d_valid_i (frontend_req_i.inst_valid & {is_ready,is_ready}),
+    .ex_ready_i(ex_skid_ready_q                                ),
+    .ex_valid_o(ex_skid_valid                                  ),
+    .is_o      (issue                                          )
+  );
+    assign frontend_resp_o.issue = issue;
+
+  reg_file #(.DATA_WIDTH(32)) reg_file_inst (
+    .clk     (clk                 ),
+    .rst_n   (rst_n               ),
+    .r_addr_i(is_r_addr           ),
+    .r_data_o(is_r_data           ),
+    .w_addr_i(wb_w_addr           ),
+    .w_data_i(wb_w_data           ),
+    .w_en_i  (wb_valid & wb_commit)
+  );
+
+    // 读取 scoreboard，判断寄存器值是否有效
+  scoreboard scoreboard_inst (
+    .clk          (clk       ),
+    .rst_n        (rst_n     ),
+    .invalidate_i (          ),
+    .issue_ready_o(is_ready  ),
+    .is_r_addr_i  (is_r_addr ),
+    .is_r_id_o    (is_r_id   ),
+    .is_r_valid_o (is_r_ready),
+    .is_w_addr_i  (is_w_addr ),
+    .is_i         (issue     ),
+    .is_w_id_o    (is_w_id   ),
+    .wb_w_addr_i  (wb_w_addr ),
+    .wb_w_id_i    (wb_w_id   ),
+    .wb_valid_i   (wb_valid  )
+  );
+
+    // 产生 EX 级的流水线信号 x 2
+    logic ex_ready, ex_valid;
+    // IS 数据前递部分（EX、WB），输入是 pipeline_ctrl_is ，输出 pipeline_ctrl_is_fwd 不完全。
+
+    /* SKID BUF */
+    // SKID 数据前递部分（EX、WB） 不完全。
+    // 输入是 pipeline_ctrl_skid_q，输出 pipeline_ctrl_skid_fwd
+    // SKID BUF 对于 scoreboard 来说应该是透明的，使用 valid-ready 握手
+    // assign ex_skid_ready_q = ~is_skid_q;
+    always_ff @(posedge clk) begin
+      if(~rst_n || ex_invalidate) begin
+        is_skid_q       <= '0;
+        ex_skid_ready_q <= '1;
+      end
+      else begin
+        if(is_skid_q) begin
+          if(ex_ready) begin
+            is_skid_q       <= '0;
+            ex_skid_ready_q <= '1;
+          end
+          pipeline_data_skid_q <= pipeline_data_skid_fwd;
+        end
+        else begin
+          if(ex_skid_valid & ~ex_ready) begin
+            is_skid_q       <= '1;
+            ex_skid_ready_q <= '0;
+          end
+          pipeline_data_skid_q <= pipeline_data_is_fwd;
+        end
+      end
+    end
+    always_ff @(posedge clk) begin
+      if(!is_skid_q) begin
+        pipeline_ctrl_skid_q <= pipeline_ctrl_is;
+        exc_skid_q           <= exc_is;
+      end
+    end
+    /* SKID BUF 结束*/
+    // 流水线间信息传递: TODO
+    always_comb begin
+      pipeline_ctrl_ex = is_skid_q ? pipeline_ctrl_skid_q : pipeline_ctrl_is;
+    end
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      // 产生 pipeline_ctrl_is 用于控制流水线
       always_comb begin
-        pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
+        pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
+        pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
+        ;
+        pipeline_ctrl_is[p].w_id = is_w_id;
+        pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
+        pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
+        pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].decode_info.addr_imm_type, is_inst_pack[p].imm_domain);
+        exc_is[p].valid_inst = frontend_req_i.inst_valid[p];
+        exc_is[p].need_commit = frontend_req_i.inst_valid[p];
+        pipeline_data_is[p].r_data[0] = is_inst_pack[p].decode_info.reg_type_r0 == `_REG_R0_IMM ?
+          mkimm_data(is_inst_pack[p].decode_info.imm_type,
+            is_inst_pack[p].imm_domain) :
+          is_r_data[p][0];
+        pipeline_data_is[p].r_data[1] = is_r_data[p][1];
+        pipeline_data_is[p].r_flow.r_addr[0] = is_r_addr[p][0];
+        pipeline_data_is[p].r_flow.r_addr[1] = is_r_addr[p][1];
+        pipeline_data_is[p].r_flow.r_id[0] = is_r_id[p][0];
+        pipeline_data_is[p].r_flow.r_id[1] = is_r_id[p][1];
+        pipeline_data_is[p].r_flow.r_ready[0] = is_r_ready[p][0];
+        pipeline_data_is[p].r_flow.r_ready[1] = is_r_ready[p][1];
+      end
+    end
+    /* ------ ------ ------ ------ ------ EX 级 ------ ------ ------ ------ ------ */
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      // EX 级别
+      // EX 的 FU 部分，接入 ALU、乘法器、除法队列 pusher（Optional）
+      logic[31:0] alu_result;
+      logic[31:0] jump_target;
+      logic[31:0] vaddr, rel_target;
+      ex_t decode_info;
+      assign decode_info = pipeline_ctrl_ex_q[p].decode_info;
+    core_detachable_alu #(
+      .USE_LI (1),
+      .USE_INT(0),
+      .USE_SFT(0),
+      .USE_CMP(0)
+    ) ex_alu (
+      .grand_op_i(decode_info.alu_grand_op       ),
+      .op_i      (decode_info.alu_op             ),
+      
+      .mul_i     ('0                             ),
+      .r0_i      (pipeline_data_ex_q[p].r_data[0]),
+      .r1_i      (pipeline_data_ex_q[p].r_data[1]),
+      .pc_i      (pipeline_ctrl_ex_q[p].pc       ),
+      
+      .res_o     (alu_result                     )
+    );
+
+      excp_flow_t ex_excp_flow;
+      // ex_excp_flow 产生逻辑
+      always_comb begin
+        ex_excp_flow.m1int = '0;
+        ex_excp_flow.pil   = '0;
+        ex_excp_flow.pis   = '0;
+        ex_excp_flow.pme   = '0;
+        ex_excp_flow.ppi   = '0;
+        ex_excp_flow.adem  = '0;
+        ex_excp_flow.ale   = '0;
+        ex_excp_flow.tlbr  = '0;
+
+        ex_excp_flow.sys = decode_info.syscall_inst;
+        ex_excp_flow.brk = decode_info.break_inst;
+
+        ex_excp_flow.adef  = pipeline_ctrl_ex_q[p].fetch_excp.adef;
+        ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr;
+        ex_excp_flow.pif   = pipeline_ctrl_ex_q[p].fetch_excp.pif;
+        ex_excp_flow.ippi  = pipeline_ctrl_ex_q[p].fetch_excp.ppi;
+        ex_excp_flow.ine   = pipeline_ctrl_ex_q[p].fetch_excp.ine;
+      end
+      // EX 的额外部分
+      // EX 级别的访存地址计算 / 地址翻译逻辑
+      always_comb begin
+        vaddr = {{6{pipeline_ctrl_ex_q[p].addr_imm[25]}},
+          pipeline_ctrl_ex_q[p].addr_imm} +
+        pipeline_data_ex_q[p].r_data[1];
+      end
+      always_comb begin
+        rel_target = pipeline_ctrl_ex_q[p].pc + {{6{pipeline_ctrl_ex_q[p].addr_imm[25]}},
+          pipeline_ctrl_ex_q[p].addr_imm};
+      end
+      always_comb begin
+        // TODO
+        jump_target = decode_info.target_type == `_TARGET_ABS ?
+          vaddr : rel_target;
+      end
+
+      // EX 的结果选择部分
+      always_comb begin
+        pipeline_wdata_ex[p].w_data = alu_result;
+        pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
+        pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
+        pipeline_wdata_ex[p].w_flow.w_valid = 
+          decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
+            (&pipeline_data_ex_q[p].r_flow.r_ready)) :
+          '0;
+      end
+
+      // 接入转发源
+      always_comb begin
+        fwd_data_ex[p] = mkfwddata(pipeline_wdata_ex[p]);
+      end
+
+      // 接入暂停请求
+      always_comb begin
+        ex_stall_req[p] = ((decode_info.latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
+          (decode_info.latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) ) &
+        exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit; // LUT6 - 1
+      end
+
+      // 接入 dcache
+      // 接入 addr-trans 模块
+      assign ex_mem_read[p] = decode_info.mem_read;
+      if(p == 0) begin
+        assign ex_mem_vaddr[p] = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
+        assign ex_addr_trans_valid = decode_info.need_lsu | decode_info.tlbsrch_en;
+      end else begin
+        assign ex_mem_vaddr[p] = vaddr;
+        assign ex_addr_trans_valid = decode_info.need_lsu;
+      end
+
+      // 接入 mul
+      always_comb begin
+        mul_req[p]    = decode_info.need_mul;
+        mul_op_req[p] = decode_info.alu_op;
+        mul_r0_req[p] = pipeline_data_ex_q[p].r_data[0];
+        mul_r1_req[p] = pipeline_data_ex_q[p].r_data[1];
+      end
+
+      // 接入 div
+      always_comb begin
+        div_req[p]          = decode_info.need_div;
+        div_op_req[p]       = decode_info.alu_op;
+        div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
+        div_input_req[p][1] = pipeline_data_ex_q[p].r_data[1];
+      end
+
+      // 流水线间信息传递
+      always_comb begin
+        pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
+        pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
+        pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
+        pipeline_ctrl_m1[p].csr_id = (decode_info.need_csr) ?
+          pipeline_ctrl_ex_q[p].addr_imm[23:10] :
+            {pipeline_ctrl_ex_q[p].addr_imm[23:15],pipeline_ctrl_ex_q[p].addr_imm[4:0]};
+        pipeline_ctrl_m1[p].jump_target = jump_target;
+        pipeline_ctrl_m1[p].vaddr = vaddr;
+        pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
+      end
+    end
+
+    /* ------ ------ ------ ------ ------ M1 级 ------ ------ ------ ------ ------ */
+    logic[1:0] m1_excp_detect;
+    logic[1:0][31:0] m1_target;
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      // M1 的 FU 部分，接入 ALU、LSU（EARLY）
+      m1_t decode_info;
+      assign decode_info = pipeline_ctrl_m1_q[p].decode_info;
+      logic[31:0] alu_result, lsu_result, paddr;
+      logic[31:0] excp_target; // TODO: CONNECT ME
+      excp_flow_t m1_excp_flow;
+      logic       lsu_valid   ;
+    core_detachable_alu #(
+      .USE_LI (0),
+      .USE_INT(1),
+      .USE_SFT(1),
+      .USE_CMP(1)
+    ) m1_alu (
+      .clk       (clk                            ),
+      .rst_n     (rst_n                          ),
+      .grand_op_i(decode_info.alu_grand_op       ),
+      .op_i      (decode_info.alu_op             ),
+      
+      .mul_i     ('0                             ),
+      .r0_i      (pipeline_data_m1_q[p].r_data[0]),
+      .r1_i      (pipeline_data_m1_q[p].r_data[1]),
+      .pc_i      (pipeline_ctrl_m1_q[p].pc       ),
+      
+      .res_o     (alu_result                     )
+    );
+
+      // M1 的额外部分
+      // 跳转的处理：TODO 完成相关模块
+      bpu_correct_t m1_bpu_feedback_req;
+      logic         branch_jmp_req     ;
+    core_jmp m1_cmp (
+      .clk          (clk                                                           ),
+      .rst_n        (rst_n                                                         ),
+      .valid_i      (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
+      .branch_type_i(decode_info.branch_type                                       ),
+      .cmp_type_i   (decode_info.cmp_type                                          ),
+      .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict                             ),
+      .target_i     (pipeline_ctrl_m1_q[p].jump_target                             ),
+      .r0_i         (pipeline_data_m1_q[p].r_data[0]                               ),
+      .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
+      .jmp_o        (branch_jmp_req                                                )
+    );
+      // 异常的处理：完成相关模块
+    core_excp_handler m1_excp (
+      .clk        (clk                                                           ),
+      .rst_n      (rst_n                                                         ),
+      .csr_i      (csr_value                                                     ),
+      .valid_i    (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
+      .ertn_inst_i(decode_info.ertn_inst                                         ),
+      .excp_flow_i(m1_excp_flow                                                  ),
+      .target_o   (excp_target                                                   ),
+      .trigger_o  (m1_excp_detect                                                )
+    );
+
+      assign m1_target[p] = m1_excp_detect[p] ? excp_target : pipeline_ctrl_m1_q[p].jump_target;
+
+      // 物理地址产生
+      assign paddr = {m1_addr_trans_result[p].value.ppn, pipeline_ctrl_m1_q[p].vaddr[11:0]};
+
+      // CSR 控制 TODO: FIXME
+
+      // BARRIER 指令的执行（DBAR、 IBAR）。 TODO：FIXME
+
+      // M1 的结果选择部分: 注意： 转发逻辑不受跳转逻辑影响。 对于跳转指令，本身后续指令流就会被丢弃。
+      always_comb begin
+        pipeline_wdata_m1[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
         case(decode_info.fu_sel_m1)
-          default: begin
+          default : begin
             // NOTING TO DO
           end
-          `_FUSEL_M2_ALU: begin
-            pipeline_wdata_m2[p].w_data = alu_result;
-            pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+          `_FUSEL_M1_ALU : begin
+            pipeline_wdata_m1[p].w_data = alu_result;
+            pipeline_wdata_m1[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
           end
-          `_FUSEL_M2_MEM: begin
-            pipeline_wdata_m2[p].w_data = lsu_result;
-            pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
-          end
-          `_FUSEL_M2_CSR: begin
-            pipeline_wdata_m2[p].w_data = csr_r_data;
-            pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+          `_FUSEL_M1_MEM : begin
+            pipeline_wdata_m1[p].w_data = lsu_result;
+            pipeline_wdata_m1[p].w_flow.w_valid = lsu_valid;
           end
         endcase
       end
-    end
-    else begin
+
+      // REFETCHER
+      if(p == 0) begin
+        assign m1_refetch = decode_info.refetch;
+      end
+
+      // 接入转发源
       always_comb begin
-        pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-        case(decode_info.fu_sel_m1)
-          default: begin
-            // NOTING TO DO
-          end
-          `_FUSEL_M2_ALU: begin
-            pipeline_wdata_m2[p].w_data = alu_result;
-            pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
-          end
-          `_FUSEL_M2_MEM: begin
-            pipeline_wdata_m2[p].w_data = lsu_result;
-            pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
-          end
-        endcase
+        fwd_data_m1[p] = mkfwddata(pipeline_wdata_m1[p]);
       end
-    end
-    // 接入转发源
-    always_comb begin
-      fwd_data_m2[p] = mkfwddata(pipeline_wdata_m2[p]);
-    end
 
-    // 接入暂停请求
-    always_comb begin
-      m2_stall_req[p] = ((decode_info.latest_r0_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[0]) |
-                         (decode_info.latest_r1_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[1]) |
-                         lsu_stall_req[p]) &
-                  exc_m2_q[p].valid_inst & exc_m2_q[p].need_commit; // LUT6 + MUXF7
-    end
+      // m1_excp_flow 产生逻辑
+      always_comb begin
+        m1_excp_flow.m1int = '0; // TODO: FIXME
+        m1_excp_flow.pil   = '0;
+        m1_excp_flow.pis   = '0;
+        m1_excp_flow.pme   = '0;
+        m1_excp_flow.ppi   = '0;
+        m1_excp_flow.adem  = '0;
+        m1_excp_flow.ale   = '0;
+        m1_excp_flow.tlbr  = '0; // TODO: FIXME
 
+        m1_excp_flow.sys   = pipeline_ctrl_m1_q[p].excp_flow.sys;
+        m1_excp_flow.brk   = pipeline_ctrl_m1_q[p].excp_flow.brk;
+        m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef;
+        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr;
+        m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif;
+        m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi;
+        m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine;
+      end
 
-    // 流水线间信息传递
-    always_comb begin
-      pipeline_ctrl_wb[p].decode_info = get_wb_from_m2(decode_info);
-      // pipeline_ctrl_wb[p].vaddr = pipeline_ctrl_m2[p].vaddr;
-      // pipeline_ctrl_wb[p].paddr = pipeline_ctrl_m2[p].paddr;
-      pipeline_ctrl_wb[p].pc = pipeline_ctrl_m2_q[p].pc;
-    end
-  end
-  // CSR 控制接线，一定在流水线级1
-  assign ctlb_opcode = pipeline_ctrl_m2_q[0].csr_id[4:0];
-  assign csr_w_addr = pipeline_ctrl_m2_q[0].csr_id;
-  assign csr_w_data = pipeline_data_m2_q[0].r_data[0];
-  assign csr_w_mask = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
-         32'hffffffff :
-         pipeline_data_m2_q[0].r_data[1];
-  assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en;
+      // 接入暂停请求
+      always_comb begin
+        m1_stall_req[p] = ((decode_info.latest_r0_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[0]) |
+          (decode_info.latest_r1_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[1]) ) &
+        exc_m1_q[p].valid_inst & exc_m1_q[p].need_commit; // LUT6 - 1
+      end
 
-  /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
-  // 不存在数据前递
-
-  for(genvar p = 0 ; p < 2 ; p++) begin
-    // WB 的 FU 部分，接入 DIV，等待 DIV 完成。
-    wb_t decode_info;
-    assign decode_info = pipeline_ctrl_wb_q[p].decode_info;
-
-    // WB 需要接回 IS 级的 寄存器堆和 scoreboard
-
-    // 生成写数据
-    always_comb begin
-      pipeline_wdata_wb[p] = pipeline_wdata_m2_q[p];
-      if(decode_info.fu_sel_wb == `_FUSEL_WB_DIV) begin
-        pipeline_wdata_wb[p].w_data = div_result;
-        pipeline_wdata_wb[p].w_flow.w_valid = div_result_valid;
+      // 流水线间信息传递
+      always_comb begin
+        pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
+        pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
+        pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
+        pipeline_ctrl_m2[p].paddr = paddr;
+        pipeline_ctrl_m2[p].pc = pipeline_ctrl_m1_q[p].pc;
       end
     end
 
-    // 接入转发源
-    always_comb begin
-      fwd_data_wb[p] = mkfwddata(pipeline_wdata_wb[p]);
-    end
+    // CSR 相关指令接入，注意： 只会在第一条管线
+    assign csr_r_addr = pipeline_ctrl_m1_q[0].csr_id;
+    assign csr_rdcnt  = pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt |
+      (pipeline_ctrl_m1_q[0].csr_id[4:0] != 0 ? 2'b10 : 2'b00);
 
-    // 接入暂停请求
-    always_comb begin
-      wb_stall_req[p] = exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit
-                  & decode_info.need_div & !div_result_valid; // 4 - 1
-    end
+    /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      m1_t decode_info;
+      assign decode_info = pipeline_ctrl_m2_q[p].decode_info;
+      // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
+      logic[31:0] alu_result, lsu_result;
+      assign lsu_result = m2_mem_rdata[p];
+      // MUL 结果复用 ALU 传回
+    core_detachable_alu #(
+      .USE_LI (0),
+      .USE_INT(0),
+      .USE_MUL(1),
+      .USE_SFT(1),
+      .USE_CMP(0)
+    ) m2_alu (
+      .clk       (clk                                           ),
+      .rst_n     (rst_n                                         ),
+      .grand_op_i(pipeline_ctrl_m2_q[p].decode_info.alu_grand_op),
+      .op_i      (pipeline_ctrl_m2_q[p].decode_info.alu_op      ),
+      
+      .mul_i     (mul_result                                    ),
+      .r0_i      (pipeline_data_m2_q[p].r_data[0]               ),
+      .r1_i      (pipeline_data_m2_q[p].r_data[1]               ),
+      .pc_i      (pipeline_ctrl_m2_q[p].pc                      ),
+      
+      .res_o     (alu_result                                    )
+    );
 
-    // 接入 scoreboard、寄存器堆
-    always_comb begin
-      wb_w_data[p] = pipeline_wdata_wb[p].w_data;
-      wb_w_addr[p] = pipeline_wdata_wb[p].w_flow.w_addr;
-      wb_commit[p] = exc_wb_q[p].need_commit;
-      wb_valid[p] = exc_wb_q[p].valid_inst;
-    end
-  end
-  assign wb_w_id = pipeline_wdata_wb[0].w_flow.w_id;
+      // M2 的额外部分
+      // CSR 修改相关指令的执行，如写 CSR、写 TLB、缓存控制均在此处执行。
+      if( p == 0) begin
+        always_comb begin
+          {
+            tlb_op.invtlb,
+            tlb_op.tlbfill,
+            tlb_op.tlbwr,
+            tlb_op.tlbrd,
+            tlb_op.tlbsrch
+          } = {
+            decode_info.invtlb_en,
+            decode_info.tlbfill_en,
+            decode_info.tlbwr_en,
+            decode_info.tlbrd_en,
+            decode_info.tlbsrch_en};
+        end
+      end
+      logic[1:0] csr_excp_req;
+      logic[1:0] m2_valid_req;
+      logic[1:0] m2_commit_req;
+      logic[1:0][31:0] m2_badv_req;
+      excp_flow_t [1:0] m2_excp_req;
 
-endmodule
+      // M2 的数据选择
+      if(p == 0) begin
+        always_comb begin
+          pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
+          case(decode_info.fu_sel_m1)
+            default: begin
+              // NOTING TO DO
+            end
+            `_FUSEL_M2_ALU: begin
+              pipeline_wdata_m2[p].w_data = alu_result;
+              pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+            end
+            `_FUSEL_M2_MEM: begin
+              pipeline_wdata_m2[p].w_data = lsu_result;
+              pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+            end
+            `_FUSEL_M2_CSR: begin
+              pipeline_wdata_m2[p].w_data = csr_r_data;
+              pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+            end
+          endcase
+        end
+      end
+      else begin
+        always_comb begin
+          pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
+          case(decode_info.fu_sel_m1)
+            default: begin
+              // NOTING TO DO
+            end
+            `_FUSEL_M2_ALU: begin
+              pipeline_wdata_m2[p].w_data = alu_result;
+              pipeline_wdata_m2[p].w_flow.w_valid = &pipeline_data_m1_q[p].r_flow.r_ready;
+            end
+            `_FUSEL_M2_MEM: begin
+              pipeline_wdata_m2[p].w_data = lsu_result;
+              pipeline_wdata_m2[p].w_flow.w_valid = 1'b1;
+            end
+          endcase
+        end
+      end
+      // 接入转发源
+      always_comb begin
+        fwd_data_m2[p] = mkfwddata(pipeline_wdata_m2[p]);
+      end
+
+      // 接入暂停请求
+      always_comb begin
+        m2_stall_req[p] = ((decode_info.latest_r0_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[0]) |
+          (decode_info.latest_r1_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[1]) |
+          lsu_stall_req[p]) &
+        exc_m2_q[p].valid_inst & exc_m2_q[p].need_commit; // LUT6 + MUXF7
+      end
+
+
+      // 流水线间信息传递
+      always_comb begin
+        pipeline_ctrl_wb[p].decode_info = get_wb_from_m2(decode_info);
+        // pipeline_ctrl_wb[p].vaddr = pipeline_ctrl_m2[p].vaddr;
+        // pipeline_ctrl_wb[p].paddr = pipeline_ctrl_m2[p].paddr;
+        pipeline_ctrl_wb[p].pc = pipeline_ctrl_m2_q[p].pc;
+      end
+    end
+    // CSR 控制接线，一定在流水线级1
+    assign ctlb_opcode = pipeline_ctrl_m2_q[0].csr_id[4:0];
+    assign csr_w_addr  = pipeline_ctrl_m2_q[0].csr_id;
+    assign csr_w_data  = pipeline_data_m2_q[0].r_data[0];
+    assign csr_w_mask  = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
+      32'hffffffff :
+      pipeline_data_m2_q[0].r_data[1];
+    assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en;
+
+    /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
+    // 不存在数据前递
+
+    for(genvar p = 0 ; p < 2 ; p++) begin
+      // WB 的 FU 部分，接入 DIV，等待 DIV 完成。
+      wb_t decode_info;
+      assign decode_info = pipeline_ctrl_wb_q[p].decode_info;
+
+      // WB 需要接回 IS 级的 寄存器堆和 scoreboard
+
+      // 生成写数据
+      always_comb begin
+        pipeline_wdata_wb[p] = pipeline_wdata_m2_q[p];
+        if(decode_info.fu_sel_wb == `_FUSEL_WB_DIV) begin
+          pipeline_wdata_wb[p].w_data = div_result;
+          pipeline_wdata_wb[p].w_flow.w_valid = div_result_valid;
+        end
+      end
+
+      // 接入转发源
+      always_comb begin
+        fwd_data_wb[p] = mkfwddata(pipeline_wdata_wb[p]);
+      end
+
+      // 接入暂停请求
+      always_comb begin
+        wb_stall_req[p] = exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit
+          & decode_info.need_div & !div_result_valid; // 4 - 1
+      end
+
+      // 接入 scoreboard、寄存器堆
+      always_comb begin
+        wb_w_data[p] = pipeline_wdata_wb[p].w_data;
+        wb_w_addr[p] = pipeline_wdata_wb[p].w_flow.w_addr;
+        wb_commit[p] = exc_wb_q[p].need_commit;
+        wb_valid[p]  = exc_wb_q[p].valid_inst;
+      end
+    end
+    assign wb_w_id = pipeline_wdata_wb[0].w_flow.w_id;
+
+  endmodule
 

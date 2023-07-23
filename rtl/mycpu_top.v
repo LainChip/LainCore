@@ -1,4 +1,4 @@
-module core_top(
+module mycpu_top(
     input           aclk,
     input           aresetn,
     input    [ 7:0] intrpt, 
@@ -52,7 +52,7 @@ module core_top(
     output [31:0] debug0_wb_inst
 );
 
-    core_top_sv core_wrap(
+    core_top core_wrap(
         .aclk(aclk),
         .aresetn(aresetn),
         .intrpt(intrpt),

@@ -15,9 +15,6 @@ module core_daddr_trans#(
 
     input csr_t csr_i,
     input logic flush_trans_i, // trigger when address translation change.
-
-    // output tlb_s_req_t tlb_req_o,
-    logic[31:12] vppn_o,
     output logic tlb_req_valid_o,
 
     input logic tlb_req_ready_i,
@@ -39,27 +36,27 @@ module core_daddr_trans#(
     dmw0_fake_tlb.found = 1'b1;
     dmw0_fake_tlb.index = 5'd0;
     dmw0_fake_tlb.ps = 6'd12;
-    dmw0_fake_tlb.ppn = '0;
-    dmw0_fake_tlb.v = '1;
-    dmw0_fake_tlb.d = '1;
-    dmw0_fake_tlb.mat = csr_i.dmw0[`DMW_MAT];
-    dmw0_fake_tlb.plv = csr_i.dmw0[`PLV];
+    dmw0_fake_tlb.value.ppn = '0;
+    dmw0_fake_tlb.value.v = '1;
+    dmw0_fake_tlb.value.d = '1;
+    dmw0_fake_tlb.value.mat = csr_i.dmw0[`DMW_MAT];
+    dmw0_fake_tlb.value.plv = csr_i.dmw0[`PLV];
 
     dmw1_vseg = csr_i.dmw1[`VSEG];
     dmw1_fake_tlb.dmw = 1'b1;
     dmw1_fake_tlb.found = 1'b1;
     dmw1_fake_tlb.index = 5'd0;
     dmw1_fake_tlb.ps = 6'd12;
-    dmw1_fake_tlb.ppn = '0;
-    dmw1_fake_tlb.v = '1;
-    dmw1_fake_tlb.d = '1;
-    dmw1_fake_tlb.mat = csr_i.dmw1[`DMW_MAT];
-    dmw1_fake_tlb.plv = csr_i.dmw1[`PLV];
+    dmw1_fake_tlb.value.ppn = '0;
+    dmw1_fake_tlb.value.v = '1;
+    dmw1_fake_tlb.value.d = '1;
+    dmw1_fake_tlb.value.mat = csr_i.dmw1[`DMW_MAT];
+    dmw1_fake_tlb.value.plv = csr_i.dmw1[`PLV];
     if(da_mode) begin
-      dmw0_fake_tlb.mat = csr_i.crmd[`DATM];
-      dmw0_fake_tlb.plv = csr_i.crmd[`PLV];
-      dmw1_fake_tlb.mat = csr_i.crmd[`DATM];
-      dmw1_fake_tlb.plv = csr_i.crmd[`PLV];
+      dmw0_fake_tlb.value.mat = csr_i.crmd[`DATM];
+      dmw0_fake_tlb.value.plv = csr_i.crmd[`PLV];
+      dmw1_fake_tlb.value.mat = csr_i.crmd[`DATM];
+      dmw1_fake_tlb.value.plv = csr_i.crmd[`PLV];
     end
     plv0 = csr_i.crmd[`PLV] == 2'd0;
     plv3 = csr_i.crmd[`PLV] == 2'd3;
@@ -191,14 +188,14 @@ module core_daddr_trans#(
     always_ff @(posedge clk) begin
       if(!m1_stall_i) begin
         tlb_raw_result_o.dmw <= '1;
-        tlb_raw_result_o.ppn <= paddr[31:12];
+        tlb_raw_result_o.value.ppn <= paddr[31:12];
         tlb_raw_result_o.index <= '0;
         tlb_raw_result_o.found <= '1;
         tlb_raw_result_o.ps <= 6'd12;
-        tlb_raw_result_o.v <= 1;
-        tlb_raw_result_o.d <= 1;
-        tlb_raw_result_o.mat <= dmw1_hit ? dmw1_fake_tlb.mat : dmw0_fake_tlb.mat;
-        tlb_raw_result_o.plv <= dmw1_hit ? dmw1_fake_tlb.plv : dmw0_fake_tlb.plv;
+        tlb_raw_result_o.value.v <= 1;
+        tlb_raw_result_o.value.d <= 1;
+        tlb_raw_result_o.value.mat <= dmw1_hit ? dmw1_fake_tlb.value.mat : dmw0_fake_tlb.value.mat;
+        tlb_raw_result_o.value.plv <= dmw1_hit ? dmw1_fake_tlb.value.plv : dmw0_fake_tlb.value.plv;
       end
     end
     assign ready_o = 1'b1;
