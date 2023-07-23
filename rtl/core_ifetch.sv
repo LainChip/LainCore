@@ -78,7 +78,9 @@ module core_ifetch#(
   logic[1:0][31:0] refill_data_q;
   logic skid_q;
   always_ff @(posedge clk) begin
-    if(ready_o) begin
+    if(~rst_n) begin
+      f1_valid_q <= '0;
+    end else if(ready_o) begin
       f1_vpc_q <= vpc_i;
       f1_valid_q <= valid_i;
       attached_o <= attached_i;
@@ -135,7 +137,7 @@ module core_ifetch#(
         if(cacheop_valid_i) begin
           fsm = FSM_RECVER;
         end
-        else if(paddr_valid_i && !uncached_i && !hit) begin
+        else if(paddr_valid_i && !uncached_i && !hit && |f1_valid_q) begin
           fsm = FSM_RFADDR;
         end
         else if(paddr_valid_i && uncached_i && !uncached_finished_q) begin

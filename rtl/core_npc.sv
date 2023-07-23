@@ -59,11 +59,10 @@ module core_npc(
   // bht_addr_q
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      pc <= 32'h1fc00000;
-      pc_o[0] <= 32'h1fc00000;
-      pc_o[1] <= 32'h1fc00004;
-    end
-    if(!f_stall_i) begin
+      pc <= 32'h1c000000;
+      pc_o[0] <= 32'h1c000000;
+      pc_o[1] <= 32'h1c000004;
+    end else if(!f_stall_i) begin
       pc_o[0][2] <= '0;
       pc_o[1][2] <= '0;
       {pc_o[0][31:3],pc_o[0][1:0]} <= {ppc[31:3],ppc[1:0]};
