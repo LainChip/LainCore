@@ -5,8 +5,11 @@
      input logic rst_n,
      input logic valid_i,
      input logic[1:0] branch_type_i,
+     input logic[1:0] target_type_i, // 0 for no branch, 1 for call, 2 for return, 3 for immediate
      input logic[2:0] cmp_type_i,
      input bpu_predict_t bpu_predict_i,
+     output bpu_correct_t bpu_correct_o,
+     input logic[31:0] pc_i,
      input logic[31:0] target_i,
      input logic[31:0] r0_i,
      input logic[31:0] r1_i,
@@ -73,6 +76,30 @@
          true_taken = '1;
        end
      endcase
+   end
+
+   logic true_dir_type,miss_dir_type,miss_target;
+   logic[1:0] true_target_type;
+   assign true_dir_type = branch_type_i == `_BRANCH_CONDITION;
+   assign miss_dir_type = bpu_predict_i.dir_type != true_dir_type;
+   assign true_dir_type = branch_type_i;
+   assign miss_target = true_target_type != bpu_predict_i.target_type;
+   // 更新逻辑
+   always_comb begin
+     bpu_correct_o.miss = jmp_o;
+     bpu_correct_o.pc = pc_i;
+     bpu_correct_o.true_taken = true_taken;
+     bpu_correct_o.true_target = target_i;
+     bpu_correct_o.lphr = bpu_predict_i.lphr;
+     bpu_correct_o.history = bpu_predict_i.history;
+
+     bpu_correct_o.miss_dir_type = miss_dir_type;
+     bpu_correct_o.true_dir = branch_type_i;
+
+     bpu_correct_o.miss_target_type = miss_target;
+     bpu_correct_o.true_target_type = true_target_type;
+
+     bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr;
    end
 
  endmodule

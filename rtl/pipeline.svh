@@ -72,9 +72,11 @@ typedef struct packed {
           logic taken;
           logic [31:0] predict_pc;
           logic [1:0] lphr;
-          logic [`_LPHT_ADDR_WIDTH - 1:0] lphr_index;
+          logic [`_BHT_DATA_WIDTH- 1:0] history;
+          logic [1:0] target_type;
           logic dir_type;
-          logic true_dir;
+          
+          logic [`_RAS_ADDR_WIDTH - 1: 0] ras_ptr;
         } bpu_predict_t;
 typedef struct packed {
           logic miss;

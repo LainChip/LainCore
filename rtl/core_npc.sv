@@ -82,7 +82,7 @@ module core_npc(
   logic [31:0] ras_target_q,btb_target,npc_target;
   logic hit;
   always_comb begin
-    predict_dir_type_q = btb_q.dir_type || !hit;
+    predict_dir_type_q = btb_q.dir_type && hit;
     predict_target_type_q = btb_q.branch_type;
     predict_dir_jmp = |lpht[1] && hit;
   end
@@ -95,7 +95,7 @@ module core_npc(
       ppc = rst_target;
     end
     else begin
-      if(predict_dir_type_q) begin
+      if(!predict_dir_type_q) begin
         if(predict_dir_jmp) begin
           ppc = btb_target;
           if(!btb_q.fsc) begin
