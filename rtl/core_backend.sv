@@ -69,7 +69,7 @@ module core_backend (
             pipeline_data_m2_q,pipeline_data_m2_fwd,
               pipeline_data_wb_q;
     // TODO: PIPELINE ME
-    pipeline_wdata_t [1:0] pipeline_wdata_ex,
+    pipeline_wdata_t [1:0] pipeline_wdata_ex,pipeline_wdata_ex_q,
       pipeline_wdata_m1_q,pipeline_wdata_m1,
         pipeline_wdata_m2_q,pipeline_wdata_m2,
           pipeline_wdata_wb;
@@ -114,6 +114,7 @@ module core_backend (
     always_ff @(posedge clk) begin
       if(!ex_stall) begin
         pipeline_ctrl_ex_q <= pipeline_ctrl_ex;
+        pipeline_wdata_ex_q <= pipeline_wdata_ex;
       end
     end
     always_ff @(posedge clk) begin
@@ -130,7 +131,7 @@ module core_backend (
     end
 
     // 流水线处理, TODO: 可复位部分
-    for(genvar p = 0 ; p < 2 ;p ++) begin
+    for(genvar p = 0 ; p < 2 ;p ++) begin : PIPELINE_MANAGE
       always_ff @(posedge clk) begin
         if(~rst_n) begin
           exc_ex_q[p] <= '0;
@@ -221,7 +222,7 @@ module core_backend (
 
     // forwarding manager
     /* 所有级流水的前递模块在这里实例化*/
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : FWD_BLOCK
       core_fwd_unit #(2) is_fwd(
         {fwd_data_wb, fwd_data_ex},
         pipeline_data_is[p],
@@ -337,10 +338,6 @@ module core_backend (
         .dm_snoop_i(dm_snoop)
       );
     end
-    // TODO: DTLB L0 HERE
-    for(genvar p = 0 ; p < 2 ; p++) begin
-
-    end
     // MUL 端口实例化
     logic[1:0] mul_req;
     logic[1:0][1:0] mul_op_req;
@@ -420,7 +417,7 @@ module core_backend (
     logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CONNECT ME
     tlb_s_resp_t[1:0] addr_tlb_resp;
     tlb_s_resp_t[1:0] m1_addr_trans_result;
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : DADDR_TRANS
 
       core_daddr_trans # (
         .ENABLE_TLB('0),
@@ -582,7 +579,7 @@ module core_backend (
     always_comb begin
       pipeline_ctrl_ex = is_skid_q ? pipeline_ctrl_skid_q : pipeline_ctrl_is;
     end
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : ISSUE
       // 产生 pipeline_ctrl_is 用于控制流水线
       always_comb begin
         pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
@@ -608,7 +605,7 @@ module core_backend (
       end
     end
     /* ------ ------ ------ ------ ------ EX 级 ------ ------ ------ ------ ------ */
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : EX
       // EX 级别
       // EX 的 FU 部分，接入 ALU、乘法器、除法队列 pusher（Optional）
       logic[31:0] alu_result;
@@ -737,7 +734,7 @@ module core_backend (
     /* ------ ------ ------ ------ ------ M1 级 ------ ------ ------ ------ ------ */
     logic[1:0] m1_excp_detect;
     logic[1:0][31:0] m1_target;
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : M1
       // M1 的 FU 部分，接入 ALU、LSU（EARLY）
       m1_t decode_info;
       assign decode_info = pipeline_ctrl_m1_q[p].decode_info;
@@ -803,7 +800,7 @@ module core_backend (
 
       // M1 的结果选择部分: 注意： 转发逻辑不受跳转逻辑影响。 对于跳转指令，本身后续指令流就会被丢弃。
       always_comb begin
-        pipeline_wdata_m1[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
+        pipeline_wdata_m1[p] = pipeline_wdata_ex[p]; // TODO: FIXME
         case(decode_info.fu_sel_m1)
           default : begin
             // NOTING TO DO
@@ -872,7 +869,7 @@ module core_backend (
       (pipeline_ctrl_m1_q[0].csr_id[4:0] != 0 ? 2'b10 : 2'b00);
 
     /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : M2
       m1_t decode_info;
       assign decode_info = pipeline_ctrl_m2_q[p].decode_info;
       // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
@@ -998,7 +995,7 @@ module core_backend (
     /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
     // 不存在数据前递
 
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : WB
       // WB 的 FU 部分，接入 DIV，等待 DIV 完成。
       wb_t decode_info;
       assign decode_info = pipeline_ctrl_wb_q[p].decode_info;
@@ -1047,7 +1044,7 @@ module core_backend (
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
     // WB 的信号，全部打一拍，以等待写操作完成。
     // 注意，csr_value 跟着打一拍
-    for(genvar p = 0 ; p < 2 ; p++) begin
+    for(genvar p = 0 ; p < 2 ; p++) begin : DIFFTEST
       is_t  cm_inst_info;
       logic wb_wen,cm_wen;
       logic[4:0] wb_waddr,cm_waddr;
