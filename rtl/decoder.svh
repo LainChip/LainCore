@@ -1,57 +1,6 @@
 `ifndef _DECODE_HEADER
 `define _DECODE_HEADER
 
-`define _MEM_TYPE_NONE (3'd0)
-`define _MEM_TYPE_WORD (3'd1)
-`define _MEM_TYPE_HALF (3'd2)
-`define _MEM_TYPE_BYTE (3'd3)
-`define _MEM_TYPE_UWORD (3'd5)
-`define _MEM_TYPE_UHALF (3'd6)
-`define _MEM_TYPE_UBYTE (3'd7)
-`define _BRANCH_INVALID (2'b00)
-`define _BRANCH_CONDITION (2'b01)
-`define _BRANCH_NOCONDITION (2'b10)
-`define _TARGET_REL (1'b0)
-`define _TARGET_ABS (1'b1)
-`define _CMP_E (3'd0)
-`define _CMP_NE (3'd1)
-`define _CMP_LE (3'd2)
-`define _CMP_GT (3'd3)
-`define _CMP_LT (3'd4)
-`define _CMP_GE (3'd5)
-`define _CMP_LTU (3'd6)
-`define _CMP_GEU (3'd7)
-`define _REG_R0_IMM (2'b11)
-`define _REG_R0_RD (2'b10)
-`define _REG_R0_RK (2'b01)
-`define _REG_R0_NONE (2'b00)
-`define _REG_R1_RJ (1'b1)
-`define _REG_R1_NONE (1'b0)
-`define _REG_W_BL1 (2'b11)
-`define _REG_W_RJD (2'b10)
-`define _REG_W_RD (2'b01)
-`define _REG_W_NONE (2'b00)
-`define _IMM_U5 (3'd1)
-`define _IMM_U12 (3'd0)
-`define _IMM_S12 (3'd2)
-`define _IMM_S20 (3'd3)
-`define _IMM_S16 (3'd4)
-`define _IMM_S21 (3'd5)
-`define _ADDR_IMM_S12 (2'd0)
-`define _ADDR_IMM_S14 (2'd1)
-`define _ADDR_IMM_S16 (2'd2)
-`define _ADDR_IMM_S26 (2'd3)
-`define _FUSEL_EX_NONE (1'd0)
-`define _FUSEL_EX_ALU (1'd1)
-`define _FUSEL_M1_NONE (2'd0)
-`define _FUSEL_M1_ALU (2'd1)
-`define _FUSEL_M1_MEM (2'd2)
-`define _FUSEL_M2_NONE (2'd0)
-`define _FUSEL_M2_ALU (2'd1)
-`define _FUSEL_M2_CSR (2'd2)
-`define _FUSEL_M2_MEM (2'd3)
-`define _FUSEL_WB_NONE (1'd0)
-`define _FUSEL_WB_DIV (1'd1)
 `define _ALU_GTYPE_BW (2'd0)
 `define _ALU_GTYPE_INT (2'd1)
 `define _ALU_GTYPE_LI (2'd1)
@@ -122,9 +71,9 @@
 `define _INV_TLB_MASK_ASID (4'b0010)
 `define _INV_TLB_MASK_VA (4'b0001)
 `define _RDCNT_NONE (2'd0)
-`define _RDCNT_ID (2'd1)
-`define _RDCNT_VLOW (2'd2)
-`define _RDCNT_VHIGH (2'd3)
+`define _RDCNT_ID_VLOW (2'd1)
+`define _RDCNT_VHIGH (2'd2)
+`define _RDCNT_VLOW (2'd3)
 `define _MEM_TYPE_NONE (3'd0)
 `define _MEM_TYPE_WORD (3'd1)
 `define _MEM_TYPE_HALF (3'd2)
@@ -142,16 +91,16 @@
 `define _REG_W_RJD (2'b10)
 `define _REG_W_RD (2'b01)
 `define _REG_W_NONE (2'b00)
-`define _IMM_U5 (3'd0)
-`define _IMM_U12 (3'd1)
+`define _IMM_U12 (3'd0)
+`define _IMM_U5 (3'd1)
 `define _IMM_S12 (3'd2)
 `define _IMM_S20 (3'd3)
 `define _IMM_S16 (3'd4)
 `define _IMM_S21 (3'd5)
-`define _ADDR_IMM_S12 (2'd0)
-`define _ADDR_IMM_S14 (2'd1)
-`define _ADDR_IMM_S16 (2'd2)
-`define _ADDR_IMM_S26 (2'd3)
+`define _ADDR_IMM_S26 (2'd0)
+`define _ADDR_IMM_S12 (2'd1)
+`define _ADDR_IMM_S14 (2'd2)
+`define _ADDR_IMM_S16 (2'd3)
 `define _FUSEL_EX_NONE (1'd0)
 `define _FUSEL_EX_ALU (1'd1)
 `define _FUSEL_M1_NONE (2'd0)
@@ -187,6 +136,7 @@ typedef logic [0 : 0] invalid_inst_t;
 typedef logic [0 : 0] syscall_inst_t;
 typedef logic [0 : 0] break_inst_t;
 typedef logic [0 : 0] csr_op_en_t;
+typedef logic [1 : 0] csr_rdcnt_t;
 typedef logic [0 : 0] tlbsrch_en_t;
 typedef logic [0 : 0] tlbrd_en_t;
 typedef logic [0 : 0] tlbwr_en_t;
@@ -227,12 +177,6 @@ typedef logic [0 : 0] target_type_t;
 typedef logic [2 : 0] cmp_type_t;
 
 typedef struct packed {
-    need_mul_t need_mul;
-    latest_r0_ex_t latest_r0_ex;
-    latest_r1_ex_t latest_r1_ex;
-    fu_sel_ex_t fu_sel_ex;
-    addr_imm_type_t addr_imm_type;
-    target_type_t target_type;
     ertn_inst_t ertn_inst;
     priv_inst_t priv_inst;
     refetch_t refetch;
@@ -240,11 +184,10 @@ typedef struct packed {
     invalid_inst_t invalid_inst;
     syscall_inst_t syscall_inst;
     break_inst_t break_inst;
-    mem_type_t mem_type;
-    mem_write_t mem_write;
-    mem_read_t mem_read;
+    csr_rdcnt_t csr_rdcnt;
     ibarrier_t ibarrier;
     dbarrier_t dbarrier;
+    need_csr_t need_csr;
     latest_r0_m1_t latest_r0_m1;
     latest_r1_m1_t latest_r1_m1;
     fu_sel_m1_t fu_sel_m1;
@@ -258,69 +201,9 @@ typedef struct packed {
     tlbwr_en_t tlbwr_en;
     tlbfill_en_t tlbfill_en;
     invtlb_en_t invtlb_en;
-    mem_cacop_t mem_cacop;
-    llsc_inst_t llsc_inst;
-    need_lsu_t need_lsu;
-    need_bpu_t need_bpu;
-    latest_r0_m2_t latest_r0_m2;
-    latest_r1_m2_t latest_r1_m2;
-    fu_sel_m2_t fu_sel_m2;
-    debug_inst_t debug_inst;
-    need_div_t need_div;
-    latest_r0_wb_t latest_r0_wb;
-    latest_r1_wb_t latest_r1_wb;
-    fu_sel_wb_t fu_sel_wb;
-} ex_t;
-
-typedef struct packed {
-    alu_grand_op_t alu_grand_op;
-    alu_op_t alu_op;
-    csr_op_en_t csr_op_en;
-    tlbsrch_en_t tlbsrch_en;
-    tlbrd_en_t tlbrd_en;
-    tlbwr_en_t tlbwr_en;
-    tlbfill_en_t tlbfill_en;
-    invtlb_en_t invtlb_en;
-    mem_cacop_t mem_cacop;
-    llsc_inst_t llsc_inst;
-    need_lsu_t need_lsu;
-    need_bpu_t need_bpu;
-    latest_r0_m2_t latest_r0_m2;
-    latest_r1_m2_t latest_r1_m2;
-    fu_sel_m2_t fu_sel_m2;
-    debug_inst_t debug_inst;
-    need_div_t need_div;
-    latest_r0_wb_t latest_r0_wb;
-    latest_r1_wb_t latest_r1_wb;
-    fu_sel_wb_t fu_sel_wb;
-} m2_t;
-
-typedef struct packed {
-    ertn_inst_t ertn_inst;
-    priv_inst_t priv_inst;
-    refetch_t refetch;
-    wait_inst_t wait_inst;
-    invalid_inst_t invalid_inst;
-    syscall_inst_t syscall_inst;
-    break_inst_t break_inst;
     mem_type_t mem_type;
     mem_write_t mem_write;
     mem_read_t mem_read;
-    ibarrier_t ibarrier;
-    dbarrier_t dbarrier;
-    latest_r0_m1_t latest_r0_m1;
-    latest_r1_m1_t latest_r1_m1;
-    fu_sel_m1_t fu_sel_m1;
-    branch_type_t branch_type;
-    cmp_type_t cmp_type;
-    alu_grand_op_t alu_grand_op;
-    alu_op_t alu_op;
-    csr_op_en_t csr_op_en;
-    tlbsrch_en_t tlbsrch_en;
-    tlbrd_en_t tlbrd_en;
-    tlbwr_en_t tlbwr_en;
-    tlbfill_en_t tlbfill_en;
-    invtlb_en_t invtlb_en;
     mem_cacop_t mem_cacop;
     llsc_inst_t llsc_inst;
     need_lsu_t need_lsu;
@@ -336,7 +219,54 @@ typedef struct packed {
 } m1_t;
 
 typedef struct packed {
+    need_mul_t need_mul;
+    latest_r0_ex_t latest_r0_ex;
+    latest_r1_ex_t latest_r1_ex;
+    fu_sel_ex_t fu_sel_ex;
+    addr_imm_type_t addr_imm_type;
+    target_type_t target_type;
+    ertn_inst_t ertn_inst;
+    priv_inst_t priv_inst;
+    refetch_t refetch;
+    wait_inst_t wait_inst;
+    invalid_inst_t invalid_inst;
+    syscall_inst_t syscall_inst;
+    break_inst_t break_inst;
+    csr_rdcnt_t csr_rdcnt;
+    ibarrier_t ibarrier;
+    dbarrier_t dbarrier;
     need_csr_t need_csr;
+    latest_r0_m1_t latest_r0_m1;
+    latest_r1_m1_t latest_r1_m1;
+    fu_sel_m1_t fu_sel_m1;
+    branch_type_t branch_type;
+    cmp_type_t cmp_type;
+    alu_grand_op_t alu_grand_op;
+    alu_op_t alu_op;
+    csr_op_en_t csr_op_en;
+    tlbsrch_en_t tlbsrch_en;
+    tlbrd_en_t tlbrd_en;
+    tlbwr_en_t tlbwr_en;
+    tlbfill_en_t tlbfill_en;
+    invtlb_en_t invtlb_en;
+    mem_type_t mem_type;
+    mem_write_t mem_write;
+    mem_read_t mem_read;
+    mem_cacop_t mem_cacop;
+    llsc_inst_t llsc_inst;
+    need_lsu_t need_lsu;
+    need_bpu_t need_bpu;
+    latest_r0_m2_t latest_r0_m2;
+    latest_r1_m2_t latest_r1_m2;
+    fu_sel_m2_t fu_sel_m2;
+    debug_inst_t debug_inst;
+    need_div_t need_div;
+    latest_r0_wb_t latest_r0_wb;
+    latest_r1_wb_t latest_r1_wb;
+    fu_sel_wb_t fu_sel_wb;
+} ex_t;
+
+typedef struct packed {
     reg_type_r0_t reg_type_r0;
     reg_type_r1_t reg_type_r1;
     reg_type_w_t reg_type_w;
@@ -354,11 +284,10 @@ typedef struct packed {
     invalid_inst_t invalid_inst;
     syscall_inst_t syscall_inst;
     break_inst_t break_inst;
-    mem_type_t mem_type;
-    mem_write_t mem_write;
-    mem_read_t mem_read;
+    csr_rdcnt_t csr_rdcnt;
     ibarrier_t ibarrier;
     dbarrier_t dbarrier;
+    need_csr_t need_csr;
     latest_r0_m1_t latest_r0_m1;
     latest_r1_m1_t latest_r1_m1;
     fu_sel_m1_t fu_sel_m1;
@@ -372,6 +301,9 @@ typedef struct packed {
     tlbwr_en_t tlbwr_en;
     tlbfill_en_t tlbfill_en;
     invtlb_en_t invtlb_en;
+    mem_type_t mem_type;
+    mem_write_t mem_write;
+    mem_read_t mem_read;
     mem_cacop_t mem_cacop;
     llsc_inst_t llsc_inst;
     need_lsu_t need_lsu;
@@ -385,6 +317,32 @@ typedef struct packed {
     latest_r1_wb_t latest_r1_wb;
     fu_sel_wb_t fu_sel_wb;
 } is_t;
+
+typedef struct packed {
+    alu_grand_op_t alu_grand_op;
+    alu_op_t alu_op;
+    csr_op_en_t csr_op_en;
+    tlbsrch_en_t tlbsrch_en;
+    tlbrd_en_t tlbrd_en;
+    tlbwr_en_t tlbwr_en;
+    tlbfill_en_t tlbfill_en;
+    invtlb_en_t invtlb_en;
+    mem_type_t mem_type;
+    mem_write_t mem_write;
+    mem_read_t mem_read;
+    mem_cacop_t mem_cacop;
+    llsc_inst_t llsc_inst;
+    need_lsu_t need_lsu;
+    need_bpu_t need_bpu;
+    latest_r0_m2_t latest_r0_m2;
+    latest_r1_m2_t latest_r1_m2;
+    fu_sel_m2_t fu_sel_m2;
+    debug_inst_t debug_inst;
+    need_div_t need_div;
+    latest_r0_wb_t latest_r0_wb;
+    latest_r1_wb_t latest_r1_wb;
+    fu_sel_wb_t fu_sel_wb;
+} m2_t;
 
 typedef struct packed {
     debug_inst_t debug_inst;
@@ -409,11 +367,10 @@ function ex_t get_ex_from_is(is_t is);
     ret.invalid_inst = is.invalid_inst;
     ret.syscall_inst = is.syscall_inst;
     ret.break_inst = is.break_inst;
-    ret.mem_type = is.mem_type;
-    ret.mem_write = is.mem_write;
-    ret.mem_read = is.mem_read;
+    ret.csr_rdcnt = is.csr_rdcnt;
     ret.ibarrier = is.ibarrier;
     ret.dbarrier = is.dbarrier;
+    ret.need_csr = is.need_csr;
     ret.latest_r0_m1 = is.latest_r0_m1;
     ret.latest_r1_m1 = is.latest_r1_m1;
     ret.fu_sel_m1 = is.fu_sel_m1;
@@ -427,6 +384,9 @@ function ex_t get_ex_from_is(is_t is);
     ret.tlbwr_en = is.tlbwr_en;
     ret.tlbfill_en = is.tlbfill_en;
     ret.invtlb_en = is.invtlb_en;
+    ret.mem_type = is.mem_type;
+    ret.mem_write = is.mem_write;
+    ret.mem_read = is.mem_read;
     ret.mem_cacop = is.mem_cacop;
     ret.llsc_inst = is.llsc_inst;
     ret.need_lsu = is.need_lsu;
@@ -451,11 +411,10 @@ function m1_t get_m1_from_ex(ex_t ex);
     ret.invalid_inst = ex.invalid_inst;
     ret.syscall_inst = ex.syscall_inst;
     ret.break_inst = ex.break_inst;
-    ret.mem_type = ex.mem_type;
-    ret.mem_write = ex.mem_write;
-    ret.mem_read = ex.mem_read;
+    ret.csr_rdcnt = ex.csr_rdcnt;
     ret.ibarrier = ex.ibarrier;
     ret.dbarrier = ex.dbarrier;
+    ret.need_csr = ex.need_csr;
     ret.latest_r0_m1 = ex.latest_r0_m1;
     ret.latest_r1_m1 = ex.latest_r1_m1;
     ret.fu_sel_m1 = ex.fu_sel_m1;
@@ -469,6 +428,9 @@ function m1_t get_m1_from_ex(ex_t ex);
     ret.tlbwr_en = ex.tlbwr_en;
     ret.tlbfill_en = ex.tlbfill_en;
     ret.invtlb_en = ex.invtlb_en;
+    ret.mem_type = ex.mem_type;
+    ret.mem_write = ex.mem_write;
+    ret.mem_read = ex.mem_read;
     ret.mem_cacop = ex.mem_cacop;
     ret.llsc_inst = ex.llsc_inst;
     ret.need_lsu = ex.need_lsu;
@@ -494,6 +456,9 @@ function m2_t get_m2_from_m1(m1_t m1);
     ret.tlbwr_en = m1.tlbwr_en;
     ret.tlbfill_en = m1.tlbfill_en;
     ret.invtlb_en = m1.invtlb_en;
+    ret.mem_type = m1.mem_type;
+    ret.mem_write = m1.mem_write;
+    ret.mem_read = m1.mem_read;
     ret.mem_cacop = m1.mem_cacop;
     ret.llsc_inst = m1.llsc_inst;
     ret.need_lsu = m1.need_lsu;

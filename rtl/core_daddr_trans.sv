@@ -179,7 +179,7 @@ module core_daddr_trans#(
     end
     if(SUPPORT_32_PADDR) begin
       assign paddr[28:0] = vaddr_i[28:0];
-      assign paddr[31:29] = dmw_hit_result;
+      assign paddr[31:29] = da_mode ? vaddr_i[31:29] : dmw_hit_result;
     end
     else begin
       assign paddr[28:0] = vaddr_i[28:0];

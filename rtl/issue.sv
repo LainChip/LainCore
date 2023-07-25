@@ -17,10 +17,8 @@ logic data_conflict      ;
 assign data_conflict = ((inst_i[0].reg_info.w_reg[0] == inst_i[1].reg_info.w_reg[0]
     && |inst_i[1].reg_info.w_reg) ||         // 避免 WAW 冲突
   (inst_i[0].reg_info.w_reg == inst_i[1].reg_info.r_reg[0] ||
-    inst_i[0].reg_info.w_reg == inst_i[1].reg_info.r_reg[1]) ||
-  // 避免 RAW 冲突
-  (|inst_i[0].reg_info.w_reg)) && // 只有第一条指令写寄存器，才有可能发生数据冲突
-d_valid_i[1] && |inst_i[0].reg_info.w_reg ;
+    inst_i[0].reg_info.w_reg == inst_i[1].reg_info.r_reg[1])) && // 只有第一条指令写寄存器，才有可能发生数据冲突
+   |inst_i[0].reg_info.w_reg ;
 
 assign structural_conflict = (
   (inst_i[0].decode_info.need_csr ||

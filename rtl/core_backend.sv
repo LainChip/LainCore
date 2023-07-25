@@ -8,6 +8,14 @@ mkfwddata.id = in.w_flow.w_id;
 mkfwddata.data = in.w_data;
 endfunction
 
+function logic[1:0] mkmemsize(logic[2:0] sel);
+case(sel[1:0])
+default: mkmemsize = 2'b11;
+2'b10: mkmemsize = 2'b01;
+2'b11: mkmemsize = 2'b00;
+endcase
+endfunction
+
   function logic[27:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
     case (addr_imm_type)
       default : /*`_ADDR_IMM_S12:*/
@@ -156,11 +164,13 @@ module core_backend (
         else begin
           if(!m1_stall) begin
             exc_m1_q[p].valid_inst <= exc_ex_q[p].valid_inst;
-            if(ex_invalidate) begin
+            if(ex_invalidate || ex_stall) begin
               exc_m1_q[p].need_commit <= '0;
-            end
-            else begin
+            end else begin
               exc_m1_q[p].need_commit <= exc_ex_q[p].need_commit;
+            end
+            if(ex_stall) begin
+              exc_m1_q[p].valid_inst <= '0;
             end
           end
         end
@@ -173,11 +183,14 @@ module core_backend (
         else begin
           if(!m2_stall) begin
             exc_m2_q[p].valid_inst <= exc_m1_q[p].valid_inst;
-            if(m1_invalidate[p]) begin
+            if(m1_invalidate[p] || m1_stall) begin
               exc_m2_q[p].need_commit <= '0;
             end
             else begin
               exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
+            end
+            if(m1_stall) begin
+              exc_m1_q[p].valid_inst <= '0;
             end
           end
         end
@@ -189,8 +202,11 @@ module core_backend (
         end
         else begin
           if(!wb_stall) begin
-            exc_wb_q[p].valid_inst <= exc_m2_q[p].valid_inst;
-            exc_wb_q[p].need_commit <= exc_m2_q[p].need_commit;
+            if(m2_stall) begin
+              exc_wb_q[p] <= '0;
+            end else begin
+              exc_wb_q[p] <= exc_m2_q[p];
+            end
           end
         end
       end
@@ -217,7 +233,7 @@ module core_backend (
       m2_jump_target_q  <= (m1_invalidate_req[1]) ? m1_jump_target_req[1] : m1_jump_target_req[0];
       m2_bpu_feedback_q <= (m1_invalidate_req[1]) ? m1_bpu_feedback_req[1] : m1_bpu_feedback_req[0];
     end
-    assign frontend_resp_o.rst_jmp = m2_jump_valid_q;
+    assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
     assign frontend_resp_o.rst_jmp_target = m2_jump_target_q;
 
 
@@ -306,6 +322,7 @@ module core_backend (
     logic[1:0][1:0] m2_mem_size;
     logic[1:0][31:0] ex_mem_vaddr,m1_mem_vaddr,m1_mem_paddr,m2_mem_vaddr,m2_mem_paddr;
     logic[1:0][3:0] m1_mem_strobe, m2_mem_strobe;
+    logic[1:0][2:0] m2_mem_type;
 
     logic[1:0] m1_mem_rvalid,m2_mem_rvalid;
     logic[1:0][31:0] m1_mem_rdata,m2_mem_rdata;
@@ -333,6 +350,7 @@ module core_backend (
         .m2_paddr_i(m2_mem_paddr[p]),
         .m2_wdata_i(m2_mem_wdata[p]),
         .m2_strobe_i(m2_mem_strobe[p]),
+        .m2_type_i(m2_mem_type[p]),
         .m2_valid_i(m2_mem_valid[p]),
         .m2_uncached_i(m2_mem_uncached[p]),
         .m2_size_i(m2_mem_size[p]),
@@ -429,7 +447,7 @@ module core_backend (
 
       core_daddr_trans # (
         .ENABLE_TLB('0),
-        .SUPPORT_32_PADDR('0)
+        .SUPPORT_32_PADDR('1)
       )
       core_daddr_trans_inst (
         .clk(clk),
@@ -684,8 +702,8 @@ module core_backend (
         pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
         pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
         pipeline_wdata_ex[p].w_flow.w_valid = exc_ex_q[p].valid_inst && (decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
-          (&pipeline_data_ex_q[p].r_flow.r_ready)) :
-        '0);
+            (&pipeline_data_ex_q[p].r_flow.r_ready)) :
+          '0);
       end
 
       // 接入转发源
@@ -704,11 +722,11 @@ module core_backend (
       // 接入 addr-trans 模块
       assign ex_mem_read[p] = decode_info.mem_read;
       if(p == 0) begin
-        assign ex_mem_vaddr[p]     = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
-        assign ex_addr_trans_valid = decode_info.need_lsu | decode_info.tlbsrch_en;
+        assign ex_mem_vaddr[p]        = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
+        assign ex_addr_trans_valid[p] = decode_info.need_lsu | decode_info.tlbsrch_en;
       end else begin
-        assign ex_mem_vaddr[p]     = vaddr;
-        assign ex_addr_trans_valid = decode_info.need_lsu;
+        assign ex_mem_vaddr[p]        = vaddr;
+        assign ex_addr_trans_valid[p] = decode_info.need_lsu;
       end
 
       // 接入 mul
@@ -749,6 +767,7 @@ module core_backend (
       m1_t decode_info;
       assign decode_info = pipeline_ctrl_m1_q[p].decode_info;
       logic[31:0] alu_result, lsu_result, paddr;
+      assign lsu_result = m1_mem_rdata[p];
       logic[31:0] excp_target; // TODO: CONNECT ME
       excp_flow_t m1_excp_flow;
       logic       lsu_valid   ;
@@ -788,9 +807,16 @@ module core_backend (
       .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
       .jmp_o        (m1_branch_jmp_req                                             )
     );
-    assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
-    assign m1_invalidate_req[p] = m1_branch_jmp_req;
-    assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
+      assign m1_jump_target_req[p]         = pipeline_ctrl_m1_q[p].jump_target;
+      assign m1_invalidate_req[p]          = m1_branch_jmp_req;
+      assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
+
+      assign m1_mem_read[p]     = exc_ex_q[p].valid_inst && decode_info.mem_read;
+      assign m1_mem_uncached[p] = '0; // TODO: FIXME
+      assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
+      assign m1_mem_paddr[p]    = paddr;
+      assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
+      assign m1_mem_rvalid[p]   = decode_info.mem_read;
       // 异常的处理：完成相关模块
     core_excp_handler m1_excp (
       .clk        (clk                                                           ),
@@ -884,7 +910,7 @@ module core_backend (
 
     /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
     for(genvar p = 0 ; p < 2 ; p++) begin : M2
-      m1_t decode_info;
+      m2_t decode_info;
       assign decode_info = pipeline_ctrl_m2_q[p].decode_info;
       // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
       logic[31:0] alu_result, lsu_result;
@@ -897,17 +923,17 @@ module core_backend (
       .USE_SFT(1),
       .USE_CMP(0)
     ) m2_alu (
-      .clk       (clk                                           ),
-      .rst_n     (rst_n                                         ),
-      .grand_op_i(pipeline_ctrl_m2_q[p].decode_info.alu_grand_op),
-      .op_i      (pipeline_ctrl_m2_q[p].decode_info.alu_op      ),
+      .clk       (clk                            ),
+      .rst_n     (rst_n                          ),
+      .grand_op_i(decode_info.alu_grand_op       ),
+      .op_i      (decode_info.alu_op             ),
       
-      .mul_i     (mul_result                                    ),
-      .r0_i      (pipeline_data_m2_q[p].r_data[0]               ),
-      .r1_i      (pipeline_data_m2_q[p].r_data[1]               ),
-      .pc_i      (pipeline_ctrl_m2_q[p].pc                      ),
+      .mul_i     (mul_result                     ),
+      .r0_i      (pipeline_data_m2_q[p].r_data[0]),
+      .r1_i      (pipeline_data_m2_q[p].r_data[1]),
+      .pc_i      (pipeline_ctrl_m2_q[p].pc       ),
       
-      .res_o     (alu_result                                    )
+      .res_o     (alu_result                     )
     );
 
       // M2 的额外部分
@@ -928,24 +954,46 @@ module core_backend (
             decode_info.tlbsrch_en};
         end
       end
+      // 写数据输入
+      always_comb begin
+        m2_mem_op[p]    = '0;
+        m2_mem_valid[p] = '0;
+        m2_mem_uncached = '0; // TODO: FIXME
+        if(decode_info.mem_read) begin
+          m2_mem_valid[p] = '1;
+          m2_mem_op[p]    = `_DCAHE_OP_READ;
+        end
+        if(decode_info.mem_write) begin
+          m2_mem_valid[p] = '1;
+          m2_mem_op[p]    = `_DCAHE_OP_WRITE;
+        end
+        // TODO: SUPPORT CACOP
+      end
+
+      assign m2_mem_size[p]   = mkmemsize(decode_info.mem_type);
+      assign m2_mem_vaddr[p]  = pipeline_ctrl_m2_q[p].vaddr;
+      assign m2_mem_paddr[p]  = pipeline_ctrl_m2_q[p].paddr;
+      assign m2_mem_strobe[p] = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m2_q[p].vaddr);
+      assign m2_mem_type[p]   = decode_info.mem_type;
+      assign m2_mem_wdata[p]  = pipeline_data_m2_q[p].r_data[0];
 
       // M2 的数据选择
       if(p == 0) begin
         always_comb begin
           pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-          case(decode_info.fu_sel_m1)
-            default: begin
+          case(decode_info.fu_sel_m2)
+            default : begin
               // NOTING TO DO
             end
-            `_FUSEL_M2_ALU: begin
+            `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
               pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
             end
-            `_FUSEL_M2_MEM: begin
+            `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && m2_mem_rvalid[p];
             end
-            `_FUSEL_M2_CSR: begin
+            `_FUSEL_M2_CSR : begin
               pipeline_wdata_m2[p].w_data = csr_r_data;
               pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
             end
@@ -955,15 +1003,15 @@ module core_backend (
       else begin
         always_comb begin
           pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
-          case(decode_info.fu_sel_m1)
-            default: begin
+          case(decode_info.fu_sel_m2)
+            default : begin
               // NOTING TO DO
             end
-            `_FUSEL_M2_ALU: begin
+            `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
               pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
             end
-            `_FUSEL_M2_MEM: begin
+            `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
               pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
             end
@@ -1065,8 +1113,8 @@ module core_backend (
       logic[31:0] m2_vaddr,wb_vaddr,cm_vaddr;
       logic[31:0] m2_paddr,wb_paddr,cm_paddr;
       assign m2_mdata = lsu_pm_block[p].lsu_inst.m2_wdata;
-      assign m2_vaddr = pipeline_ctrl_m2[p].vaddr;
-      assign m2_paddr = pipeline_ctrl_m2[p].paddr;
+      assign m2_vaddr = pipeline_ctrl_m2_q[p].vaddr;
+      assign m2_paddr = pipeline_ctrl_m2_q[p].paddr;
 
       assign wb_wen   = pipeline_wdata_wb[p].w_flow.w_valid && exc_wb_q[p].need_commit;
       assign wb_waddr = pipeline_wdata_wb[p].w_flow.w_addr;
