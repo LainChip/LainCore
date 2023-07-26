@@ -108,7 +108,7 @@ typedef struct packed{
         } read_flow_t;
 typedef struct packed{
           logic [4:0] w_addr;
-          logic [2:0] w_id;
+          logic [4:0] w_id;
           logic w_valid;
         } write_flow_t;
 // 控制流，目前未进行精简。
@@ -159,7 +159,7 @@ typedef struct packed {
 typedef struct packed{
           ex_t decode_info;  // 指令控制信息 ::: 不需要 rst clr | 跳转 clr
           logic[4:0] w_reg;
-          logic[2:0] w_id;
+          logic[4:0] w_id;
           bpu_predict_t bpu_predict;
           fetch_excp_t fetch_excp;
           logic[27:0] addr_imm;

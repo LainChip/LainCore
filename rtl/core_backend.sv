@@ -4,7 +4,7 @@
 
 function fwd_data_t mkfwddata(pipeline_wdata_t in);
 mkfwddata.valid = in.w_flow.w_valid;
-mkfwddata.id = in.w_flow.w_id;
+mkfwddata.id = in.w_flow.w_id[2:0];
 mkfwddata.data = in.w_data;
 endfunction
 
@@ -111,11 +111,11 @@ module core_backend (
     logic[1:0][1:0] is_r_ready;
     logic[1:0][1:0][3:0] is_r_id;
     logic[1:0][4:0] is_w_addr;
-    logic[2:0] is_w_id;
+    logic[4:0] is_w_id;
 
     logic[1:0][4:0] wb_w_addr;
     logic[1:0][31:0] wb_w_data;
-    logic[2:0] wb_w_id;
+    logic[4:0] wb_w_id;
     logic[1:0] wb_valid;
     logic[1:0] wb_commit;
     // 流水线处理，不可复位部分
@@ -146,17 +146,36 @@ module core_backend (
 
     // 流水线处理, TODO: 可复位部分
     for(genvar p = 0 ; p < 2 ;p ++) begin : PIPELINE_MANAGE
+      // SKID
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_skid_q[p] <= '0;
+        end
+        else begin
+          if(!is_skid_q) begin
+            exc_skid_q[p] <= exc_is[p];
+          end
+        end
+      end
       always_ff @(posedge clk) begin
         if(~rst_n) begin
           exc_ex_q[p] <= '0;
         end
         else begin
           if(!ex_stall) begin
-            exc_ex_q[p] <= is_skid_q ? exc_skid_q[p] : exc_is[p];
+            if(ex_invalidate) begin
+              exc_ex_q[p].valid_inst <= is_skid_q?exc_skid_q[p].valid_inst : exc_is[p].valid_inst;
+              exc_ex_q[p] <= '0;
+            end else begin
+              exc_ex_q[p] <= is_skid_q?exc_skid_q[p] : exc_is[p];
+            end
+          end else begin
+            if(ex_invalidate) begin
+              exc_ex_q[p].need_commit <= '0;
+            end
           end
         end
       end
-
       always_ff @(posedge clk) begin
         if(~rst_n) begin
           exc_m1_q[p] <= '0;
@@ -171,6 +190,10 @@ module core_backend (
             end
             if(ex_stall) begin
               exc_m1_q[p].valid_inst <= '0;
+            end
+          end else begin
+            if(m1_invalidate[p]) begin
+              exc_m1_q[p].need_commit <= '0;
             end
           end
         end
@@ -598,7 +621,7 @@ module core_backend (
     always_ff @(posedge clk) begin
       if(!is_skid_q) begin
         pipeline_ctrl_skid_q <= pipeline_ctrl_is;
-        exc_skid_q           <= exc_is;
+        // exc_skid_q           <= exc_is;
       end
     end
     /* SKID BUF 结束*/
