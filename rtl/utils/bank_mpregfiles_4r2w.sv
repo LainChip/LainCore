@@ -62,7 +62,7 @@ module bank_mpregfiles_4r2w #(
 
     /* write port in mux */
     la_mux2 #(WIDTH + 6)write_mux0({wa0_i[4:0],wd0_i,we0_i},{wa1_i[4:0],wd1_i,we1_i},{wa_0,wd_0,we_0},!we0_i || wa0_i[0]);
-    la_mux2 #(WIDTH + 6)write_mux1({wa1_i[4:0],wd1_i,we1_i},{wa0_i[4:0],wd0_i,we0_i},{wa_1,wd_1,we_1},!we0_i || wa0_i[0]);
+    la_mux2 #(WIDTH + 6)write_mux1({wa1_i[4:0],wd1_i,we1_i},{wa0_i[4:0],wd0_i,we0_i},{wa_1,wd_1,we_1}, we0_i && wa0_i[0]);
     // FIX: 0 端口有更高的优先级
 
     /* bank0 : manage even addr */
