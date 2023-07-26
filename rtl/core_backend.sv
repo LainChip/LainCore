@@ -37,10 +37,10 @@ endfunction
   function logic[31:0] mkimm_data(logic[2:0] data_imm_type, logic[25:0] raw_imm);
     // !!! CAUTIOUS !!! : DOESN'T SUPPORT IMM U16 | IMM S21 FOR NOW
     case(data_imm_type[1:0])
-      default/*IMM U5*/: begin
-        mkimm_data = {27'd0, raw_imm[15:10]};
-      end
-      `_IMM_U12 : begin
+      // default/*IMM U5*/: begin
+      //   mkimm_data = {27'd0, raw_imm[15:10]};
+      // end NO NEED ANY MORE
+      default : begin
         mkimm_data = {20'd0, raw_imm[21:10]};
       end
       `_IMM_S12 : begin
@@ -812,7 +812,7 @@ module core_backend (
       assign m1_invalidate_req[p]          = m1_branch_jmp_req;
       assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
 
-      assign m1_mem_read[p]     = exc_ex_q[p].valid_inst && decode_info.mem_read;
+      assign m1_mem_read[p]     = exc_m1_q[p].valid_inst && decode_info.mem_read;
       assign m1_mem_uncached[p] = '0; // TODO: FIXME
       assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]    = paddr;
@@ -844,15 +844,15 @@ module core_backend (
         pipeline_wdata_m1[p] = pipeline_wdata_ex_q[p]; // TODO: FIXME
         case(decode_info.fu_sel_m1)
           default : begin
-            // NOTING TO DO
+            pipeline_wdata_m1[p].w_flow.w_valid &= exc_m1_q[p].valid_inst;
           end
           `_FUSEL_M1_ALU : begin
             pipeline_wdata_m1[p].w_data = alu_result;
-            pipeline_wdata_m1[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
+            pipeline_wdata_m1[p].w_flow.w_valid = exc_m1_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
           end
           `_FUSEL_M1_MEM : begin
             pipeline_wdata_m1[p].w_data = lsu_result;
-            pipeline_wdata_m1[p].w_flow.w_valid = exc_ex_q[p].valid_inst && lsu_valid;
+            pipeline_wdata_m1[p].w_flow.w_valid = exc_m1_q[p].valid_inst && lsu_valid;
           end
         endcase
       end
@@ -984,19 +984,19 @@ module core_backend (
           pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
           case(decode_info.fu_sel_m2)
             default : begin
-              // NOTING TO DO
+              pipeline_wdata_m2[p].w_flow.w_valid &= exc_m2_q[p].valid_inst;
             end
             `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && m2_mem_rvalid[p];
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && m2_mem_rvalid[p];
             end
             `_FUSEL_M2_CSR : begin
               pipeline_wdata_m2[p].w_data = csr_r_data;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst;
             end
           endcase
         end
@@ -1006,15 +1006,15 @@ module core_backend (
           pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
           case(decode_info.fu_sel_m2)
             default : begin
-              // NOTING TO DO
+              pipeline_wdata_m2[p].w_flow.w_valid &= exc_m2_q[p].valid_inst;
             end
             `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_ex_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst;
             end
           endcase
         end
@@ -1065,7 +1065,9 @@ module core_backend (
         pipeline_wdata_wb[p] = pipeline_wdata_m2_q[p];
         if(decode_info.fu_sel_wb == `_FUSEL_WB_DIV) begin
           pipeline_wdata_wb[p].w_data = div_result;
-          pipeline_wdata_wb[p].w_flow.w_valid = exc_ex_q[p].valid_inst && div_result_valid;
+          pipeline_wdata_wb[p].w_flow.w_valid = exc_wb_q[p].valid_inst && div_result_valid;
+        end else begin
+          pipeline_wdata_wb[p].w_flow.w_valid &= exc_wb_q[p].valid_inst;
         end
       end
 
@@ -1076,7 +1078,7 @@ module core_backend (
 
       // 接入暂停请求
       always_comb begin
-        wb_stall_req[p] = exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit
+        wb_stall_req[p] = exc_wb_q[p].valid_inst & exc_wb_q[p].need_commit
           & decode_info.need_div & !div_result_valid; // 4 - 1
       end
 
