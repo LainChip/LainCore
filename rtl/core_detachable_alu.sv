@@ -149,6 +149,12 @@ always_comb begin
   endcase
 end
 
+logic[32:0] sub_r,r1,r0;
+logic ext;
+assign ext = ~op_i[0]; // JUDGE SLT, SHARE BETWEEN SUB AND CMP
+assign r1 = {{~r1_i[31] & ext},r1_i};
+assign r0 = {{~r0_i[31] & ext},r0_i};
+assign sub_r = r1 - r0;
 
 if(USE_INT) begin
   always_comb begin
@@ -157,7 +163,7 @@ if(USE_INT) begin
         g1_result = r1_i + r0_i;
       end
       1'b1: begin // 2'b10
-        g1_result = r1_i - r0_i;
+        g1_result = sub_r[31:0];
       end
     endcase
   end
@@ -208,15 +214,9 @@ end
 
 if (USE_CMP) begin
   // CMP
-  logic ext;
-  logic[32:0] r0,r1;
-  assign r0[31:0]        = r0_i;
-  assign r1[31:0]        = r1_i;
-  assign r0[32]          = r0_i[31] & ext;
-  assign r1[32]          = r1_i[31] & ext;
-  assign ext             = op_i[0]; // JUDGE SLT
   assign g3_result[31:1] = '0;
-  assign g3_result[0]    = r1 < r0;
+  // assign g3_result[0] = ext ? sub_r[32] : sub_r[31];
+  assign g3_result[0] = sub_r[32];
 end
 else begin
   assign g3_result = '0;

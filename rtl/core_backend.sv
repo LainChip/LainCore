@@ -264,7 +264,7 @@ module core_backend (
     always_comb begin
       ex_invalidate    = |m1_invalidate_req | m1_refetch;
       m1_invalidate[0] = m1_invalidate_req[0] & !m1_invalidate_exclude_self[0];
-      m1_invalidate[1] = m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[0]);
+      m1_invalidate[1] = m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[1]);
     end
 
     // forwarding manager
