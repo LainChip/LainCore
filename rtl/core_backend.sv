@@ -312,7 +312,7 @@ module core_backend (
     .rst_n     (rst_n     ),
     .dm_req_i  (dm_req    ),
     .dm_resp_o (dm_resp   ),
-    .dm_snoop_i(dm_snoop  ),
+    .dm_snoop_o(dm_snoop  ),
     .bus_req_o (bus_req_o ),
     .bus_resp_i(bus_resp_i),
     .bus_busy_o(bus_busy_o)
@@ -564,7 +564,8 @@ module core_backend (
   );
 
     // 产生 EX 级的流水线信号 x 2
-    logic ex_ready, ex_valid;
+    logic ex_ready;
+    assign ex_ready = !ex_stall;
     // IS 数据前递部分（EX、WB），输入是 pipeline_ctrl_is ，输出 pipeline_ctrl_is_fwd 不完全。
 
     /* SKID BUF */
@@ -960,11 +961,11 @@ module core_backend (
         m2_mem_valid[p] = '0;
         m2_mem_uncached = '0; // TODO: FIXME
         if(decode_info.mem_read) begin
-          m2_mem_valid[p] = '1;
+          m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
           m2_mem_op[p]    = `_DCAHE_OP_READ;
         end
         if(decode_info.mem_write) begin
-          m2_mem_valid[p] = '1;
+          m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
           m2_mem_op[p]    = `_DCAHE_OP_WRITE;
         end
         // TODO: SUPPORT CACOP

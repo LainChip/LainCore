@@ -28,7 +28,7 @@ assign structural_conflict = (
   (inst_i[0].decode_info.need_lsu && inst_i[1].decode_info.need_lsu) ||
   (inst_i[0].decode_info.need_bpu && inst_i[1].decode_info.need_bpu) ) && d_valid_i[1];
 
-assign is_o[0] = d_valid_i[0];
-assign is_o[1] = d_valid_i[1] && !data_conflict && !structural_conflict;
-
+assign is_o[0] = ex_ready_i && d_valid_i[0];
+assign is_o[1] = ex_ready_i && d_valid_i[1] && !data_conflict && !structural_conflict;
+assign ex_valid_o = d_valid_i[0];
 endmodule

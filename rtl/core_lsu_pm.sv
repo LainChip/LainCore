@@ -152,7 +152,7 @@ end
 
 // M1 busy 电路
 always_comb begin
-  m1_busy_o = (m1_fsm_q != M1_FSM_NORMAL) || (m1_fsm_q == M1_FSM_NORMAL && m1_read_i && !dm_resp_i.r_valid_d1);
+  m1_busy_o = (m1_fsm_q == M1_FSM_WAIT) || (m1_fsm_q == M1_FSM_NORMAL && m1_read_i && !dm_resp_i.r_valid_d1);
 end
 
 // 注意：这部分需要在 M1 - M2 级之间进行流水。
@@ -178,10 +178,10 @@ end
 // 这个状态机需要做得事情很有限，所有 CACHE 操作请求都通过 request 的形式提交给 RAM 管理者进行，
 // 本地只需要轮询本地寄存器等待结果被从 snoop 中捕捉到就可以了。
 logic[6:0] m2_fsm_q,m2_fsm;
-localparam logic[6:0] M2_FSM_NORMAL      = 7'b0000001;
-localparam logic[6:0] M2_FSM_CREAD_MISS  = 7'b0000010;
-localparam logic[6:0] M2_FSM_UREAD_WAIT  = 7'b0000100;
-localparam logic[6:0] M2_FSM_CWRITE_MISS = 7'b0001000;
+localparam logic[6:0] M2_FSM_NORMAL      = 7'b0000001; // 1
+localparam logic[6:0] M2_FSM_CREAD_MISS  = 7'b0000010; // 2
+localparam logic[6:0] M2_FSM_UREAD_WAIT  = 7'b0000100; // 4
+localparam logic[6:0] M2_FSM_CWRITE_MISS = 7'b0001000; // 8
 localparam logic[6:0] M2_FSM_WRITE_WAIT  = 7'b0010000; // 对于写请求，无论是否可缓存，均用此状态等待。
 // 当等待写完成时，若 cached 请求突然 miss，也需要转移状态到 CWRITE_MISS 等待重填。
 localparam logic[6:0] M2_FSM_CACHE_OP    = 7'b0100000;
@@ -195,7 +195,7 @@ always_ff@(posedge clk) begin
   end
 end
 always_comb begin
-  m2_busy_o = m2_fsm_q != M2_FSM_NORMAL;
+  m2_busy_o = (m2_fsm_q & (M2_FSM_NORMAL | M2_FSM_WAIT_STALL)) == 0;
   m2_fsm    = m2_fsm_q;
   case (m2_fsm_q)
     M2_FSM_NORMAL : begin
@@ -357,15 +357,21 @@ end
 
 // 产生向 DM 的请求
 always_comb begin
-  dm_req_o.we_valid = (m2_op_i == `_DCAHE_OP_WRITE) && (m2_uncached_i || !m2_miss_q) &&
+  dm_req_o.we_valid = m2_valid_i && (m2_op_i == `_DCAHE_OP_WRITE) && (m2_uncached_i || !m2_miss_q) &&
     (m2_fsm_q & (M2_FSM_WRITE_WAIT | M2_FSM_NORMAL)) != 0;
   dm_req_o.uncached = m2_uncached_i;
   dm_req_o.strobe   = m2_strobe_i;
   dm_req_o.size     = m2_size_i;
   dm_req_o.we_sel   = m2_hit_q;
   dm_req_o.wdata    = m2_wdata;
-  dm_req_o.op_type  = m2_op_i;
-  dm_req_o.op_valid = (m2_fsm_q & (M2_FSM_CACHE_OP | M2_FSM_UREAD_WAIT)) != 0;
+  // dm_req_o.op_type  = m2_op_i;
+  if((m2_fsm_q & (M2_FSM_CREAD_MISS | M2_FSM_CWRITE_MISS)) != 0) begin
+    dm_req_o.op_type = 4'b0001;
+  end else begin
+    dm_req_o.op_type = 4'b0010;
+  end
+  // TODO: SUPPORT CACOP HERE.
+  dm_req_o.op_valid = (m2_fsm_q & (M2_FSM_CACHE_OP | M2_FSM_UREAD_WAIT | M2_FSM_CREAD_MISS | M2_FSM_CWRITE_MISS)) != 0;
   dm_req_o.op_addr  = m2_paddr_i;
   dm_req_o.old_tags = m2_tag_q;
 end
