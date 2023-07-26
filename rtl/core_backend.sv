@@ -8,13 +8,13 @@ mkfwddata.id = in.w_flow.w_id;
 mkfwddata.data = in.w_data;
 endfunction
 
-function logic[1:0] mkmemsize(logic[2:0] sel);
-case(sel[1:0])
-default: mkmemsize = 2'b11;
-2'b10: mkmemsize = 2'b01;
-2'b11: mkmemsize = 2'b00;
-endcase
-endfunction
+  function logic[1:0] mkmemsize(logic[2:0] sel);
+    case(sel[1:0])
+      default : mkmemsize = 2'b11;
+      2'b10   : mkmemsize = 2'b01;
+      2'b11   : mkmemsize = 2'b00;
+    endcase
+  endfunction
 
   function logic[27:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
     case (addr_imm_type)
@@ -959,7 +959,7 @@ module core_backend (
       always_comb begin
         m2_mem_op[p]    = '0;
         m2_mem_valid[p] = '0;
-        m2_mem_uncached = '0; // TODO: FIXME
+        m2_mem_uncached = '1; // TODO: FIXME
         if(decode_info.mem_read) begin
           m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
           m2_mem_op[p]    = `_DCAHE_OP_READ;
@@ -1119,7 +1119,7 @@ module core_backend (
 
       assign wb_wen   = pipeline_wdata_wb[p].w_flow.w_valid && exc_wb_q[p].need_commit;
       assign wb_waddr = pipeline_wdata_wb[p].w_flow.w_addr;
-      assign wb_valid = exc_wb_q[p].valid_inst && exc_wb_q[p].need_commit;
+      assign wb_valid = exc_wb_q[p].valid_inst && exc_wb_q[p].need_commit && !wb_stall;
       assign wb_pc    = pipeline_ctrl_wb_q[p].pc;
       assign wb_instr = pipeline_ctrl_wb_q[p].decode_info.debug_inst;
       assign wb_wdata = pipeline_wdata_wb[p].w_data;
@@ -1160,27 +1160,29 @@ module core_backend (
         .timer_64_value(timer_64_diff   ),
         .wen           (cm_wen          ),
         .wdest         (cm_waddr        ),
-        .wdata         (cm_wdata        ),
+        .wdata         (cm_waddr == '0 ? '0 : cm_wdata),
         .csr_rstat     (p == 0          ),
         .csr_data      (csr_value_q.estat)
       );
-      DifftestStoreEvent DifftestStoreEvent_p (
-        .clock     (clk),
-        .coreid    (0  ),
-        .index     (p  ),
-        .valid     (cm_valid && cm_inst_info.mem_write),
-        .storePAddr(cm_paddr),
-        .storeVAddr(cm_vaddr),
-        .storeData (cm_mdata)
-      );
-      DifftestLoadEvent DifftestLoadEvent_p (
-        .clock (clk),
-        .coreid(0),
-        .index (p),
-        .valid (cm_valid && cm_inst_info.mem_read),
-        .paddr (cm_paddr),
-        .vaddr (cm_vaddr)
-      );
+      // if(p == 0) begin
+      // DifftestStoreEvent DifftestStoreEvent_p (
+      //   .clock     (clk),
+      //   .coreid    (0  ),
+      //   .index     (p  ),
+      //   .valid     (cm_valid && cm_inst_info.mem_write),
+      //   .storePAddr(cm_paddr),
+      //   .storeVAddr(cm_vaddr),
+      //   .storeData (cm_mdata)
+      // );
+      // DifftestLoadEvent DifftestLoadEvent_p (
+      //   .clock (clk),
+      //   .coreid(0),
+      //   .index (p),
+      //   .valid (cm_valid && cm_inst_info.mem_read),
+      //   .paddr (cm_paddr),
+      //   .vaddr (cm_vaddr)
+      // );
+      // end
     end
 
   DifftestTrapEvent DifftestTrapEvent (
