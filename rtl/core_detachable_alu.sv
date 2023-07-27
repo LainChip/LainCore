@@ -178,7 +178,7 @@ else if(USE_LI) begin
         g1_result = 32'd4 + pc_i;
       end
       `_ALU_STYPE_PCADDUI: begin  // 2'b11
-        g1_result = r0_i + pc_i;
+        g1_result = {r0_i[19:0], 12'd0} + pc_i;
       end
     endcase
   end
