@@ -426,7 +426,6 @@ module core_backend (
 
     logic[1:0] div_request_req;
     logic div_request      ;
-    logic div_request_ready;
     logic[31:0] div_result;
     logic div_result_valid;
     always_comb begin
@@ -434,6 +433,8 @@ module core_backend (
       div_input   = div_req[0] ? div_input_req[0] : div_input_req[1];
       div_op      = div_req[0] ? div_op_req[0] : div_op_req[1];
       div_request = |div_request_req;
+      div_push_id = pipeline_wdata_ex[0].w_flow.w_id[2:0];
+      div_pop_id = pipeline_wdata_m2[0].w_flow.w_id[2:0];
     end
   core_divider_manager core_divider_manager_inst (
     .clk           (clk              ),
@@ -446,8 +447,8 @@ module core_backend (
     .push_id_i     (div_push_id      ),
     .wb_stall_i    (wb_stall         ),
     .pop_id_i      (div_pop_id       ),
-    .result_valid_o(div_request_ready),
-    .result_o      (result_o         )
+    .result_valid_o(div_result_valid ),
+    .result_o      (div_result       )
   );
 
     // DADDR_TRANS 接入 (EX - M1)
@@ -738,7 +739,8 @@ module core_backend (
       // 接入暂停请求
       always_comb begin
         ex_stall_req[p] = ((decode_info.latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
-          (decode_info.latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) ) &
+          (decode_info.latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) |
+          (decode_info.need_div & ~div_ready)) &
         exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit; // LUT6 - 1
       end
 
@@ -763,7 +765,8 @@ module core_backend (
 
       // 接入 div
       always_comb begin
-        div_req[p]          = decode_info.need_div;
+        div_req[p]          = decode_info.need_div && exc_ex_q[p].need_commit && exc_ex_q[p].valid_inst &&
+        &pipeline_data_ex_q[p].r_flow.r_ready;
         div_op_req[p]       = decode_info.alu_op;
         div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
         div_input_req[p][1] = pipeline_data_ex_q[p].r_data[1];

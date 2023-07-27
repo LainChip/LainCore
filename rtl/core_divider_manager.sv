@@ -27,6 +27,7 @@ module core_divider_manager(
   always_ff@(posedge clk) begin
     if(push_valid_i & push_ready_o) begin
       valid_table_q[push_id_i] <= '0;
+      calculating_id_q <= push_id_i;
     end
     else begin
       if(div_finish) begin
@@ -37,16 +38,16 @@ module core_divider_manager(
   end
 
   logic div_busy_q,div_busy;
-  logic skid_q;
   logic[2:0] pop_id_skid_q;
   always_ff @(posedge clk) begin
-    skid_q <= wb_stall_i;
-    if(!skid_q) begin
+    if(!wb_stall_i) begin
       pop_id_skid_q <= pop_id_i;
       result_valid_o <= valid_table_q[pop_id_i];
+      result_o <= result_q[pop_id_i];
     end
     else begin
       result_valid_o <= valid_table_q[pop_id_skid_q];
+      result_o <= result_q[pop_id_skid_q];
     end
   end
   always_ff @(posedge clk) begin
@@ -75,18 +76,30 @@ module core_divider_manager(
   end
   assign push_ready_o = ~div_busy_q;
 
-  divider  divider_i (
-             .clk(clk),
-             .rst_n(rst_n),
-             .div_valid(push_valid_i & push_ready_o),
-             .div_ready(),
-             .res_valid(div_finish),
-             .res_ready(1'b1),
-             .div_signed_i(op_i[0]),
-             .Z_i(r1_i),
-             .D_i(r0_i),
-             .q_o(div_result),
-             .s_o(mod_result)
-           );
-
+  // divider  divider_i (
+  //            .clk(clk),
+  //            .rst_n(rst_n),
+  //            .div_valid(push_valid_i & push_ready_o),
+  //            .div_ready(),
+  //            .res_valid(div_finish),
+  //            .res_ready(1'b1),
+  //            .div_signed_i(~op_i[0]),
+  //            .Z_i(r1_i),
+  //            .D_i(r0_i),
+  //            .q_o(div_result),
+  //            .s_o(mod_result)
+  //          );
+  logic div_core_busy;
+  assign div_finish = ~div_core_busy;
+  fast_div  fast_div_inst (
+            .clk(clk),
+            .rst_n(rst_n),
+            .A(r1_i),
+            .B(r0_i),
+            .HI(mod_result),
+            .LO(div_result),
+            .start(push_valid_i & push_ready_o),
+            .sign(~op_i[0]),
+            .busy(div_core_busy)
+          );
 endmodule
