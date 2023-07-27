@@ -1167,7 +1167,7 @@ module core_backend (
         cm_paddr <= wb_paddr;
       end
       decoder  decoder_inst_p (
-        .inst_i(wb_instr),
+        .inst_i(cm_instr),
         .fetch_err_i('0),
         .is_o(cm_inst_info)
       );
@@ -1183,30 +1183,30 @@ module core_backend (
         .TLBFILL_index (debug_rand_index),
         .is_CNTinst    (cm_inst_info.csr_rdcnt != '0),
         .timer_64_value(timer_64_diff   ),
-        .wen           (cm_wen          ),
+        .wen           (cm_waddr == '0 ? '0 : cm_wen          ),
         .wdest         (cm_waddr        ),
         .wdata         (cm_waddr == '0 ? '0 : cm_wdata),
         .csr_rstat     (p == 0          ),
         .csr_data      (csr_value_q.estat)
       );
       // if(p == 0) begin
-      // DifftestStoreEvent DifftestStoreEvent_p (
-      //   .clock     (clk),
-      //   .coreid    (0  ),
-      //   .index     (p  ),
-      //   .valid     (cm_valid && cm_inst_info.mem_write),
-      //   .storePAddr(cm_paddr),
-      //   .storeVAddr(cm_vaddr),
-      //   .storeData (cm_mdata)
-      // );
-      // DifftestLoadEvent DifftestLoadEvent_p (
-      //   .clock (clk),
-      //   .coreid(0),
-      //   .index (p),
-      //   .valid (cm_valid && cm_inst_info.mem_read),
-      //   .paddr (cm_paddr),
-      //   .vaddr (cm_vaddr)
-      // );
+      DifftestStoreEvent DifftestStoreEvent_p (
+        .clock     (clk),
+        .coreid    (0  ),
+        .index     (p  ),
+        .valid     (cm_valid && cm_inst_info.mem_write),
+        .storePAddr(cm_paddr),
+        .storeVAddr(cm_vaddr),
+        .storeData (cm_mdata)
+      );
+      DifftestLoadEvent DifftestLoadEvent_p (
+        .clock (clk),
+        .coreid(0),
+        .index (p),
+        .valid (cm_valid && cm_inst_info.mem_read),
+        .paddr (cm_paddr),
+        .vaddr (cm_vaddr)
+      );
       // end
     end
 

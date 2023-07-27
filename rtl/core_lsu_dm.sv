@@ -798,6 +798,7 @@ module core_lsu_dm #(
   pw_fifo_t [15:0] pw_fifo;
   pw_fifo_t        pw_req,pw_handling;
   // CACHE 总线交互机制
+  assign bus_lock = fifo_fsm_q != S_FEMPTY;
   always_comb begin
     // TODO:根据 FSM 状态及总线状态及时的赋值
     bus_req_o.valid      = 1'b0;
