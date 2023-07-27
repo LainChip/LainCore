@@ -62,7 +62,8 @@
             "reg_type_r1": "`_REG_R1_RJ",
             "addr_imm_type": "`_ADDR_IMM_S12",
             "reg_type_w": "`_REG_W_RD",
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "fu_sel_m2": "`_FUSEL_M2_MEM"
         },
         "ld.hu": {
             "opcode": "0010101001",
@@ -73,7 +74,8 @@
             "reg_type_r1": "`_REG_R1_RJ",
             "addr_imm_type": "`_ADDR_IMM_S12",
             "reg_type_w": "`_REG_W_RD",
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "fu_sel_m2": "`_FUSEL_M2_MEM"
         },
         "ld.h": {
             "opcode": "0010100001",
@@ -84,7 +86,8 @@
             "reg_type_r1": "`_REG_R1_RJ",
             "addr_imm_type": "`_ADDR_IMM_S12",
             "reg_type_w": "`_REG_W_RD",
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "fu_sel_m2": "`_FUSEL_M2_MEM"
         },
         "ld.b": {
             "opcode": "0010100000",
@@ -95,7 +98,8 @@
             "reg_type_r1": "`_REG_R1_RJ",
             "addr_imm_type": "`_ADDR_IMM_S12",
             "reg_type_w": "`_REG_W_RD",
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "fu_sel_m2": "`_FUSEL_M2_MEM"
         },
         "ld.w": {
             "opcode": "0010100010",
@@ -106,7 +110,9 @@
             "reg_type_r1": "`_REG_R1_RJ",
             "addr_imm_type": "`_ADDR_IMM_S12",
             "reg_type_w": "`_REG_W_RD",
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "fu_sel_m1": "`_FUSEL_M1_MEM",
+            "fu_sel_m2": "`_FUSEL_M2_MEM"
         },
         "ll.w": {
             "opcode": "00100000",
@@ -118,7 +124,8 @@
             "reg_type_r1": "`_REG_R1_RJ",
             "addr_imm_type": "`_ADDR_IMM_S14",
             "reg_type_w": "`_REG_W_RD",
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "fu_sel_m2": "`_FUSEL_M2_MEM"
         },
         "st.w": {
             "opcode": "0010100110",
