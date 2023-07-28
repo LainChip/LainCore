@@ -252,7 +252,7 @@ module core_backend (
     bpu_correct_t m2_bpu_feedback_q;
     logic         m2_jump_valid_q  ;
     always_ff @(posedge clk) begin
-      m2_jump_valid_q   <= |m1_invalidate_req | m1_refetch;
+      m2_jump_valid_q   <= |m1_invalidate_req;
       m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_jump_target_req[0] : m1_jump_target_req[1];
       m2_bpu_feedback_q <= (m1_invalidate_req[0]) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
     end
@@ -262,7 +262,7 @@ module core_backend (
 
     // INVALIDATE MANAGER
     always_comb begin
-      ex_invalidate    = |m1_invalidate_req | m1_refetch;
+      ex_invalidate    = |m1_invalidate_req;
       m1_invalidate[0] = m1_invalidate_req[0] & !m1_invalidate_exclude_self[0];
       m1_invalidate[1] = m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[1]);
     end
@@ -425,7 +425,7 @@ module core_backend (
     logic[1:0][31:0] div_input;
 
     logic[1:0] div_request_req;
-    logic div_request      ;
+    logic div_request;
     logic[31:0] div_result;
     logic div_result_valid;
     always_comb begin
@@ -434,21 +434,21 @@ module core_backend (
       div_op      = div_req[0] ? div_op_req[0] : div_op_req[1];
       div_request = |div_request_req;
       div_push_id = pipeline_wdata_ex[0].w_flow.w_id[2:0];
-      div_pop_id = pipeline_wdata_m2[0].w_flow.w_id[2:0];
+      div_pop_id  = pipeline_wdata_m2[0].w_flow.w_id[2:0];
     end
   core_divider_manager core_divider_manager_inst (
-    .clk           (clk              ),
-    .rst_n         (rst_n            ),
-    .r0_i          (div_input[0]     ),
-    .r1_i          (div_input[1]     ),
-    .op_i          (div_op           ),
-    .push_valid_i  (div_valid        ),
-    .push_ready_o  (div_ready        ),
-    .push_id_i     (div_push_id      ),
-    .wb_stall_i    (wb_stall         ),
-    .pop_id_i      (div_pop_id       ),
-    .result_valid_o(div_result_valid ),
-    .result_o      (div_result       )
+    .clk           (clk             ),
+    .rst_n         (rst_n           ),
+    .r0_i          (div_input[0]    ),
+    .r1_i          (div_input[1]    ),
+    .op_i          (div_op          ),
+    .push_valid_i  (div_valid       ),
+    .push_ready_o  (div_ready       ),
+    .push_id_i     (div_push_id     ),
+    .wb_stall_i    (wb_stall        ),
+    .pop_id_i      (div_pop_id      ),
+    .result_valid_o(div_result_valid),
+    .result_o      (div_result      )
   );
 
     // DADDR_TRANS 接入 (EX - M1)
@@ -765,8 +765,8 @@ module core_backend (
 
       // 接入 div
       always_comb begin
-        div_req[p]          = decode_info.need_div && exc_ex_q[p].need_commit && exc_ex_q[p].valid_inst &&
-        &pipeline_data_ex_q[p].r_flow.r_ready;
+        div_req[p] = decode_info.need_div && exc_ex_q[p].need_commit && exc_ex_q[p].valid_inst &&
+          &pipeline_data_ex_q[p].r_flow.r_ready;
         div_op_req[p]       = decode_info.alu_op;
         div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
         div_input_req[p][1] = pipeline_data_ex_q[p].r_data[1];
@@ -834,8 +834,6 @@ module core_backend (
       .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
       .jmp_o        (m1_branch_jmp_req                                             )
     );
-      assign m1_jump_target_req[p]         = pipeline_ctrl_m1_q[p].jump_target;
-      assign m1_invalidate_req[p]          = m1_branch_jmp_req;
       assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
 
       assign m1_mem_read[p]     = exc_m1_q[p].valid_inst && decode_info.mem_read;
@@ -884,8 +882,16 @@ module core_backend (
       end
 
       // REFETCHER
+      assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
+      assign m1_invalidate_req[p]  = m1_branch_jmp_req;
       if(p == 0) begin
-        assign m1_refetch = decode_info.refetch;
+        assign m1_refetch            = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
+        assign m1_jump_target_req[p] = decode_info.refetch ? pipeline_ctrl_m1_q[p].pc :
+          pipeline_ctrl_m1_q[p].jump_target;
+        assign m1_invalidate_req[p] = m1_branch_jmp_req | m1_refetch;
+      end else begin
+        assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
+        assign m1_invalidate_req[p]  = m1_branch_jmp_req;
       end
 
       // 接入转发源

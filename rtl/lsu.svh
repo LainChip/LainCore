@@ -146,14 +146,16 @@ function logic[31:0] mkrsft(logic[31:0] raw, logic[31:0] va, logic[2:0] op);
   logic ext_sign;
   case(op[1:0])
     default : begin
-      ext_sign = raw[15];
+      ext_sign = raw[15] & ~op[2];
     end
     2'b10 : begin
       // HALF
-      ext_sign = va[1] ? raw[31] : raw[15];
+      ext_sign = va[1] ? (raw[31] & ~op[2]) :
+        (raw[15] & ~op[2]);
     end
     2'b11 : begin
-      ext_sign = va[1] ? (va[0] ? raw[31] : raw[23]) : (va[0] ? raw[15] : raw[7]);
+      ext_sign = va[1] ? (va[0] ? (raw[31] & ~op[2]) : (raw[23] & ~op[2])) :
+        (va[0] ? (raw[15] & ~op[2]) : (raw[7] & ~op[2]));
     end
   endcase
   if(op[1]) begin
