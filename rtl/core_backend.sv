@@ -270,8 +270,8 @@ module core_backend (
     // forwarding manager
     /* 所有级流水的前递模块在这里实例化*/
     for(genvar p = 0 ; p < 2 ; p++) begin : FWD_BLOCK
-      core_fwd_unit #(2) is_fwd(
-        {fwd_data_wb, fwd_data_ex},
+      core_fwd_unit #(3) is_fwd(
+        {fwd_data_wb, fwd_data_ex, fwd_data_m1/* NO MEM FEEDBACK LD-NOP-ALU*/},
         pipeline_data_is[p],
         pipeline_data_is_fwd[p]
       );
@@ -281,7 +281,7 @@ module core_backend (
       pipeline_data_skid_fwd[p]
     );
     core_fwd_unit #(2) ex_fwd (
-      {fwd_data_wb, fwd_data_m1},
+      {fwd_data_wb, fwd_data_m1 /* SUPPORT LD-ALU */},
       pipeline_data_ex_q[p],
       pipeline_data_ex_fwd[p]
     );
@@ -572,19 +572,19 @@ module core_backend (
 
     // 读取 scoreboard，判断寄存器值是否有效
   scoreboard scoreboard_inst (
-    .clk          (clk       ),
-    .rst_n        (rst_n     ),
-    .invalidate_i (          ),
-    .issue_ready_o(is_ready  ),
-    .is_r_addr_i  (is_r_addr ),
-    .is_r_id_o    (is_r_id   ),
-    .is_r_valid_o (is_r_ready),
-    .is_w_addr_i  (is_w_addr ),
-    .is_i         (issue     ),
-    .is_w_id_o    (is_w_id   ),
-    .wb_w_addr_i  (wb_w_addr ),
-    .wb_w_id_i    (wb_w_id   ),
-    .wb_valid_i   (wb_valid  )
+    .clk          (clk          ),
+    .rst_n        (rst_n        ),
+    .invalidate_i (ex_invalidate),
+    .issue_ready_o(is_ready     ),
+    .is_r_addr_i  (is_r_addr    ),
+    .is_r_id_o    (is_r_id      ),
+    .is_r_valid_o (is_r_ready   ),
+    .is_w_addr_i  (is_w_addr    ),
+    .is_i         (issue        ),
+    .is_w_id_o    (is_w_id      ),
+    .wb_w_addr_i  (wb_w_addr    ),
+    .wb_w_id_i    (wb_w_id      ),
+    .wb_valid_i   (wb_valid     )
   );
 
     // 产生 EX 级的流水线信号 x 2
@@ -778,8 +778,8 @@ module core_backend (
         pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
         pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
         pipeline_ctrl_m1[p].csr_id = (decode_info.need_csr) ?
-          pipeline_ctrl_ex_q[p].addr_imm[13:0] :
-            {pipeline_ctrl_ex_q[p].addr_imm[13:5],pipeline_ctrl_ex_q[p].addr_imm[20:16]};
+          pipeline_ctrl_ex_q[p].addr_imm[15:2] :
+            {pipeline_ctrl_ex_q[p].addr_imm[15:7],pipeline_ctrl_ex_q[p].addr_imm[22:17]};
         pipeline_ctrl_m1[p].jump_target = jump_target;
         pipeline_ctrl_m1[p].vaddr = vaddr;
         pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
@@ -834,7 +834,6 @@ module core_backend (
       .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
       .jmp_o        (m1_branch_jmp_req                                             )
     );
-      assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
 
       assign m1_mem_read[p]     = exc_m1_q[p].valid_inst && decode_info.mem_read;
       assign m1_mem_uncached[p] = '0; // TODO: FIXME
@@ -884,12 +883,14 @@ module core_backend (
       // REFETCHER
       if(p == 0) begin
         assign m1_refetch            = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
-        assign m1_jump_target_req[p] = decode_info.refetch ? pipeline_ctrl_m1_q[p].pc :
+        assign m1_jump_target_req[p] = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_invalidate_req[p] = m1_branch_jmp_req | m1_refetch;
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req | m1_refetch;
+        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req | m1_refetch;
       end else begin
-        assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_invalidate_req[p]  = m1_branch_jmp_req;
+        assign m1_jump_target_req[p]         = pipeline_ctrl_m1_q[p].jump_target;
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req;
+        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
       end
 
       // 接入转发源
@@ -1079,7 +1080,7 @@ module core_backend (
     assign csr_w_mask  = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
       32'hffffffff :
       pipeline_data_m2_q[0].r_data[1];
-    assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en;
+    assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en && exc_m2_q[0].need_commit;
 
     /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
     // 不存在数据前递

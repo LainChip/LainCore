@@ -42,8 +42,8 @@ module core_csr(
 
   logic csr_we;
   logic[31:0] csr_w_data;
-  assign csr_we = !m2_stall_i && csr_we_i && commit_i && valid_i;
-  assign csr_w_data = (csr_r_data_o & ~csr_w_mask_i) | (csr_w_data_i & ~csr_w_mask_i);
+  assign csr_we = !m2_stall_i && csr_we_i;
+  assign csr_w_data = (csr_r_data_o & ~csr_w_mask_i) | (csr_w_data_i & csr_w_mask_i);
 
   // EXCPTION JUDGE OH
   logic excp_int;

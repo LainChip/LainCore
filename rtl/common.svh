@@ -2,8 +2,8 @@
 `ifndef _COMMON_HEADER
 `define _COMMON_HEADER
 
-// `define _DIFFTEST_ENABLE
-`define _FPGA
+`define _DIFFTEST_ENABLE
+// `define _FPGA
 
 `define _CACHE_BUS_DATA_LEN (32)
 `define _AXI_BURST_SIZE (4'b0011)
