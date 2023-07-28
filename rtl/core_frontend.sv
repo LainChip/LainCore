@@ -259,8 +259,8 @@ module core_frontend (
   // assign frontend_req_o.inst       = decoder_inst_package;
   // assign d_num                     = frontend_resp_i.issue[0] + frontend_resp_i.issue[1];
   // ISSUE
-  inst_t[1:0] is_inst_package_q, is_inst_package;
-  logic[1:0] is_valid_q, is_valid;
+  (*MAX_FANOUT=70*) inst_t[1:0] is_inst_package_q, is_inst_package;
+  (*MAX_FANOUT=70*) logic[1:0] is_valid_q, is_valid;
   always_ff @(posedge clk) begin
     if(frontend_resp_i.rst_jmp || ~rst_n) begin
       is_valid_q <= '0;

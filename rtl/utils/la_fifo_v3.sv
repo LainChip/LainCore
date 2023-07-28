@@ -42,7 +42,7 @@ module la_fifo_v3 #(
     // clock gating control
     logic gate_clock;
     // pointer to the read and write section of the queue
-    logic [ADDR_DEPTH - 1:0] read_pointer_n, read_pointer_q, write_pointer_n, write_pointer_q;
+    (*MAX_FANOUT=70*) logic [ADDR_DEPTH - 1:0] read_pointer_n, read_pointer_q, write_pointer_n, write_pointer_q;
     // keep a counter to keep track of the current queue status
     logic [ADDR_DEPTH:0] status_cnt_n, status_cnt_q; // this integer will be truncated by the synthesis tool
     // actual memory
