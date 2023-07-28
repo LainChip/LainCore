@@ -137,7 +137,7 @@ typedef struct packed {
           logic sys;
           logic brk;
           logic tlbr;
-
+          
           // FRONTEND
           logic adef;
           logic itlbr;
