@@ -61,7 +61,7 @@ typedef logic priv_req_t;
 `define _BPU_TARGET_RETURN (2'd2)
 `define _BPU_TARGET_IMM (2'd3)
 
-typedef struct {
+typedef struct packed{
           logic fsc;
           logic[31:2] target_pc;
           logic[`_BTB_TAG_ADDR_WIDTH  - 1 : 0 ] tag;

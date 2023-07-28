@@ -13,7 +13,7 @@
      input logic[31:0] target_i,
      input logic[31:0] r0_i,
      input logic[31:0] r1_i,
-     output logic jmp_o,
+     output logic jmp_o
    );
 
    logic address_correct,direction_correct;
@@ -42,11 +42,11 @@
    assign cmp_result[3] = r1 < r0;
    assign cmp_result[2] = r1 == r0;
    assign cmp_result[1] = r1 > r0;
-   assign true_taken = |(cmp_result & cmp_type_i[4:1]);
+   assign true_taken = |(cmp_result & cmp_type_i[3:1]);
 
    logic true_dir_type,miss_dir_type,miss_target;
    logic[1:0] true_target_type;
-   assign true_dir_type = |cmp_result[4:1]/*JUMPABLE*/ && !&cmp_result[4:1] /*BUT NOT ALWAYS JUMP*/;
+   assign true_dir_type = |cmp_result[3:1]/*JUMPABLE*/ && !(&cmp_result[3:1]) /*BUT NOT ALWAYS JUMP*/;
    assign miss_dir_type = bpu_predict_i.dir_type != true_dir_type;
    assign miss_target = true_target_type != bpu_predict_i.target_type;
    // 更新逻辑

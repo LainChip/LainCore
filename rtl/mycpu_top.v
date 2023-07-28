@@ -3,7 +3,7 @@
 module mycpu_top(
     input           aclk,
     input           aresetn,
-    input    [ 7:0] intrpt, 
+    input    [ 7:0] ext_int, 
     //AXI interface 
     //read reqest
     output   [ 3:0] arid,
@@ -47,17 +47,17 @@ module mycpu_top(
     input           bvalid,
     output          bready,
 
-    output [31:0] debug0_wb_pc,
-    output [ 3:0] debug0_wb_rf_wen,
-    output [ 4:0] debug0_wb_rf_wnum,
-    output [31:0] debug0_wb_rf_wdata,
-    output [31:0] debug0_wb_inst
+    output [31:0] debug_wb_pc,
+    output [ 3:0] debug_wb_rf_we,
+    output [ 4:0] debug_wb_rf_wnum,
+    output [31:0] debug_wb_rf_wdata,
+    output [31:0] debug_wb_inst
 );
 
     core_top core_wrap(
         .aclk(aclk),
         .aresetn(aresetn),
-        .intrpt(intrpt),
+        .intrpt(ext_int),
         .arid(arid),
         .araddr(araddr),
         .arlen(arlen),
@@ -94,11 +94,11 @@ module mycpu_top(
         .bresp(bresp),
         .bvalid(bvalid),
         .bready(bready),
-        .debug0_wb_pc(debug0_wb_pc),
-        .debug0_wb_rf_wen(debug0_wb_rf_wen),
-        .debug0_wb_rf_wnum(debug0_wb_rf_wnum),
-        .debug0_wb_rf_wdata(debug0_wb_rf_wdata),
-        .debug0_wb_inst(debug0_wb_inst)
+        .debug0_wb_pc(debug_wb_pc),
+        .debug0_wb_rf_wen(debug_wb_rf_we),
+        .debug0_wb_rf_wnum(debug_wb_rf_wnum),
+        .debug0_wb_rf_wdata(debug_wb_rf_wdata),
+        .debug0_wb_inst(debug_wb_inst)
     );
 
 endmodule

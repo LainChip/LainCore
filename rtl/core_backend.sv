@@ -213,7 +213,7 @@ module core_backend (
               exc_m2_q[p].need_commit <= exc_m1_q[p].need_commit;
             end
             if(m1_stall) begin
-              exc_m1_q[p].valid_inst <= '0;
+              exc_m2_q[p].valid_inst <= '0;
             end
           end
         end
@@ -841,7 +841,6 @@ module core_backend (
       assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]    = paddr;
       assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
-      assign m1_mem_rvalid[p]   = decode_info.mem_read;
       // 异常的处理：完成相关模块
     core_excp_handler m1_excp (
       .clk        (clk                                                           ),
@@ -880,10 +879,9 @@ module core_backend (
           end
         endcase
       end
+      assign lsu_valid = m1_mem_rvalid[p];
 
       // REFETCHER
-      assign m1_jump_target_req[p] = pipeline_ctrl_m1_q[p].jump_target;
-      assign m1_invalidate_req[p]  = m1_branch_jmp_req;
       if(p == 0) begin
         assign m1_refetch            = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
         assign m1_jump_target_req[p] = decode_info.refetch ? pipeline_ctrl_m1_q[p].pc :

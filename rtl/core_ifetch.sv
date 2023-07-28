@@ -70,8 +70,12 @@ module core_ifetch#(
 
   logic[31:0] f1_vpc_q;
   logic[1:0] f1_valid_q;
-  logic[512:0][1:0][31:0] data_ram;
-  i_tag_t[255:0] tag_ram;
+  // logic[511:0][1:0][31:0] data_ram;
+  // i_tag_t[255:0] tag_ram;
+  logic[8:0] dram_raddr;
+  logic[1:0][31:0] dram_rdata;
+  logic[8:0] dram_waddr;
+  logic[1:0][31:0] dram_wdata;
   i_tag_t tag;
   logic[9:0] refill_addr_q; // TODO
   logic refill_data_ok_q;
@@ -89,11 +93,13 @@ module core_ifetch#(
   assign vpc_o = f1_vpc_q;
   assign ppc_o = ppc_i;
   assign valid_o = ready_o ? f1_valid_q : 2'b00;
-  always_ff @(posedge clk) begin
-    if(fsm_q == FSM_RFDATA && refill_data_ok_q) begin
-      data_ram[refill_addr_q[9:1]] <= refill_data_q;
-    end
-  end
+  // always_ff @(posedge clk) begin
+  //   if(fsm_q == FSM_RFDATA && refill_data_ok_q) begin
+  //     data_ram[refill_addr_q[9:1]] <= refill_data_q;
+  //   end
+  // end
+  assign dram_waddr = refill_addr_q[9:1];
+  assign dram_wdata = refill_data_q;
   always_ff @(posedge clk) begin
     if(fsm_q == FSM_RFDATA && refill_addr_q[0] && bus_resp_i.data_ok) begin
       refill_data_ok_q <= 1'b1;
@@ -109,8 +115,10 @@ module core_ifetch#(
     end
   end
   logic[1:0][31:0] inst;
-  assign inst = data_ram[idramaddr(f1_vpc_q)];
-  assign tag = tag_ram[itagaddr(f1_vpc_q)];
+  // assign inst = data_ram[idramaddr(f1_vpc_q)];
+  assign dram_raddr = idramaddr(f1_vpc_q);
+  // assign tag = tag_ram[itagaddr(f1_vpc_q)];
+  assign tag = '0;
 
   logic hit;
   assign hit = icache_hit(tag, ppc_i);
