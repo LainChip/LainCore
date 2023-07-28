@@ -825,7 +825,7 @@ module core_backend (
       .clk          (clk                                                           ),
       .rst_n        (rst_n                                                         ),
       .valid_i      (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
-      .branch_type_i(decode_info.branch_type                                       ),
+      // .branch_type_i(decode_info.branch_type                                       ),
       .cmp_type_i   (decode_info.cmp_type                                          ),
       .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict                             ),
       .bpu_correct_o(m1_bpu_feedback_req                                           ),
