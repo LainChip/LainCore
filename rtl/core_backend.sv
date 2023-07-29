@@ -95,9 +95,9 @@ module core_backend (
     logic[1:0] lsu_stall_req;
 
     // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
-    logic             m1_refetch        ;
-    logic [1:0]       m1_invalidate, m1_invalidate_req, m1_invalidate_exclude_self;
-    logic             ex_invalidate     ;
+    logic       m1_refetch   ;
+    logic [1:0] m1_invalidate, m1_invalidate_req, m1_invalidate_exclude_self;
+    logic       ex_invalidate;
 
     logic is_skid_q;
     // 读取寄存器堆，或者生成立即数
@@ -500,6 +500,7 @@ module core_backend (
     excp_flow_t [1:0] m2_excp_req;
     logic             csr_we     ;
     logic             csr_valid,csr_commit;
+    logic             csr_ertn   ;
     logic[31:0] csr_badv;
     logic[31:0] csr_pc;
     excp_flow_t csr_excp;
@@ -510,7 +511,7 @@ module core_backend (
       csr_commit = (csr_we | csr_excp_req[0]) ? m2_commit_req[0] : m2_commit_req[1];
       csr_badv   = csr_excp_req[0] ? m2_badv_req[0] : m2_badv_req[1];
       csr_excp   = csr_excp_req[0] ? m2_excp_req[0] : m2_excp_req[1];
-      csr_pc = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
+      csr_pc     = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
     end
 
 
@@ -519,6 +520,7 @@ module core_backend (
     .rst_n       (rst_n     ),
     .int_i       (int_i     ),
     .excp_i      (csr_excp  ),
+    .ertn_i      (csr_ertn  ),
     .valid_i     (csr_valid ),
     .commit_i    (csr_commit),
     .m2_stall_i  (m2_stall  ),
@@ -534,10 +536,10 @@ module core_backend (
     .tlb_entry_i (/*TODO*/  ),
     .llbit_set_i (/*TODO*/  ),
     .llbit_i     (/*TODO*/  ),
-
+    
     .pc_i        (csr_pc    ),
     .vaddr_i     (csr_badv  ),
-
+    
     .csr_r_data_o(csr_r_data),
     .csr_o       (csr_value )
   );
@@ -851,7 +853,7 @@ module core_backend (
       .ertn_inst_i(decode_info.ertn_inst                                         ),
       .excp_flow_i(m1_excp_flow                                                  ),
       .target_o   (excp_target                                                   ),
-      .trigger_o  (m1_excp_detect[p]                                                )
+      .trigger_o  (m1_excp_detect[p]                                             )
     );
 
       // 物理地址产生
@@ -883,13 +885,13 @@ module core_backend (
       // REFETCHER
       logic[31:0] jump_target;
       if(p == 0) begin
-        assign m1_refetch            = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
+        assign m1_refetch  = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
         assign jump_target = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req | m1_refetch | m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req | m1_refetch | m1_excp_flow.sys | m1_excp_flow.brk | decode_info.ertn_inst;
       end else begin
-        assign jump_target         = pipeline_ctrl_m1_q[p].jump_target;
+        assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req;
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
       end
@@ -1071,10 +1073,10 @@ module core_backend (
       end
 
       // 接入异常写回
-      assign m2_excp_req[p] = excp_flow;
-      assign m2_badv_req[p] = pipeline_ctrl_m2_q[p].vaddr;
+      assign m2_excp_req[p]   = excp_flow;
+      assign m2_badv_req[p]   = pipeline_ctrl_m2_q[p].vaddr;
       assign m2_csr_pc_req[p] = pipeline_ctrl_m2_q[p].pc;
-      assign csr_excp_req[p] = pipeline_ctrl_m2_q[p].excp_valid;
+      assign csr_excp_req[p]  = pipeline_ctrl_m2_q[p].excp_valid;
 
       // 流水线间信息传递
       always_comb begin
@@ -1092,7 +1094,7 @@ module core_backend (
       32'hffffffff :
       pipeline_data_m2_q[0].r_data[1];
     assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en && exc_m2_q[0].need_commit;
-
+    assign csr_ertn = pipeline_ctrl_m2_q[0].decode_info.ertn_inst && exc_m2_q[0].need_commit;
     /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
     // 不存在数据前递
 
@@ -1139,10 +1141,14 @@ module core_backend (
 `ifdef _DIFFTEST_ENABLE
     // 接入差分测试
     logic[63:0] timer_64_diff;
-    csr_t csr_value_q;
+    csr_t csr_value_q,skid_csr_value_q;
+    logic csr_skid;
     always_ff @(posedge clk) begin
+      if(!wb_stall) begin
+        skid_csr_value_q   <= csr_value;
+      end
       timer_64_diff <= core_csr_inst.timer_64_q;
-      csr_value_q   <= csr_value;
+      csr_skid <= wb_stall;
     end
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
     // WB 的信号，全部打一拍，以等待写操作完成。
@@ -1185,6 +1191,7 @@ module core_backend (
         cm_mdata <= wb_mdata;
         cm_vaddr <= wb_vaddr;
         cm_paddr <= wb_paddr;
+        csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
       end
       decoder  decoder_inst_p (
         .inst_i(cm_instr),

@@ -6,7 +6,6 @@ module core_csr(
   input logic rst_n,
   input logic[7:0] int_i,
   input excp_flow_t excp_i, // M2 EXCPTION IN
-  input logic syscall_i,
   input logic ertn_i,
   input logic valid_i,
   input logic commit_i,
