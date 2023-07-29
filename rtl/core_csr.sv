@@ -291,7 +291,7 @@ logic tcfg_we,tcfg_re;
 logic[7:0] int_q;
 logic timer_intr_q;
 always_ff @(posedge clk) begin
-  timer_intr_q <= timer_en && (tval_q == 32'd1);
+  timer_intr_q <= (timer_en && (tval_q == 32'd1 || tval_q == 32'd0));
 end
 always_ff @(posedge clk) begin
   int_q <= int_i;
@@ -692,7 +692,7 @@ always_ff @(posedge clk) begin
       if (tval_q != 32'b0) begin
         tval_q <= tval_q - 32'b1;
       end
-      else if (tval_q == 32'b0) begin
+      else if (/*tval_q == 32'b0 &&*/ m1_commit_i) begin
         tval_q <= tcfg_q[`_TCFG_PERIODIC] ? {tcfg_q[`_TCFG_INITVAL], 2'b0} : 32'hffffffff;
       end
     end
