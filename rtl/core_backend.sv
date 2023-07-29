@@ -489,7 +489,9 @@ module core_backend (
 
     // CSR 接入 (M1)
     logic[13:0] csr_r_addr;
-    logic csr_rdcnt;
+    logic csr_rdcnt ;
+    logic csr_m1_int;
+    logic csr_m1_commit_valid;
 
     // CSR 接入 (M2)
     logic[1:0] csr_excp_req;
@@ -540,9 +542,13 @@ module core_backend (
     .pc_i        (csr_pc    ),
     .vaddr_i     (csr_badv  ),
     
+    .m1_commit_i (csr_m1_commit_valid),
+    .m1_int_o    (csr_m1_int),
+    
     .csr_r_data_o(csr_r_data),
     .csr_o       (csr_value )
   );
+  assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
 
@@ -888,12 +894,13 @@ module core_backend (
         assign m1_refetch  = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
         assign jump_target = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_invalidate_req[p]          = m1_branch_jmp_req | m1_refetch | m1_excp_detect[p];
-        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req | m1_refetch | m1_excp_flow.sys | m1_excp_flow.brk | decode_info.ertn_inst;
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excp_detect[p];
+        assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excp_detect[p])
+          || m1_excp_flow.brk || m1_excp_flow.sys || decode_info.ertn_inst;
       end else begin
         assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req;
-        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
+        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excp_detect[p];
       end
       assign m1_target[p] = m1_excp_detect[p] ? excp_target : jump_target;
 
@@ -904,7 +911,7 @@ module core_backend (
 
       // m1_excp_flow 产生逻辑
       always_comb begin
-        m1_excp_flow.m1int = '0; // TODO: FIXME
+        m1_excp_flow.m1int = csr_m1_int; // TODO: FIXME
         m1_excp_flow.pil   = '0;
         m1_excp_flow.pis   = '0;
         m1_excp_flow.pme   = '0;
@@ -932,7 +939,7 @@ module core_backend (
       // 流水线间信息传递
       always_comb begin
         pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
-        pipeline_ctrl_m2[p].excp_flow = m1_excp_flow;
+        pipeline_ctrl_m2[p].excp_flow = exc_m1_q[p].need_commit ? m1_excp_flow : '0;
         pipeline_ctrl_m2[p].excp_valid = m1_excp_detect[p];
         pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
         pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
@@ -1093,7 +1100,7 @@ module core_backend (
     assign csr_w_mask  = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
       32'hffffffff :
       pipeline_data_m2_q[0].r_data[1];
-    assign csr_we = pipeline_ctrl_m2_q[0].decode_info.csr_op_en && exc_m2_q[0].need_commit;
+    assign csr_we   = pipeline_ctrl_m2_q[0].decode_info.csr_op_en && exc_m2_q[0].need_commit;
     assign csr_ertn = pipeline_ctrl_m2_q[0].decode_info.ertn_inst && exc_m2_q[0].need_commit;
     /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
     // 不存在数据前递
@@ -1142,13 +1149,13 @@ module core_backend (
     // 接入差分测试
     logic[63:0] timer_64_diff;
     csr_t csr_value_q,skid_csr_value_q;
-    logic csr_skid;
+    logic csr_skid   ;
     always_ff @(posedge clk) begin
       if(!wb_stall) begin
-        skid_csr_value_q   <= csr_value;
+        skid_csr_value_q <= csr_value;
       end
       timer_64_diff <= core_csr_inst.timer_64_q;
-      csr_skid <= wb_stall;
+      csr_skid      <= wb_stall;
     end
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
     // WB 的信号，全部打一拍，以等待写操作完成。
@@ -1182,15 +1189,15 @@ module core_backend (
         end
       end
       always_ff @(posedge clk) begin
-        cm_pc    <= wb_pc;
-        cm_instr <= wb_instr;
-        cm_wdata <= wb_wdata;
-        cm_valid <= wb_valid;
-        cm_waddr <= wb_waddr;
-        cm_wen   <= wb_wen;
-        cm_mdata <= wb_mdata;
-        cm_vaddr <= wb_vaddr;
-        cm_paddr <= wb_paddr;
+        cm_pc       <= wb_pc;
+        cm_instr    <= wb_instr;
+        cm_wdata    <= wb_wdata;
+        cm_valid    <= wb_valid;
+        cm_waddr    <= wb_waddr;
+        cm_wen      <= wb_wen;
+        cm_mdata    <= wb_mdata;
+        cm_vaddr    <= wb_vaddr;
+        cm_paddr    <= wb_paddr;
         csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
       end
       decoder  decoder_inst_p (

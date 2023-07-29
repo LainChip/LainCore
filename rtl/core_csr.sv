@@ -28,6 +28,9 @@ module core_csr(
   input logic[31:0] pc_i,
   input logic[31:0] vaddr_i,
 
+  input logic m1_commit_i,
+  output logic m1_int_o,
+
   output logic[31:0] csr_r_data_o,
   output csr_t csr_o
 );
@@ -49,29 +52,29 @@ assign csr_we     = !m2_stall_i && csr_we_i;
 assign csr_w_data = (csr_r_data_o & ~csr_w_mask_i) | (csr_w_data_i & csr_w_mask_i);
 
 // EXCPTION JUDGE OH
-logic excp_int ;
+logic excp_int;
 assign excp_int = excp_i.m1int;
-logic excp_pil ;
+logic excp_pil;
 assign excp_pil = excp_i.pil;
-logic excp_pis ;
+logic excp_pis;
 assign excp_pis = excp_i.pis;
-logic excp_pif ;
+logic excp_pif;
 assign excp_pif = excp_i.pif;
-logic excp_pme ;
+logic excp_pme;
 assign excp_pme = excp_i.pme;
-logic excp_ppi ;
+logic excp_ppi;
 assign excp_ppi = excp_i.ppi;
 logic excp_adem;
 assign excp_adem = excp_i.adem;
-logic excp_ale ;
+logic excp_ale;
 assign excp_ale = excp_i.ale;
-logic excp_sys ;
+logic excp_sys;
 assign excp_sys = excp_i.sys;
-logic excp_brk ;
+logic excp_brk;
 assign excp_brk = excp_i.brk;
-logic excp_ine ;
+logic excp_ine;
 assign excp_ine = excp_i.ine;
-logic excp_ipe ;
+logic excp_ipe;
 assign excp_ipe = excp_i.ippi;
 logic excp_tlbr; // TODO: FIXME
 assign excp_tlbr = excp_i.itlbr || excp_i.tlbr;
@@ -285,6 +288,14 @@ logic timer_en;
 //ticlr
 logic ticlr_we,ticlr_re;
 logic tcfg_we,tcfg_re;
+logic[7:0] int_q;
+logic timer_intr_q;
+always_ff @(posedge clk) begin
+  timer_intr_q <= timer_en && (tval_q == 32'd1);
+end
+always_ff @(posedge clk) begin
+  int_q <= int_i;
+end
 assign estat_we = csr_we && (csr_w_addr_i == `_CSR_ESTAT);
 always_ff @(posedge clk) begin
   if (!rst_n) begin
@@ -303,12 +314,16 @@ always_ff @(posedge clk) begin
     else if (tcfg_we) begin
       timer_en <= csr_w_data[`_TCFG_EN];
     end
-    else if (timer_en && (tval_q == 32'b0)) begin
+    // else if (timer_en && (tval_q == 32'b0)) begin
+    else if (timer_intr_q && m1_commit_i) begin
       estat_q[11] <= 1'b1;
       timer_en    <= tcfg_q[`_TCFG_PERIODIC];
     end
 
-    estat_q[9:2] <= int_i;
+    // estat_q[9:2] <= int_i;
+    if(m1_commit_i) begin
+      estat_q[9:2] <= int_q;
+    end
     if (excp_valid) begin
       estat_q[`_ESTAT_ECODE]    <= ecode;
       estat_q[`_ESTAT_ESUBCODE] <= esubcode;
@@ -318,8 +333,14 @@ always_ff @(posedge clk) begin
     end
   end
 end
+// 注意：这里需要对 estate[1:0] 及 estate[11] 进行前递，以保证相关中断可以被足够及时的触发。
 assign csr_o.estat = estat_q;
-
+assign m1_int_o    = ({
+  (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
+  (timer_intr_q ? 1'b1 : estat_q[11]) ,
+  int_q,
+  estat_we ? csr_w_data[1:0] : estat_q[1:0]}
+& {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
 // era
 logic era_we,era_re;
 assign era_we = csr_we && (csr_w_addr_i == `_CSR_ERA);
