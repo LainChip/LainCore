@@ -320,6 +320,7 @@ module core_backend (
     dram_manager_req_t[1:0] dm_req;
     dram_manager_resp_t[1:0] dm_resp;
     dram_manager_snoop_t dm_snoop;
+    logic                bus_busy;
   core_lsu_dm #(
     .PIPE_MANAGE_NUM(2),
     .BANK_NUM       (2),
@@ -333,8 +334,10 @@ module core_backend (
     .dm_snoop_o(dm_snoop  ),
     .bus_req_o (bus_req_o ),
     .bus_resp_i(bus_resp_i),
-    .bus_busy_o(bus_busy_o)
+    .bus_busy_o(bus_busy  )
   );
+    // BUS 一致锁
+    assign frontend_resp_o.bus_busy = bus_busy;
     // LSU 端口实例化
     logic[1:0] ex_mem_read,m1_mem_read,m2_mem_valid,m1_mem_uncached,m2_mem_uncached;
     logic[1:0][1:0] m2_mem_size;
@@ -489,8 +492,8 @@ module core_backend (
 
     // CSR 接入 (M1)
     logic[13:0] csr_r_addr;
-    logic csr_rdcnt ;
-    logic csr_m1_int;
+    logic csr_rdcnt          ;
+    logic csr_m1_int         ;
     logic csr_m1_commit_valid;
 
     // CSR 接入 (M2)
@@ -518,37 +521,37 @@ module core_backend (
 
 
   core_csr core_csr_inst (
-    .clk         (clk       ),
-    .rst_n       (rst_n     ),
-    .int_i       (int_i     ),
-    .excp_i      (csr_excp  ),
-    .ertn_i      (csr_ertn  ),
-    .valid_i     (csr_valid ),
-    .commit_i    (csr_commit),
-    .m2_stall_i  (m2_stall  ),
-    .csr_r_addr_i(csr_r_addr),
-    .rdcnt_i     (csr_rdcnt ),
-    .csr_we_i    (csr_we    ),
-    .csr_w_addr_i(csr_w_addr),
-    .csr_w_mask_i(csr_w_mask),
-    .csr_w_data_i(csr_w_data),
-    .badv_i      (csr_badv  ),
-    .tlb_op_i    (tlb_op    ),
-    .tlb_srch_i  (/*TODO*/  ),
-    .tlb_entry_i (/*TODO*/  ),
-    .llbit_set_i (/*TODO*/  ),
-    .llbit_i     (/*TODO*/  ),
+    .clk         (clk                ),
+    .rst_n       (rst_n              ),
+    .int_i       (int_i              ),
+    .excp_i      (csr_excp           ),
+    .ertn_i      (csr_ertn           ),
+    .valid_i     (csr_valid          ),
+    .commit_i    (csr_commit         ),
+    .m2_stall_i  (m2_stall           ),
+    .csr_r_addr_i(csr_r_addr         ),
+    .rdcnt_i     (csr_rdcnt          ),
+    .csr_we_i    (csr_we             ),
+    .csr_w_addr_i(csr_w_addr         ),
+    .csr_w_mask_i(csr_w_mask         ),
+    .csr_w_data_i(csr_w_data         ),
+    .badv_i      (csr_badv           ),
+    .tlb_op_i    (tlb_op             ),
+    .tlb_srch_i  (/*TODO*/           ),
+    .tlb_entry_i (/*TODO*/           ),
+    .llbit_set_i (/*TODO*/           ),
+    .llbit_i     (/*TODO*/           ),
     
-    .pc_i        (csr_pc    ),
-    .vaddr_i     (csr_badv  ),
+    .pc_i        (csr_pc             ),
+    .vaddr_i     (csr_badv           ),
     
     .m1_commit_i (csr_m1_commit_valid),
-    .m1_int_o    (csr_m1_int),
+    .m1_int_o    (csr_m1_int         ),
     
-    .csr_r_data_o(csr_r_data),
-    .csr_o       (csr_value )
+    .csr_r_data_o(csr_r_data         ),
+    .csr_o       (csr_value          )
   );
-  assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
+    assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
 
@@ -696,6 +699,7 @@ module core_backend (
       excp_flow_t ex_excp_flow;
       // ex_excp_flow 产生逻辑
       always_comb begin
+        ex_excp_flow       = '0;
         ex_excp_flow.m1int = '0;
         ex_excp_flow.pil   = '0;
         ex_excp_flow.pis   = '0;
@@ -705,14 +709,14 @@ module core_backend (
         ex_excp_flow.ale   = '0;
         ex_excp_flow.tlbr  = '0;
 
-        ex_excp_flow.sys = decode_info.syscall_inst & exc_ex_q[p].need_commit;
-        ex_excp_flow.brk = decode_info.break_inst & exc_ex_q[p].need_commit;
-        ex_excp_flow.ine   = decode_info.invalid_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.adef  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
+        ex_excp_flow.itlbr = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
+        ex_excp_flow.pif   = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.pif & exc_ex_q[p].need_commit;
+        ex_excp_flow.ippi  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
+        ex_excp_flow.ine   = ~(|ex_excp_flow) & decode_info.invalid_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.sys   = ~(|ex_excp_flow) & decode_info.syscall_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.brk   = ~(|ex_excp_flow) & decode_info.break_inst & exc_ex_q[p].need_commit;
 
-        ex_excp_flow.adef  = pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
-        ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
-        ex_excp_flow.pif   = pipeline_ctrl_ex_q[p].fetch_excp.pif & exc_ex_q[p].need_commit;
-        ex_excp_flow.ippi  = pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
       end
       // EX 的额外部分
       // EX 级别的访存地址计算 / 地址翻译逻辑
@@ -896,8 +900,11 @@ module core_backend (
           pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excp_detect[p])
-          || m1_excp_flow.brk || m1_excp_flow.sys || decode_info.ertn_inst || decode_info.invalid_inst;
-          /* TODO: JUDGE WHETHER IS ONLY NEEDED IN CHIPLAB ? */
+          || (decode_info.ertn_inst && !m1_excp_flow)
+            // || m1_excp_flow.brk || m1_excp_flow.sys
+            // || m1_excp_flow.ine || m1_excp_flow.adef
+            ;
+        /* TODO: JUDGE WHETHER IS ONLY NEEDED IN CHIPLAB ? */
       end else begin
         assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req;
@@ -912,22 +919,26 @@ module core_backend (
 
       // m1_excp_flow 产生逻辑
       always_comb begin
+        // 按照产生优先级排序
+        m1_excp_flow       = '0;
         m1_excp_flow.m1int = csr_m1_int; // TODO: FIXME
-        m1_excp_flow.pil   = '0;
-        m1_excp_flow.pis   = '0;
-        m1_excp_flow.pme   = '0;
-        m1_excp_flow.ppi   = '0;
-        m1_excp_flow.adem  = '0;
-        m1_excp_flow.ale   = '0;
-        m1_excp_flow.tlbr  = '0; // TODO: FIXME
-
-        m1_excp_flow.sys   = pipeline_ctrl_m1_q[p].excp_flow.sys & exc_m1_q[p].need_commit;
-        m1_excp_flow.brk   = pipeline_ctrl_m1_q[p].excp_flow.brk & exc_m1_q[p].need_commit;
         m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef & exc_m1_q[p].need_commit;
         m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr & exc_m1_q[p].need_commit;
         m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif & exc_m1_q[p].need_commit;
         m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi & exc_m1_q[p].need_commit;
         m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine & exc_m1_q[p].need_commit;
+
+        m1_excp_flow.ale = ~(|m1_excp_flow) && (
+          (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& |pipeline_ctrl_m1_q[p].vaddr[1:0]) ||
+          (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]));
+        m1_excp_flow.adem = '0;
+        m1_excp_flow.pil  = '0;
+        m1_excp_flow.pis  = '0;
+        m1_excp_flow.pme  = '0;
+        m1_excp_flow.ppi  = '0;
+        m1_excp_flow.tlbr = '0; // TODO: FIXME
+        m1_excp_flow.brk  = pipeline_ctrl_m1_q[p].excp_flow.brk & exc_m1_q[p].need_commit;
+        m1_excp_flow.sys  = pipeline_ctrl_m1_q[p].excp_flow.sys & exc_m1_q[p].need_commit;
       end
 
       // 接入暂停请求
@@ -1157,6 +1168,7 @@ module core_backend (
       end
       timer_64_diff <= core_csr_inst.timer_64_q;
       csr_skid      <= wb_stall;
+      csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
     end
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
     // WB 的信号，全部打一拍，以等待写操作完成。
@@ -1166,6 +1178,8 @@ module core_backend (
       logic wb_wen,cm_wen;
       logic[4:0] wb_waddr,cm_waddr;
       logic wb_valid,cm_valid;
+      logic wb_excp,cm_excp;
+      logic wb_ertn,cm_ertn;
       logic[31:0] wb_pc,cm_pc;
       logic[31:0] wb_instr,cm_instr;
       logic[31:0] wb_wdata,cm_wdata;
@@ -1187,6 +1201,8 @@ module core_backend (
           wb_mdata <= m2_mdata;
           wb_vaddr <= m2_vaddr;
           wb_paddr <= m2_paddr;
+          wb_excp  <= |m2_excp_req[p];
+          wb_ertn  <= p == 0 ? csr_ertn : '0;
         end
       end
       always_ff @(posedge clk) begin
@@ -1199,7 +1215,8 @@ module core_backend (
         cm_mdata    <= wb_mdata;
         cm_vaddr    <= wb_vaddr;
         cm_paddr    <= wb_paddr;
-        csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
+        cm_ertn     <= wb_stall ? '0 : wb_ertn;
+        cm_excp     <= wb_stall ? '0 : wb_excp;
       end
       decoder  decoder_inst_p (
         .inst_i(cm_instr),
@@ -1224,6 +1241,19 @@ module core_backend (
         .csr_rstat     (p == 0          ),
         .csr_data      (csr_value_q.estat)
       );
+      DifftestExcpEvent DifftestExcpEvent (
+        .clock        (clk                     ),
+        .coreid       (0                       ),
+        .excp_valid   (cm_excp                 ),
+        // .excp_valid         ('0),
+        .eret         (cm_ertn                 ),
+        // .eret               ('0),
+        .intrNo       (csr_value_q.estat[12:2] ),
+        .cause        (csr_value_q.estat[21:16]),
+        .exceptionPC  (cm_pc                   ),
+        .exceptionInst(cm_instr                )
+      );
+
       // if(p == 0) begin
       DifftestStoreEvent DifftestStoreEvent_p (
         .clock     (clk),

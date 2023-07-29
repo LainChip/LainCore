@@ -398,8 +398,8 @@ module core_lsu_dm #(
     end
   end
   always_comb begin
-    main_fsm = main_fsm_q;
-    op_ready = '0;
+    main_fsm      = main_fsm_q;
+    op_ready      = '0;
     sleep_cnt_rst = '0;
     case(main_fsm_q)
       default/*MAIN_FSM_NORMAL*/: begin
@@ -445,9 +445,9 @@ module core_lsu_dm #(
       end
       MAIN_FSM_REFIL_RDAT : begin
         if(bus_resp_i.data_ok && bus_resp_i.data_last) begin
-          main_fsm = MAIN_FSM_NORMAL;
+          main_fsm      = MAIN_FSM_NORMAL;
           sleep_cnt_rst = '1;
-          op_ready = '1;
+          op_ready      = '1;
         end
       end
       MAIN_FSM_REFIL_WADR : begin
@@ -461,9 +461,9 @@ module core_lsu_dm #(
             main_fsm = MAIN_FSM_REFIL_RADR;
           end
           else begin
-            op_ready = '1;
+            op_ready      = '1;
             sleep_cnt_rst = '1;
-            main_fsm = MAIN_FSM_NORMAL;
+            main_fsm      = MAIN_FSM_NORMAL;
           end
         end
       end
@@ -474,9 +474,9 @@ module core_lsu_dm #(
       end
       MAIN_FSM_PRDAT : begin
         if(bus_resp_i.data_ok & bus_resp_i.data_last) begin
-          op_ready = '1;
+          op_ready      = '1;
           sleep_cnt_rst = '1;
-          main_fsm = MAIN_FSM_NORMAL;
+          main_fsm      = MAIN_FSM_NORMAL;
         end
       end
       MAIN_FSM_INVALIDATE : begin
@@ -484,9 +484,9 @@ module core_lsu_dm #(
           main_fsm = MAIN_FSM_REFIL_WADR;
         end
         else begin
-          op_ready = '1;
+          op_ready      = '1;
           sleep_cnt_rst = '1;
-          main_fsm = MAIN_FSM_NORMAL;
+          main_fsm      = MAIN_FSM_NORMAL;
         end
       end
     endcase
@@ -801,6 +801,7 @@ module core_lsu_dm #(
   assign bus_lock = fifo_fsm_q != S_FEMPTY;
   always_comb begin
     // TODO:根据 FSM 状态及总线状态及时的赋值
+    bus_busy_o           = '0;
     bus_req_o.valid      = 1'b0;
     bus_req_o.write      = 1'b0;
     bus_req_o.burst_size = 4'b0011;
@@ -813,6 +814,7 @@ module core_lsu_dm #(
     bus_req_o.data_strobe = 4'b1111;
     bus_req_o.w_data      = wb_data_q; // TODO: FIND BETTER VALUE HERE.
     if(fifo_fsm_q != S_FEMPTY) begin
+      bus_busy_o = '1;
       if(fifo_fsm_q == S_FADR) begin
         bus_req_o.valid      = 1'b1;
         bus_req_o.write      = 1'b1;
@@ -840,6 +842,7 @@ module core_lsu_dm #(
       // 写回的请求
       bus_req_o.valid = 1'b1;
       bus_req_o.write = 1'b1;
+      bus_busy_o      = '1;
       // if(ctrl == C_WRITE || ctrl == C_READ) begin
       bus_req_o.addr  = {op_old_tag_q.addr,op_addr_q[11:4],4'd0};
     end

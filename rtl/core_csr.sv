@@ -79,6 +79,7 @@ assign excp_ipe = excp_i.ippi;
 logic excp_tlbr; // TODO: FIXME
 assign excp_tlbr = excp_i.itlbr || excp_i.tlbr;
 logic excp_adef;
+assign excp_adef = excp_i.adef;
 
 logic excp_tlb;
 assign excp_tlb = excp_tlbr | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi;
@@ -300,7 +301,7 @@ assign estat_we = csr_we && (csr_w_addr_i == `_CSR_ESTAT);
 logic estat_we_q;
 logic[1:0] estat_sft_intr_q;
 always_ff @(posedge clk) begin
-  estat_we_q <= estat_we;
+  estat_we_q       <= estat_we;
   estat_sft_intr_q <= csr_w_data[1:0];
 end
 always_ff @(posedge clk) begin
@@ -342,11 +343,11 @@ end
 // 注意：这里需要对 estate[1:0] 及 estate[11] 进行前递，以保证相关中断可以被足够及时的触发。
 assign csr_o.estat = estat_q;
 assign m1_int_o    = ({
-  (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
-  (timer_intr_q ? 1'b1 : estat_q[11]) ,
-  int_q,
-  estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
-& {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
+    (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
+    (timer_intr_q ? 1'b1 : estat_q[11]) ,
+    int_q,
+    estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
+  & {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
 // era
 logic era_we,era_re;
 assign era_we = csr_we && (csr_w_addr_i == `_CSR_ERA);
@@ -838,36 +839,36 @@ end
 assign csr_o.dmw1 = dmw1_q;
 
 // 读取逻辑
-assign crmd_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_CRMD;
-assign prmd_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_PRMD;
-assign euen_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_EUEN;
-assign ectl_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_ECTL;
-assign estat_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_ESTAT;
-assign era_re       = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_ERA;
-assign badv_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_BADV;
-assign eentry_re    = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_EENTRY;
-assign tlbidx_re    = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TLBIDX;
-assign tlbehi_re    = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TLBEHI;
-assign tlbelo0_re   = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TLBELO0;
-assign tlbelo1_re   = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TLBELO1;
-assign asid_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_ASID;
-assign pgdl_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_PGDL;
-assign pgdh_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_PGDH;
-assign cpuid_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_CPUID;
-assign save0_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_SAVE0;
-assign save1_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_SAVE1;
-assign save2_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_SAVE2;
-assign save3_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_SAVE3;
-assign tid_re       = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TID;
-assign tcfg_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TCFG;
-assign tval_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TVAL;
-assign cntc_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_CNTC;
-assign ticlr_re     = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TICLR;
-assign llbctl_re    = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_LLBCTL;
-assign tlbrentry_re = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_TLBRENTRY;
-assign ctag_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_CTAG;
-assign dmw0_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_DMW0;
-assign dmw1_re      = rdcnt_i == '0 && csr_r_addr_i[7:0] == `_CSR_DMW1;
+assign crmd_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CRMD;
+assign prmd_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_PRMD;
+assign euen_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_EUEN;
+assign ectl_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_ECTL;
+assign estat_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_ESTAT;
+assign era_re       = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_ERA;
+assign badv_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_BADV;
+assign eentry_re    = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_EENTRY;
+assign tlbidx_re    = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TLBIDX;
+assign tlbehi_re    = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TLBEHI;
+assign tlbelo0_re   = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TLBELO0;
+assign tlbelo1_re   = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TLBELO1;
+assign asid_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_ASID;
+assign pgdl_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_PGDL;
+assign pgdh_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_PGDH;
+assign cpuid_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CPUID;
+assign save0_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE0;
+assign save1_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE1;
+assign save2_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE2;
+assign save3_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE3;
+assign tid_re       = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TID;
+assign tcfg_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TCFG;
+assign tval_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TVAL;
+assign cntc_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CNTC;
+assign ticlr_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TICLR;
+assign llbctl_re    = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_LLBCTL;
+assign tlbrentry_re = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TLBRENTRY;
+assign ctag_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CTAG;
+assign dmw0_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_DMW0;
+assign dmw1_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_DMW1;
 logic cntid_re,cntl_re,cnth_re;
 assign cntid_re = rdcnt_i == `_RDCNT_ID_VLOW;
 assign cntl_re  = rdcnt_i == `_RDCNT_VLOW;
