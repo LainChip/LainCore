@@ -49,31 +49,28 @@
         "ertn_inst": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "priv_inst": {
             "length": 1,
             "stage": "m1",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "refetch": {
             "length": 1,
             "stage": "m1",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "wait_inst": {
             "length": 1,
             "stage": "m1",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "invalid_inst": {
             "length": 1,
             "stage": "m1",
-            "default_value": 0
+            "default_value": 0,
+            "invalid_value": 1
         },
         "syscall_inst": {
             "length": 1,
@@ -88,44 +85,37 @@
         "csr_op_en": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "csr_rdcnt": {
             "length": 2,
             "stage": "m1",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "tlbsrch_en": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "tlbrd_en": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "tlbwr_en": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "tlbfill_en": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "invtlb_en": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         }
     },
     "inst": {

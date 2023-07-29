@@ -707,12 +707,12 @@ module core_backend (
 
         ex_excp_flow.sys = decode_info.syscall_inst & exc_ex_q[p].need_commit;
         ex_excp_flow.brk = decode_info.break_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.ine   = decode_info.invalid_inst & exc_ex_q[p].need_commit;
 
         ex_excp_flow.adef  = pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
         ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
         ex_excp_flow.pif   = pipeline_ctrl_ex_q[p].fetch_excp.pif & exc_ex_q[p].need_commit;
         ex_excp_flow.ippi  = pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
-        ex_excp_flow.ine   = pipeline_ctrl_ex_q[p].fetch_excp.ine & exc_ex_q[p].need_commit;
       end
       // EX 的额外部分
       // EX 级别的访存地址计算 / 地址翻译逻辑
@@ -896,7 +896,8 @@ module core_backend (
           pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excp_detect[p])
-          || m1_excp_flow.brk || m1_excp_flow.sys || decode_info.ertn_inst;
+          || m1_excp_flow.brk || m1_excp_flow.sys || decode_info.ertn_inst || decode_info.invalid_inst;
+          /* TODO: JUDGE WHETHER IS ONLY NEEDED IN CHIPLAB ? */
       end else begin
         assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req;

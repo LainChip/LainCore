@@ -12,44 +12,37 @@
         "mem_type": {
             "length": 3,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "mem_write": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "mem_read": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "mem_cacop": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "llsc_inst": {
             "length": 1,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "ibarrier": {
             "length": 1,
             "stage": "m1",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "dbarrier": {
             "length": 1,
             "stage": "m1",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         }
     },
     "inst": {

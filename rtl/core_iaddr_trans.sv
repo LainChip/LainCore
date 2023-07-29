@@ -68,6 +68,7 @@ module core_iaddr_trans#(
       fetch_excp_o.tlbr <= '0;
       fetch_excp_o.pif <= '0;
       fetch_excp_o.ppi <= '0;
+      fetch_excp_o.ipe <= '0;
     end
     // assign fetch_excp_o.adef = ;
     assign dmw0_hit = ((dmw0_plv0 & plv0) || (dmw0_plv3 & plv3)) && dmw0_vseg == vaddr_i[31:29];

@@ -297,6 +297,12 @@ always_ff @(posedge clk) begin
   int_q <= int_i;
 end
 assign estat_we = csr_we && (csr_w_addr_i == `_CSR_ESTAT);
+logic estat_we_q;
+logic[1:0] estat_sft_intr_q;
+always_ff @(posedge clk) begin
+  estat_we_q <= estat_we;
+  estat_sft_intr_q <= csr_w_data[1:0];
+end
 always_ff @(posedge clk) begin
   if (!rst_n) begin
     estat_q[1:0]   <= 2'b0;
@@ -328,8 +334,8 @@ always_ff @(posedge clk) begin
       estat_q[`_ESTAT_ECODE]    <= ecode;
       estat_q[`_ESTAT_ESUBCODE] <= esubcode;
     end
-    if (estat_we) begin
-      estat_q[1:0] <= csr_w_data[1:0];
+    if (estat_we_q) begin // TODO: USE _Q ONLY FOR CHIPLAB.
+      estat_q[1:0] <= estat_sft_intr_q;
     end
   end
 end
@@ -339,7 +345,7 @@ assign m1_int_o    = ({
   (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
   (timer_intr_q ? 1'b1 : estat_q[11]) ,
   int_q,
-  estat_we ? csr_w_data[1:0] : estat_q[1:0]}
+  estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
 & {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
 // era
 logic era_we,era_re;

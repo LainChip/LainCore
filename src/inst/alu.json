@@ -43,14 +43,12 @@
         "alu_grand_op": {
             "length": 2,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         },
         "alu_op": {
             "length": 2,
             "stage": "m2",
-            "default_value": 0,
-            "invalid_value": 0
+            "default_value": 0
         }
     },
     "inst": {
