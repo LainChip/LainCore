@@ -134,11 +134,12 @@
             "reg_type_r0": "`_REG_R0_NONE",
             "reg_type_r1": "`_REG_R1_NONE",
             "reg_type_w": "`_REG_W_NONE",
+            "syscall_inst": 1,
             "addr_imm_type": "`_ADDR_IMM_S26",
             "need_csr": 1
         },
         "break": {
-            "opcode": "00000000001010110",
+            "opcode": "00000000001010100",
             "reg_type_r0": "`_REG_R0_NONE",
             "reg_type_r1": "`_REG_R1_NONE",
             "reg_type_w": "`_REG_W_NONE",

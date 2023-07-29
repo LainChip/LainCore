@@ -63,20 +63,17 @@ module core_backend (
 );
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
-    // TODO: PIPELINE ME
     pipeline_ctrl_ex_t[1:0] pipeline_ctrl_is,pipeline_ctrl_skid_q,
       pipeline_ctrl_ex,pipeline_ctrl_ex_q;
     pipeline_ctrl_m1_t[1:0] pipeline_ctrl_m1,pipeline_ctrl_m1_q;
     pipeline_ctrl_m2_t[1:0] pipeline_ctrl_m2,pipeline_ctrl_m2_q;
     pipeline_ctrl_wb_t[1:0] pipeline_ctrl_wb,pipeline_ctrl_wb_q;
-
     pipeline_data_t [1:0] pipeline_data_is,pipeline_data_is_fwd,
       pipeline_data_skid_q,pipeline_data_skid_fwd,
         pipeline_data_ex_q,pipeline_data_ex_fwd,
           pipeline_data_m1_q,pipeline_data_m1_fwd,
             pipeline_data_m2_q,pipeline_data_m2_fwd,
               pipeline_data_wb_q;
-    // TODO: PIPELINE ME
     pipeline_wdata_t [1:0] pipeline_wdata_ex,pipeline_wdata_ex_q,
       pipeline_wdata_m1_q,pipeline_wdata_m1,
         pipeline_wdata_m2_q,pipeline_wdata_m2,
@@ -84,7 +81,6 @@ module core_backend (
 
     fwd_data_t [1:0] fwd_data_ex,fwd_data_m1,fwd_data_m2,fwd_data_wb;
 
-    // TODO: PIPELINE ME
     exc_flow_t [1:0] exc_is,exc_skid_q,exc_ex_q,exc_m1_q,exc_m2_q,exc_wb_q;
 
     logic ex_stall;
@@ -100,7 +96,6 @@ module core_backend (
 
     // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
     logic             m1_refetch        ;
-    logic [1:0][31:0] m1_jump_target_req;
     logic [1:0]       m1_invalidate, m1_invalidate_req, m1_invalidate_exclude_self;
     logic             ex_invalidate     ;
 
@@ -144,7 +139,7 @@ module core_backend (
     end
 
 
-    // 流水线处理, TODO: 可复位部分
+    // 流水线处理
     for(genvar p = 0 ; p < 2 ;p ++) begin : PIPELINE_MANAGE
       // SKID
       always_ff @(posedge clk) begin
@@ -245,7 +240,7 @@ module core_backend (
       wb_stall = |wb_stall_req;
     end
 
-    // M2 级的跳转寄存器设计位 : TODO CONNECT ME
+    // M2 级的跳转寄存器设计位
 
     logic[31:0] m2_jump_target_q;
     bpu_correct_t[1:0] m1_bpu_feedback_req;
@@ -253,7 +248,7 @@ module core_backend (
     logic         m2_jump_valid_q  ;
     always_ff @(posedge clk) begin
       m2_jump_valid_q   <= |m1_invalidate_req;
-      m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_jump_target_req[0] : m1_jump_target_req[1];
+      m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
       m2_bpu_feedback_q <= (m1_invalidate_req[0]) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
     end
     assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
@@ -413,7 +408,7 @@ module core_backend (
     .result_o  (mul_result)
   );
 
-    // 除法器例化 TODO: FIXME
+    // 除法器例化 FIXME: FREQUENCY
     logic[1:0] div_req;
     logic[1:0][1:0] div_op_req;
     logic[1:0][1:0][31:0] div_input_req;
@@ -463,6 +458,7 @@ module core_backend (
 
     // CSR output
     csr_t csr_value;
+    assign frontend_resp_o.csr_reg = csr_value;
     logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready;
     logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CONNECT ME
     tlb_s_resp_t[1:0] addr_tlb_resp;
@@ -500,10 +496,12 @@ module core_backend (
     logic[1:0] m2_valid_req;
     logic[1:0] m2_commit_req;
     logic[1:0][31:0] m2_badv_req;
+    logic[1:0][31:0] m2_csr_pc_req;
     excp_flow_t [1:0] m2_excp_req;
     logic             csr_we     ;
     logic             csr_valid,csr_commit;
     logic[31:0] csr_badv;
+    logic[31:0] csr_pc;
     excp_flow_t csr_excp;
     logic[13:0] csr_w_addr;
     logic[31:0] csr_r_data,csr_w_data,csr_w_mask;
@@ -512,6 +510,7 @@ module core_backend (
       csr_commit = (csr_we | csr_excp_req[0]) ? m2_commit_req[0] : m2_commit_req[1];
       csr_badv   = csr_excp_req[0] ? m2_badv_req[0] : m2_badv_req[1];
       csr_excp   = csr_excp_req[0] ? m2_excp_req[0] : m2_excp_req[1];
+      csr_pc = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
     end
 
 
@@ -535,6 +534,10 @@ module core_backend (
     .tlb_entry_i (/*TODO*/  ),
     .llbit_set_i (/*TODO*/  ),
     .llbit_i     (/*TODO*/  ),
+
+    .pc_i        (csr_pc    ),
+    .vaddr_i     (csr_badv  ),
+
     .csr_r_data_o(csr_r_data),
     .csr_o       (csr_value )
   );
@@ -626,7 +629,6 @@ module core_backend (
       end
     end
     /* SKID BUF 结束*/
-    // 流水线间信息传递: TODO
     always_comb begin
       pipeline_ctrl_ex = is_skid_q ? pipeline_ctrl_skid_q : pipeline_ctrl_is;
     end
@@ -695,14 +697,14 @@ module core_backend (
         ex_excp_flow.ale   = '0;
         ex_excp_flow.tlbr  = '0;
 
-        ex_excp_flow.sys = decode_info.syscall_inst;
-        ex_excp_flow.brk = decode_info.break_inst;
+        ex_excp_flow.sys = decode_info.syscall_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.brk = decode_info.break_inst & exc_ex_q[p].need_commit;
 
-        ex_excp_flow.adef  = pipeline_ctrl_ex_q[p].fetch_excp.adef;
-        ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr;
-        ex_excp_flow.pif   = pipeline_ctrl_ex_q[p].fetch_excp.pif;
-        ex_excp_flow.ippi  = pipeline_ctrl_ex_q[p].fetch_excp.ppi;
-        ex_excp_flow.ine   = pipeline_ctrl_ex_q[p].fetch_excp.ine;
+        ex_excp_flow.adef  = pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
+        ex_excp_flow.itlbr = pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
+        ex_excp_flow.pif   = pipeline_ctrl_ex_q[p].fetch_excp.pif & exc_ex_q[p].need_commit;
+        ex_excp_flow.ippi  = pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
+        ex_excp_flow.ine   = pipeline_ctrl_ex_q[p].fetch_excp.ine & exc_ex_q[p].need_commit;
       end
       // EX 的额外部分
       // EX 级别的访存地址计算 / 地址翻译逻辑
@@ -795,7 +797,7 @@ module core_backend (
       assign decode_info = pipeline_ctrl_m1_q[p].decode_info;
       logic[31:0] alu_result, lsu_result, paddr;
       assign lsu_result = m1_mem_rdata[p];
-      logic[31:0] excp_target; // TODO: CONNECT ME
+      logic[31:0] excp_target;
       excp_flow_t m1_excp_flow;
       logic       lsu_valid   ;
     core_detachable_alu #(
@@ -849,10 +851,8 @@ module core_backend (
       .ertn_inst_i(decode_info.ertn_inst                                         ),
       .excp_flow_i(m1_excp_flow                                                  ),
       .target_o   (excp_target                                                   ),
-      .trigger_o  (m1_excp_detect                                                )
+      .trigger_o  (m1_excp_detect[p]                                                )
     );
-
-      assign m1_target[p] = m1_excp_detect[p] ? excp_target : pipeline_ctrl_m1_q[p].jump_target;
 
       // 物理地址产生
       assign paddr = {m1_addr_trans_result[p].value.ppn, pipeline_ctrl_m1_q[p].vaddr[11:0]};
@@ -881,17 +881,19 @@ module core_backend (
       assign lsu_valid = m1_mem_rvalid[p];
 
       // REFETCHER
+      logic[31:0] jump_target;
       if(p == 0) begin
         assign m1_refetch            = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
-        assign m1_jump_target_req[p] = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
+        assign jump_target = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_invalidate_req[p]          = m1_branch_jmp_req | m1_refetch;
-        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req | m1_refetch;
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req | m1_refetch | m1_excp_detect[p];
+        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req | m1_refetch | m1_excp_flow.sys | m1_excp_flow.brk | decode_info.ertn_inst;
       end else begin
-        assign m1_jump_target_req[p]         = pipeline_ctrl_m1_q[p].jump_target;
+        assign jump_target         = pipeline_ctrl_m1_q[p].jump_target;
         assign m1_invalidate_req[p]          = m1_branch_jmp_req;
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req;
       end
+      assign m1_target[p] = m1_excp_detect[p] ? excp_target : jump_target;
 
       // 接入转发源
       always_comb begin
@@ -909,13 +911,13 @@ module core_backend (
         m1_excp_flow.ale   = '0;
         m1_excp_flow.tlbr  = '0; // TODO: FIXME
 
-        m1_excp_flow.sys   = pipeline_ctrl_m1_q[p].excp_flow.sys;
-        m1_excp_flow.brk   = pipeline_ctrl_m1_q[p].excp_flow.brk;
-        m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef;
-        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr;
-        m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif;
-        m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi;
-        m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine;
+        m1_excp_flow.sys   = pipeline_ctrl_m1_q[p].excp_flow.sys & exc_m1_q[p].need_commit;
+        m1_excp_flow.brk   = pipeline_ctrl_m1_q[p].excp_flow.brk & exc_m1_q[p].need_commit;
+        m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef & exc_m1_q[p].need_commit;
+        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr & exc_m1_q[p].need_commit;
+        m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif & exc_m1_q[p].need_commit;
+        m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi & exc_m1_q[p].need_commit;
+        m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine & exc_m1_q[p].need_commit;
       end
 
       // 接入暂停请求
@@ -928,6 +930,8 @@ module core_backend (
       // 流水线间信息传递
       always_comb begin
         pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
+        pipeline_ctrl_m2[p].excp_flow = m1_excp_flow;
+        pipeline_ctrl_m2[p].excp_valid = m1_excp_detect[p];
         pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
         pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
         pipeline_ctrl_m2[p].paddr = paddr;
@@ -947,6 +951,8 @@ module core_backend (
       // M2 的 FU 部分，接入 ALU、LSU、MUL、CSR
       logic[31:0] alu_result, lsu_result;
       assign lsu_result = m2_mem_rdata[p];
+      excp_flow_t excp_flow;
+      assign excp_flow = pipeline_ctrl_m2_q[p].excp_flow;
       // MUL 结果复用 ALU 传回
     core_detachable_alu #(
       .USE_LI (0),
@@ -1064,6 +1070,11 @@ module core_backend (
         exc_m2_q[p].valid_inst & exc_m2_q[p].need_commit; // LUT6 + MUXF7
       end
 
+      // 接入异常写回
+      assign m2_excp_req[p] = excp_flow;
+      assign m2_badv_req[p] = pipeline_ctrl_m2_q[p].vaddr;
+      assign m2_csr_pc_req[p] = pipeline_ctrl_m2_q[p].pc;
+      assign csr_excp_req[p] = pipeline_ctrl_m2_q[p].excp_valid;
 
       // 流水线间信息传递
       always_comb begin

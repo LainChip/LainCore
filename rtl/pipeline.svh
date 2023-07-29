@@ -178,6 +178,8 @@ typedef struct packed{
 
 typedef struct packed{
           m2_t decode_info;  // 指令控制信息 ::: 不需要 rst clr | 跳转 clr
+          logic excp_valid;
+          excp_flow_t excp_flow;
           logic[13:0] csr_id;
           logic[31:0] vaddr;
           logic[31:0] paddr;

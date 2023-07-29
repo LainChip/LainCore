@@ -51,18 +51,31 @@ assign csr_w_data = (csr_r_data_o & ~csr_w_mask_i) | (csr_w_data_i & csr_w_mask_
 
 // EXCPTION JUDGE OH
 logic excp_int ;
+assign excp_int = excp_i.m1int;
 logic excp_pil ;
+assign excp_pil = excp_i.pil;
 logic excp_pis ;
+assign excp_pis = excp_i.pis;
 logic excp_pif ;
+assign excp_pif = excp_i.pif;
 logic excp_pme ;
+assign excp_pme = excp_i.pme;
 logic excp_ppi ;
+assign excp_ppi = excp_i.ppi;
 logic excp_adem;
+assign excp_adem = excp_i.adem;
 logic excp_ale ;
+assign excp_ale = excp_i.ale;
 logic excp_sys ;
+assign excp_sys = excp_i.sys;
 logic excp_brk ;
+assign excp_brk = excp_i.brk;
 logic excp_ine ;
+assign excp_ine = excp_i.ine;
 logic excp_ipe ;
+assign excp_ipe = excp_i.ippi;
 logic excp_tlbr; // TODO: FIXME
+assign excp_tlbr = excp_i.itlbr || excp_i.tlbr;
 logic excp_adef;
 
 logic excp_tlb;
@@ -75,7 +88,7 @@ assign excp_valid = excp_int | excp_pil | excp_pis | excp_pif | excp_pme | excp_
 logic ertn_valid;
 assign ertn_valid = ertn_i;
 logic ertn_tlbr_valid;
-assign ertn_tlbr_valid = ertn_valid && /*(csr_o.estat_q[21:16] == 6'h3f)*//*简化一下逻辑*/ csr_o.estat_q[21];
+assign ertn_tlbr_valid = ertn_valid && /*(csr_o.estat_q[21:16] == 6'h3f)*//*简化一下逻辑*/ csr_o.estat[21];
 
 logic [5:0] ecode   ;
 logic [8:0] esubcode;
