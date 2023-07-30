@@ -72,6 +72,31 @@ module core_lsu_dm #(
       );
     end
   end
+  // dirty ram
+  logic[BANK_NUM - 1:0][7:0] dirty_raddr;
+  logic[7:0] dirty_waddr;
+  logic[WAY_CNT - 1 : 0] dirty_we;
+  logic dirty_wdata;
+  logic[BANK_NUM - 1:0][WAY_CNT - 1 : 0] dirty_rdata;
+  for(genvar b = 0 ; b < BANK_NUM ; b++) begin
+    for(genvar w = 0 ; w < WAY_CNT ; w++) begin
+      simpleDualPortLutRam #(
+        .dataWidth(1),
+        .ramSize  (1 << 8),
+        .latency  (0),
+        .readMuler(1)
+      ) dirty_ram (
+        .clk     (clk       ),
+        .rst_n   (rst_n     ),
+        .addressA(dirty_waddr),
+        .we      (dirty_we[w]),
+        .addressB(dirty_raddr[b]),
+        .re      (1'b1      ),
+        .inData  (dirty_wdata),
+        .outData (dirty_rdata[b][w])
+      );
+    end
+  end
 
   logic[WAY_CNT - 1 : 0] tram_we,tram_re;
   dcache_tag_t tram_wdata;
@@ -127,7 +152,6 @@ module core_lsu_dm #(
   // 特别的，存在一种情况，这种情况，两个请求均不可响应，响应高优先级请求（重填写回）。
   logic dreq_conflict        ;
   logic dram_preemption_valid;
-  logic dram_preemption_ready;
   logic[`_DIDX_LEN - 3 : 0] dram_preemption_addr; // TODO: fixme
 
   // 状态控制
@@ -158,7 +182,7 @@ module core_lsu_dm #(
         dreq_fsm = DREQ_FSM_NORMAL;
       end
       DREQ_FSM_PREEMPTION : begin
-        if(!dreq_conflict) begin
+        if(!dram_preemption_valid) begin
           dreq_fsm = DREQ_FSM_NORMAL;
         end
       end
@@ -191,7 +215,7 @@ module core_lsu_dm #(
     dram_rnormal_other_q <= dram_rnormal_other;
   end
 
-  assign dram_raddr = (dreq_fsm == DREQ_FSM_NORMAL) ? dram_rnormal : dram_rfsm;
+  assign dram_raddr = (dreq_fsm_q == DREQ_FSM_NORMAL) ? dram_rnormal : dram_rfsm;
   assign dram_rfsm  = (dreq_fsm_q == DREQ_FSM_CONFLICT) ? dram_rnormal_other_q : {
     dram_preemption_addr[`_DIDX_LEN - 3 : BANK_ID_LEN],
     dram_preemption_addr[`_DIDX_LEN - 3 : BANK_ID_LEN]
@@ -238,13 +262,6 @@ module core_lsu_dm #(
     dr_req_valid[0] = dm_req_i[0].rvalid; // TODO: check this
     dr_req_valid[1] = dm_req_i[1].rvalid;
   end
-
-  // dirty ram
-  logic[1:0][7:0] dirty_raddr;
-  logic[7:0] dirty_waddr;
-  logic[WAY_CNT - 1 : 0] dirty_we;
-  logic dirty_wdata;
-  logic[1:0][WAY_CNT - 1 : 0] dirty_rdata;
 
   // 重填主状态机
   // 写回仲裁器
@@ -386,8 +403,8 @@ module core_lsu_dm #(
   // TODO: refill cnt 处理
   logic[`_DIDX_LEN - 1 : 2] refill_addr_q, refill_addr;
   logic[`_DIDX_LEN - 1 : 2] wb_addr_q, wb_addr;
-  logic[2: 0] transfer_cnt_q,transfer_cnt;
-  logic[31:0] wb_data_q, wb_data;
+  logic[2: 0] transfer_cnt_q;
+  logic[31:0] wb_data;
   logic wb_valid_q, wb_valid, wb_busy_q,wb_busy;
 
   always_ff@(posedge clk) begin
@@ -457,7 +474,7 @@ module core_lsu_dm #(
         end
       end
       MAIN_FSM_REFIL_WDAT : begin
-        if(bus_resp_i.data_ok && bus_resp_i.data_last) begin
+        if(bus_resp_i.data_ok && bus_req_o.data_last) begin
           if(op_q == MAIN_C_REFILL) begin
             main_fsm = MAIN_FSM_REFIL_RADR;
           end
@@ -526,7 +543,7 @@ module core_lsu_dm #(
           cacw_fsm        = CAC_FSM_WBANKCONFLICT; // 此时先响应 req 0 再响应 req 1
           dram_wreq_ready = 2'b01;
         end
-        else if((((~dirty_rdata[0]) & dm_req_i[0].we_sel) != 0 && dram_wreq_valid[0]) ||
+        else if((((~dirty_rdata[0]) & dm_req_i[0].we_sel) != 0 && dram_wreq_valid[0]) &&
           (((~dirty_rdata[1]) & dm_req_i[1].we_sel) != 0 && dram_wreq_valid[1])) begin
           cacw_fsm        = CAC_FSM_WBANKCONFLICT;
           dram_wreq_ready = 2'b01;
@@ -678,84 +695,43 @@ module core_lsu_dm #(
     dram_preemption_addr = wb_addr_q;
   end
 
-  logic        wb_bank_sel_q, wb_bank_sel;
-  logic        wb_wait_addr_q, wb_wait_addr;
-  logic        wb_skid_q,wb_skid;
-  logic [31:0] wb_skid_buf_q,wb_skid_buf;
-  logic        wb_last       ;
-  assign wb_last = wb_addr_q[`_DIDX_LEN - 8 - 1 : 2] == 0 && wb_busy_q;
+  logic [1:0][31:0] bram_read_result;
+  logic [1:0][31:0] wb_skid_buf_q   ;
+  logic             wb_skid_q       ;
   always_ff @(posedge clk) begin
     if(~rst_n) begin
       wb_valid_q <= '0;
-      wb_busy_q  <= '0;
       wb_skid_q  <= '0;
     end
-    wb_addr_q      <= wb_addr;
-    transfer_cnt_q <= transfer_cnt;
-    refill_addr_q  <= refill_addr;
-    wb_data_q      <= wb_data;
-    wb_valid_q     <= wb_valid;
-    wb_busy_q      <= wb_busy;
-    wb_wait_addr_q <= wb_wait_addr;
-    wb_skid_q      <= wb_skid;
-    wb_skid_buf_q  <= wb_skid_buf;
-    wb_bank_sel_q  <= wb_bank_sel;
+    wb_addr_q  <= wb_addr;
+    wb_valid_q <= wb_valid;
+    if((main_fsm_q == MAIN_FSM_REFIL_WADR || main_fsm_q == MAIN_FSM_REFIL_WDAT) &&
+      ((transfer_cnt_q[0] && bus_resp_i.data_ok) || !wb_skid_q)) begin
+      wb_skid_buf_q <= bram_read_result;
+      wb_skid_q     <= 1'b1;
+    end else if(main_fsm_q == MAIN_FSM_NORMAL) begin
+      wb_skid_q <= 1'b0;
+    end
+  end
+  // wb_valid_q 表示 wb_skid_buf_q 中的数据是有效的
+  always_comb begin
+    wb_valid = (dreq_fsm_q == DREQ_FSM_PREEMPTION) && (wb_addr_q[2] == 1'b1);
+  end
+  // wb_data 是需要写回的数据
+  assign wb_data = wb_skid_buf_q[transfer_cnt_q[0]];
+  // TRANSFER_CNT_Q 对总线接受的 transfer 数量进行计数
+  always_ff @(posedge clk) begin
+    if(main_fsm_q == MAIN_FSM_REFIL_WADR) begin
+      transfer_cnt_q <= '0;
+    end else begin
+      if(main_fsm_q == MAIN_FSM_REFIL_WDAT) begin
+        if(bus_resp_i.data_ok && bus_req_o.data_ok) begin
+          transfer_cnt_q <= transfer_cnt_q + 3'd1;
+        end
+      end
+    end
   end
   // WB 相关状态机逻辑
-  always_comb begin
-    wb_valid     = wb_valid_q;
-    wb_busy      = wb_busy_q;
-    wb_addr      = wb_addr_q;
-    transfer_cnt = transfer_cnt_q;
-    wb_data      = wb_data_q;
-    wb_wait_addr = wb_wait_addr_q;
-    wb_skid      = wb_skid_q;
-    wb_skid_buf  = wb_skid_buf_q;
-    wb_bank_sel  = wb_bank_sel_q;
-    if(main_fsm_q == MAIN_FSM_REFIL_WADR && !wb_busy_q) begin
-      wb_wait_addr = '1;
-      wb_addr      = {op_addr_q[`_DIDX_LEN - 1 -: 8], {(`_DIDX_LEN - 10){1'b0}}};
-      wb_busy      = '1;
-      transfer_cnt = '0;
-    end
-    else if(wb_busy_q) begin
-      if(wb_wait_addr_q) begin
-        wb_wait_addr              = '0;
-        wb_addr[`_DIDX_LEN-8-1:2] = wb_addr_q[`_DIDX_LEN - 8 - 1 : 2] + 1;
-      end
-      else if(!wb_valid_q) begin
-        wb_valid                  = 1'b1;
-        wb_addr[`_DIDX_LEN-8-1:2] = wb_addr_q[`_DIDX_LEN - 8 - 1 : 2] + 1;
-        // wb_data = oh_waysel(refill_sel_q, dram_rdata_d1[wb_addr_q[2]]);
-        wb_data                   = dram_rdata_d1[wb_addr_q[2]][refill_sel_q];
-      end
-      else begin
-        if(bus_resp_i.data_ok) begin
-          transfer_cnt = transfer_cnt_q + 1;
-          if(wb_skid_q) begin
-            wb_skid = '0;
-            wb_data = wb_skid_buf_q; // TODO: ADD THIS REIGSTER
-          end
-          else begin
-            // wb_data = oh_waysel(refill_sel_q, dram_rdata_d1[wb_addr_q[2]]);
-            wb_data = dram_rdata_d1[wb_addr_q[2]][refill_sel_q];
-            if(wb_addr_q[`_DIDX_LEN - 8 - 1 : 2] == 0) begin
-              wb_valid = '0;
-              wb_busy  = '0;
-            end
-            else begin
-              wb_addr[`_DIDX_LEN-8-1:2] = wb_addr_q[`_DIDX_LEN - 8 - 1 : 2] + 1;
-            end
-          end
-        end
-        else begin
-          wb_skid = '0;
-          // wb_skid_buf = oh_waysel(refill_sel_q, dram_rdata_d1[wb_addr_q[2]]);
-          wb_data = dram_rdata_d1[wb_addr_q[2]][refill_sel_q];
-        end
-      end
-    end
-  end
 
   // TODO: refill cnt 处理 相关状态机 check
   logic refill_last;
@@ -813,7 +789,7 @@ module core_lsu_dm #(
     bus_req_o.data_ok     = 1'b0;
     bus_req_o.data_last   = 1'b0;
     bus_req_o.data_strobe = 4'b1111;
-    bus_req_o.w_data      = wb_data_q; // TODO: FIND BETTER VALUE HERE.
+    bus_req_o.w_data      = wb_data; // TODO: FIND BETTER VALUE HERE.
     if(fifo_fsm_q != S_FEMPTY) begin
       bus_busy_o = '1;
       if(fifo_fsm_q == S_FADR) begin
