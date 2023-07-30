@@ -907,7 +907,7 @@ module core_backend (
         /* TODO: JUDGE WHETHER IS ONLY NEEDED IN CHIPLAB ? */
       end else begin
         assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_invalidate_req[p]          = m1_branch_jmp_req;
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excp_detect[p];
       end
       assign m1_target[p] = m1_excp_detect[p] ? excp_target : jump_target;
@@ -929,7 +929,7 @@ module core_backend (
         m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine & exc_m1_q[p].need_commit;
 
         m1_excp_flow.ale = ~(|m1_excp_flow) && (
-          (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& |pipeline_ctrl_m1_q[p].vaddr[1:0]) ||
+          (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& (|pipeline_ctrl_m1_q[p].vaddr[1:0])) ||
           (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]));
         m1_excp_flow.adem = '0;
         m1_excp_flow.pil  = '0;
@@ -1163,12 +1163,12 @@ module core_backend (
     csr_t csr_value_q,skid_csr_value_q;
     logic csr_skid   ;
     always_ff @(posedge clk) begin
-      if(!wb_stall) begin
+      if(!csr_skid) begin
         skid_csr_value_q <= csr_value;
       end
       timer_64_diff <= core_csr_inst.timer_64_q;
       csr_skid      <= wb_stall;
-      csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
+      csr_value_q   <= csr_skid ? skid_csr_value_q : csr_value;
     end
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
     // WB 的信号，全部打一拍，以等待写操作完成。
@@ -1206,17 +1206,17 @@ module core_backend (
         end
       end
       always_ff @(posedge clk) begin
-        cm_pc       <= wb_pc;
-        cm_instr    <= wb_instr;
-        cm_wdata    <= wb_wdata;
-        cm_valid    <= wb_valid;
-        cm_waddr    <= wb_waddr;
-        cm_wen      <= wb_wen;
-        cm_mdata    <= wb_mdata;
-        cm_vaddr    <= wb_vaddr;
-        cm_paddr    <= wb_paddr;
-        cm_ertn     <= wb_stall ? '0 : wb_ertn;
-        cm_excp     <= wb_stall ? '0 : wb_excp;
+        cm_pc    <= wb_pc;
+        cm_instr <= wb_instr;
+        cm_wdata <= wb_wdata;
+        cm_valid <= wb_stall ? '0 : wb_valid;
+        cm_waddr <= wb_waddr;
+        cm_wen   <= wb_stall ? '0 : wb_wen;
+        cm_mdata <= wb_mdata;
+        cm_vaddr <= wb_vaddr;
+        cm_paddr <= wb_paddr;
+        cm_ertn  <= wb_stall ? '0 : wb_ertn;
+        cm_excp  <= wb_stall ? '0 : wb_excp;
       end
       decoder  decoder_inst_p (
         .inst_i(cm_instr),
@@ -1241,18 +1241,6 @@ module core_backend (
         .csr_rstat     (p == 0          ),
         .csr_data      (csr_value_q.estat)
       );
-      DifftestExcpEvent DifftestExcpEvent (
-        .clock        (clk                     ),
-        .coreid       (0                       ),
-        .excp_valid   (cm_excp                 ),
-        // .excp_valid         ('0),
-        .eret         (cm_ertn                 ),
-        // .eret               ('0),
-        .intrNo       (csr_value_q.estat[12:2] ),
-        .cause        (csr_value_q.estat[21:16]),
-        .exceptionPC  (cm_pc                   ),
-        .exceptionInst(cm_instr                )
-      );
 
       // if(p == 0) begin
       DifftestStoreEvent DifftestStoreEvent_p (
@@ -1274,6 +1262,20 @@ module core_backend (
       );
       // end
     end
+  DifftestExcpEvent DifftestExcpEvent (
+    .clock     (clk                                       ),
+    .coreid    (0                                         ),
+    .excp_valid(DIFFTEST[0].cm_excp || DIFFTEST[1].cm_excp),
+    // .excp_valid         ('0),
+    .eret      (DIFFTEST[0].cm_ertn || DIFFTEST[1].cm_ertn),
+    // .eret               ('0),
+    .intrNo    (csr_value_q.estat[12:2]                   ),
+    .cause     (csr_value_q.estat[21:16]                  ),
+    .exceptionPC((DIFFTEST[0].cm_ertn || DIFFTEST[0].cm_excp) ?
+                DIFFTEST[0].cm_pc : DIFFTEST[1].cm_pc     ), 
+    .exceptionInst((DIFFTEST[0].cm_ertn || DIFFTEST[0].cm_excp) ?
+                DIFFTEST[0].cm_instr : DIFFTEST[1].cm_instr)  
+  );
 
   DifftestTrapEvent DifftestTrapEvent (
     .clock   (clk       ),
