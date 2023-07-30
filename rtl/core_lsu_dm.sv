@@ -402,11 +402,12 @@ module core_lsu_dm #(
 
   // TODO: refill cnt 处理
   logic[`_DIDX_LEN - 1 : 2] refill_addr_q, refill_addr;
-  logic[`_DIDX_LEN - 1 : 2] wb_addr_q, wb_addr;
   logic[2: 0] transfer_cnt_q;
   logic[31:0] wb_data;
   logic wb_valid_q, wb_valid, wb_busy_q,wb_busy;
-
+  always_ff @(posedge clk) begin
+    wb_valid_q <= wb_valid;
+  end
   always_ff@(posedge clk) begin
     if(!rst_n) begin
       main_fsm_q <= MAIN_FSM_NORMAL;
@@ -691,31 +692,54 @@ module core_lsu_dm #(
   end
 
   // dram_preemption_addr 处理逻辑
+  logic[`_DIDX_LEN - 1 : 2] wb_addr_q, wb_addr;
+  always_ff @(posedge clk) begin
+    wb_addr_q <= wb_addr;
+  end
   always_comb begin
     dram_preemption_addr = wb_addr_q;
   end
 
   logic [1:0][31:0] bram_read_result;
+  assign bram_read_result[0] = dram_rdata_d1[0][0]; // TODO: MULTI WAY
+  assign bram_read_result[1] = dram_rdata_d1[1][0]; // TODO: MULTI WAY
   logic [1:0][31:0] wb_skid_buf_q   ;
-  logic             wb_skid_q       ;
+  logic [3:0] wb_timer_q; // 0 to wait premtion, 1 to addr1 , 2 to addr2 data1 , 3 to data2 register-data1 validup.
+  logic wb_timer_trigger;
+  assign wb_timer_trigger = main_fsm_q == MAIN_FSM_NORMAL && main_fsm == MAIN_FSM_REFIL_WADR;
   always_ff @(posedge clk) begin
-    if(~rst_n) begin
-      wb_valid_q <= '0;
-      wb_skid_q  <= '0;
-    end
-    wb_addr_q  <= wb_addr;
-    wb_valid_q <= wb_valid;
-    if((main_fsm_q == MAIN_FSM_REFIL_WADR || main_fsm_q == MAIN_FSM_REFIL_WDAT) &&
-      ((transfer_cnt_q[0] && bus_resp_i.data_ok) || !wb_skid_q)) begin
-      wb_skid_buf_q <= bram_read_result;
-      wb_skid_q     <= 1'b1;
-    end else if(main_fsm_q == MAIN_FSM_NORMAL) begin
-      wb_skid_q <= 1'b0;
-    end
+    wb_timer_q <= {wb_timer_q[2:0], wb_timer_trigger};
   end
   // wb_valid_q 表示 wb_skid_buf_q 中的数据是有效的
   always_comb begin
-    wb_valid = (dreq_fsm_q == DREQ_FSM_PREEMPTION) && (wb_addr_q[2] == 1'b1);
+    wb_valid = wb_valid_q;
+    if(wb_timer_trigger) begin
+      wb_valid = '0;
+    end else if(wb_timer_q[2]) begin
+      wb_valid = '1;
+    end
+  end
+  // wb_addr_q 用于读取 dram，获得写回的数据
+  always_comb begin
+    wb_addr = wb_addr_q;
+    if(wb_timer_q[0]) begin
+      wb_addr = {tramaddr(op_addr_q), 2'b00};
+    end
+    if(wb_timer_q[1]) begin
+      wb_addr[3] = wb_addr_q[3] + 1'd1;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(wb_timer_trigger) begin
+      dram_preemption_valid <= 1'b1;
+    end
+    if(wb_timer_q[2]) begin
+      wb_skid_buf_q <= bram_read_result;
+    end
+    if(transfer_cnt_q[0] && bus_req_o.data_ok && bus_resp_i.data_ok) begin
+      wb_skid_buf_q <= bram_read_result;
+      dram_preemption_valid <= 1'b0;
+    end
   end
   // wb_data 是需要写回的数据
   assign wb_data = wb_skid_buf_q[transfer_cnt_q[0]];
