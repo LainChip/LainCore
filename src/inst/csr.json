@@ -207,6 +207,7 @@
         },
         "invtlb": {
             "opcode": "00000110010010011",
+            "csr_rdcnt": "`_RDCNT_ID_VLOW",
             "invtlb_en": 1,
             "reg_type_r0": "`_REG_R0_RK",
             "reg_type_r1": "`_REG_R1_RJ",
@@ -222,9 +223,8 @@
             "opcode": "0000000000000000011000",
             "csr_rdcnt": "`_RDCNT_ID_VLOW",
             "reg_type_r0": "`_REG_R0_NONE",
-            "reg_type_r1": "`_REG_R0_NONE",
+            "reg_type_r1": "`_REG_R1_NONE",
             "reg_type_w": "`_REG_W_RJD",
-            "latest_r1_m2": 1,
             "fu_sel_m2": "`_FUSEL_M2_CSR",
             "addr_imm_type": "`_ADDR_IMM_S26",
             "need_csr": 1

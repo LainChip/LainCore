@@ -492,7 +492,7 @@ module core_backend (
 
     // CSR 接入 (M1)
     logic[13:0] csr_r_addr;
-    logic csr_rdcnt          ;
+    logic[1:0]  csr_rdcnt          ;
     logic csr_m1_int         ;
     logic csr_m1_commit_valid;
 
@@ -791,9 +791,9 @@ module core_backend (
         pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
         pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
         pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
-        pipeline_ctrl_m1[p].csr_id = (decode_info.need_csr) ?
+        pipeline_ctrl_m1[p].csr_id = (decode_info.csr_rdcnt == 0) ?
           pipeline_ctrl_ex_q[p].addr_imm[15:2] :
-            {pipeline_ctrl_ex_q[p].addr_imm[15:7],pipeline_ctrl_ex_q[p].addr_imm[22:17]};
+            {pipeline_ctrl_ex_q[p].addr_imm[15:7],pipeline_ctrl_ex_q[p].addr_imm[22:18]};
         pipeline_ctrl_m1[p].jump_target = jump_target;
         pipeline_ctrl_m1[p].vaddr = vaddr;
         pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
@@ -963,7 +963,7 @@ module core_backend (
     // CSR 相关指令接入，注意： 只会在第一条管线
     assign csr_r_addr = pipeline_ctrl_m1_q[0].csr_id;
     assign csr_rdcnt  = pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt |
-      (pipeline_ctrl_m1_q[0].csr_id[4:0] != 0 ? 2'b10 : 2'b00);
+      (((|pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt) && pipeline_ctrl_m1_q[0].csr_id[4:0] != 0) ? 2'b10 : 2'b00);
 
     /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
     for(genvar p = 0 ; p < 2 ; p++) begin : M2
@@ -1159,16 +1159,22 @@ module core_backend (
 
 `ifdef _DIFFTEST_ENABLE
     // 接入差分测试
-    logic[63:0] timer_64_diff;
+    logic[63:0] m2_timer_64,wb_timer_64,cb_timer_64;
     csr_t csr_value_q,skid_csr_value_q;
     logic csr_skid   ;
     always_ff @(posedge clk) begin
       if(!csr_skid) begin
         skid_csr_value_q <= csr_value;
       end
-      timer_64_diff <= core_csr_inst.timer_64_q;
-      csr_skid      <= wb_stall;
-      csr_value_q   <= csr_skid ? skid_csr_value_q : csr_value;
+      if(!m2_stall) begin
+        m2_timer_64 <= core_csr_inst.timer_64_q;
+      end
+      if(!wb_stall) begin
+        wb_timer_64 <= m2_timer_64;
+      end
+      cb_timer_64 <= wb_timer_64;
+      csr_skid    <= wb_stall;
+      csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
     end
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
     // WB 的信号，全部打一拍，以等待写操作完成。
@@ -1234,7 +1240,7 @@ module core_backend (
         .is_TLBFILL    ('0              ), // TODO: FIXME
         .TLBFILL_index (debug_rand_index),
         .is_CNTinst    (cm_inst_info.csr_rdcnt != '0),
-        .timer_64_value(timer_64_diff   ),
+        .timer_64_value(cb_timer_64     ),
         .wen           (cm_waddr == '0 ? '0 : cm_wen          ),
         .wdest         (cm_waddr        ),
         .wdata         (cm_waddr == '0 ? '0 : cm_wdata),
