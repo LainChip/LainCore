@@ -166,7 +166,7 @@ module core_backend (
               exc_ex_q[p].valid_inst <= is_skid_q?exc_skid_q[p].valid_inst : exc_is[p].valid_inst;
               exc_ex_q[p].need_commit <= '0;
             end else begin
-              exc_ex_q[p] <= is_skid_q ? exc_skid_q[p] : exc_is[p];
+              exc_ex_q[p] <= is_skid_q?exc_skid_q[p] : exc_is[p];
             end
           end else begin
             if(ex_invalidate) begin
@@ -859,16 +859,21 @@ module core_backend (
       assign m1_mem_paddr[p]    = paddr;
       assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
       // 异常的处理：完成相关模块
+      logic local_excp_detect;
     core_excp_handler m1_excp (
-      .clk        (clk                                                           ),
-      .rst_n      (rst_n                                                         ),
-      .csr_i      (csr_value                                                     ),
-      .valid_i    (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
-      .ertn_inst_i(decode_info.ertn_inst                                         ),
-      .excp_flow_i(m1_excp_flow                                                  ),
-      .target_o   (excp_target                                                   ),
-      .trigger_o  (m1_excp_detect[p]                                             )
+      .clk        (clk                  ),
+      .rst_n      (rst_n                ),
+      .csr_i      (csr_value            ),
+      .valid_i    (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit
+                   && (p == 0 ? 1'b1 : !m1_invalidate_req[0])), 
+      .ertn_inst_i(decode_info.ertn_inst),
+      .excp_flow_i(m1_excp_flow         ),
+      .target_o   (excp_target          ),
+      .trigger_o  (local_excp_detect    )
     );
+      // assign m1_excp_detect[p] = p == 0 ? local_excp_detect :
+      // (local_excp_detect && !m1_invalidate_req[0]);/
+      assign m1_excp_detect[p] = local_excp_detect;
 
       // 物理地址产生
       assign paddr = {m1_addr_trans_result[p].value.ppn, pipeline_ctrl_m1_q[p].vaddr[11:0]};
@@ -925,24 +930,25 @@ module core_backend (
       always_comb begin
         // 按照产生优先级排序
         m1_excp_flow       = '0;
-        m1_excp_flow.m1int = csr_m1_int; // TODO: FIXME
-        m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef & exc_m1_q[p].need_commit;
-        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr & exc_m1_q[p].need_commit;
-        m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif & exc_m1_q[p].need_commit;
-        m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi & exc_m1_q[p].need_commit;
-        m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine & exc_m1_q[p].need_commit;
+        m1_excp_flow.m1int = csr_m1_int && (p == 0 ? 1'b1 : !m1_invalidate_req[0]); // TODO: FIXME
+        m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
 
         m1_excp_flow.ale = ~(|m1_excp_flow) && (
           (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& (|pipeline_ctrl_m1_q[p].vaddr[1:0])) ||
-          (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]));
+          (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]))
+        && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.adem = '0;
         m1_excp_flow.pil  = '0;
         m1_excp_flow.pis  = '0;
         m1_excp_flow.pme  = '0;
         m1_excp_flow.ppi  = '0;
         m1_excp_flow.tlbr = '0; // TODO: FIXME
-        m1_excp_flow.brk  = pipeline_ctrl_m1_q[p].excp_flow.brk & exc_m1_q[p].need_commit;
-        m1_excp_flow.sys  = pipeline_ctrl_m1_q[p].excp_flow.sys & exc_m1_q[p].need_commit;
+        m1_excp_flow.brk  = pipeline_ctrl_m1_q[p].excp_flow.brk && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.sys  = pipeline_ctrl_m1_q[p].excp_flow.sys && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
       end
 
       // 接入暂停请求
@@ -1021,8 +1027,8 @@ module core_backend (
       end
       // 写数据输入
       always_comb begin
-        m2_mem_op[p]    = '0;
-        m2_mem_valid[p] = '0;
+        m2_mem_op[p]       = '0;
+        m2_mem_valid[p]    = '0;
         m2_mem_uncached[p] = pipeline_ctrl_m2_q[p].mem_uncached; // TODO: FIXME
         if(decode_info.mem_read) begin
           m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
@@ -1078,7 +1084,7 @@ module core_backend (
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && m2_mem_rvalid[p];
             end
           endcase
         end

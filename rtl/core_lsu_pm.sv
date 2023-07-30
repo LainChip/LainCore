@@ -149,6 +149,8 @@ else begin
     m1_rvalid_o = '0;
   end
 end
+// assign dm_req_o.pending_write = (m2_op_i == `_DCAHE_OP_WRITE && m2_valid_i);
+assign dm_req_o.pending_write = 1'b1;
 
 // M1 busy 电路
 always_comb begin

@@ -945,4 +945,13 @@ module core_lsu_dm #(
       end
     endcase
   end
+
+  logic pending_write_req, pending_write_q,pending_write;
+  assign pending_write_req = dm_req_i[0].pending_write || dm_req_i[1].pending_write;
+  always_ff @(posedge clk) begin
+    pending_write_q <= pending_write_req;
+  end
+  assign pending_write = pending_write_req | pending_write_q;
+  assign dm_resp_o[0].pending_write = pending_write;
+  assign dm_resp_o[1].pending_write = pending_write;
 endmodule

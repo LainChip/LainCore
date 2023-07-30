@@ -49,6 +49,8 @@ typedef struct packed {
 } dcache_tag_t;
 
 typedef struct packed {
+  logic pending_write;
+
   logic rvalid;
   logic[31:0] raddr;
 
