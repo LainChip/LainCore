@@ -17,7 +17,8 @@ module scoreboard (
 
   logic            invalidate_wait_q  ;
   logic [2:0]      issueboard_tid_q,issueboard_tid;
-  logic [1:0][4:0] issueboard_is_w_id,issueboard_is_w_id_r;
+  logic [1:0][3:0] commitboard_is_w_id;
+  logic [1:0][4:0] issueboard_is_w_id;
   logic [3:0][4:0] issueboard_is_r_id ;
   logic [3:0][3:0] commitboard_is_r_id;
 
@@ -27,11 +28,11 @@ module scoreboard (
     assign is_r_id_o[i] = issueboard_is_r_id[i][3:0];
   end
   for(genvar i = 0 ; i < 2 ; i ++) begin
-    assign issueboard_is_w_id[i] = {~issueboard_is_w_id_r[i][4],issueboard_tid_q,i[0]};
+    assign issueboard_is_w_id[i] = {~commitboard_is_w_id[i][3],issueboard_tid_q,i[0]};
   end
   assign is_w_id_o = {
-    ~issueboard_is_w_id_r[0][4],
-    ~issueboard_is_w_id_r[1][4],
+    ~commitboard_is_w_id[0][3],
+    ~commitboard_is_w_id[1][3],
     issueboard_tid_q
   };
 
@@ -59,7 +60,7 @@ module scoreboard (
     end
   end
 
-  bank_mpregfiles_6r2w #(
+  bank_mpregfiles_4r2w #(
     .WIDTH          (5   ),
     .RESET_NEED     (1'b1),
     .ONLY_RESET_ZERO(1'b1)
@@ -71,14 +72,14 @@ module scoreboard (
     .ra1_i     (is_r_addr_i[1]                   ),
     .ra2_i     (is_r_addr_i[2]                   ),
     .ra3_i     (is_r_addr_i[3]                   ),
-    .ra4_i     (is_w_addr_i[0]                   ),
-    .ra5_i     (is_w_addr_i[1]                   ),
+    // .ra4_i     (is_w_addr_i[0]                   ),
+    // .ra5_i     (is_w_addr_i[1]                   ),
     .rd0_o     (issueboard_is_r_id[0]            ),
     .rd1_o     (issueboard_is_r_id[1]            ),
     .rd2_o     (issueboard_is_r_id[2]            ),
     .rd3_o     (issueboard_is_r_id[3]            ),
-    .rd4_o     (issueboard_is_w_id_r[0]          ),
-    .rd5_o     (issueboard_is_w_id_r[1]          ),
+    // .rd4_o     (issueboard_is_w_id_r[0]          ),
+    // .rd5_o     (issueboard_is_w_id_r[1]          ),
     // write port
     .wd0_i     (issueboard_is_w_id[0]            ), // TODO: WRITE DATA
     .wd1_i     (issueboard_is_w_id[1]            ),
@@ -89,7 +90,7 @@ module scoreboard (
     // signal
     .conflict_o(                                 )
   );
-  bank_mpregfiles_4r2w #(
+  bank_mpregfiles_6r2w #(
     .WIDTH          (4   ), // 额外加一位，用于避免重复
     .RESET_NEED     (1'b1),
     .ONLY_RESET_ZERO(1'b1)
@@ -101,10 +102,14 @@ module scoreboard (
     .ra1_i     (is_r_addr_i[1]                         ),
     .ra2_i     (is_r_addr_i[2]                         ),
     .ra3_i     (is_r_addr_i[3]                         ),
+    .ra4_i     (is_w_addr_i[0]                         ),
+    .ra5_i     (is_w_addr_i[1]                         ),
     .rd0_o     (commitboard_is_r_id[0]                 ),
     .rd1_o     (commitboard_is_r_id[1]                 ),
     .rd2_o     (commitboard_is_r_id[2]                 ),
     .rd3_o     (commitboard_is_r_id[3]                 ),
+    .rd4_o     (commitboard_is_w_id[0]                 ),
+    .rd5_o     (commitboard_is_w_id[1]                 ),
     // write port
     .wd0_i     ({wb_w_id_i[4],wb_w_id_i[2:0]}          ), // TODO: WRITE DATA
     .wd1_i     ({wb_w_id_i[3],wb_w_id_i[2:0]}          ),
@@ -151,6 +156,6 @@ module scoreboard (
     end
   end
 
-  assign issue_ready_o = ~invalidate_wait_q;
+  assign issue_ready_o = ~invalidate_wait_q && !invalidate_i;
 
 endmodule

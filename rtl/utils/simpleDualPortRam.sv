@@ -6,7 +6,7 @@ module simpleDualPortRam
 	parameter int unsigned ramSize = 1024,
 	parameter type dataType = logic [dataWidth-1:0],
 	parameter int unsigned latency = 1,
-	parameter int readMuler = 4
+	parameter int readMuler = 1
 ) (
 	input clk,    // Clock
 	input rst_n,  // Asynchronous reset active low

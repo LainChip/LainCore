@@ -149,6 +149,10 @@ module core_backend (
         else begin
           if(!is_skid_q) begin
             exc_skid_q[p] <= exc_is[p];
+          end else begin
+            if(ex_invalidate) begin
+              exc_skid_q[p].need_commit <= '0;
+            end
           end
         end
       end
@@ -160,9 +164,9 @@ module core_backend (
           if(!ex_stall) begin
             if(ex_invalidate) begin
               exc_ex_q[p].valid_inst <= is_skid_q?exc_skid_q[p].valid_inst : exc_is[p].valid_inst;
-              exc_ex_q[p] <= '0;
+              exc_ex_q[p].need_commit <= '0;
             end else begin
-              exc_ex_q[p] <= is_skid_q?exc_skid_q[p] : exc_is[p];
+              exc_ex_q[p] <= is_skid_q ? exc_skid_q[p] : exc_is[p];
             end
           end else begin
             if(ex_invalidate) begin
@@ -850,7 +854,7 @@ module core_backend (
     );
 
       assign m1_mem_read[p]     = exc_m1_q[p].valid_inst && decode_info.mem_read;
-      assign m1_mem_uncached[p] = '0; // TODO: FIXME
+      assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
       assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]    = paddr;
       assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
@@ -953,6 +957,7 @@ module core_backend (
         pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
         pipeline_ctrl_m2[p].excp_flow = exc_m1_q[p].need_commit ? m1_excp_flow : '0;
         pipeline_ctrl_m2[p].excp_valid = m1_excp_detect[p];
+        pipeline_ctrl_m2[p].mem_uncached = m1_mem_uncached[p];
         pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
         pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
         pipeline_ctrl_m2[p].paddr = paddr;
@@ -1018,7 +1023,7 @@ module core_backend (
       always_comb begin
         m2_mem_op[p]    = '0;
         m2_mem_valid[p] = '0;
-        m2_mem_uncached = '1; // TODO: FIXME
+        m2_mem_uncached[p] = pipeline_ctrl_m2_q[p].mem_uncached; // TODO: FIXME
         if(decode_info.mem_read) begin
           m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
           m2_mem_op[p]    = `_DCAHE_OP_READ;
@@ -1047,7 +1052,7 @@ module core_backend (
             end
             `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && (&pipeline_data_m2_q[p].r_flow.r_ready);
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
@@ -1069,7 +1074,7 @@ module core_backend (
             end
             `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && (&pipeline_data_m2_q[p].r_flow.r_ready);
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
@@ -1112,8 +1117,8 @@ module core_backend (
     assign csr_w_mask  = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
       32'hffffffff :
       pipeline_data_m2_q[0].r_data[1];
-    assign csr_we   = pipeline_ctrl_m2_q[0].decode_info.csr_op_en && exc_m2_q[0].need_commit;
-    assign csr_ertn = pipeline_ctrl_m2_q[0].decode_info.ertn_inst && exc_m2_q[0].need_commit;
+    assign csr_we   = pipeline_ctrl_m2_q[0].decode_info.csr_op_en && exc_m2_q[0].need_commit && !m2_stall;
+    assign csr_ertn = pipeline_ctrl_m2_q[0].decode_info.ertn_inst && exc_m2_q[0].need_commit && !m2_stall;
     /* ------ ------ ------ ------ ------ WB 级 ------ ------ ------ ------ ------ */
     // 不存在数据前递
 
@@ -1151,7 +1156,7 @@ module core_backend (
         wb_w_data[p] = pipeline_wdata_wb[p].w_data;
         wb_w_addr[p] = pipeline_wdata_wb[p].w_flow.w_addr;
         wb_commit[p] = exc_wb_q[p].need_commit;
-        wb_valid[p]  = exc_wb_q[p].valid_inst;
+        wb_valid[p]  = exc_wb_q[p].valid_inst && !wb_stall;
       end
     end
     assign wb_w_id = pipeline_wdata_wb[0].w_flow.w_id;
@@ -1207,7 +1212,7 @@ module core_backend (
           wb_mdata <= m2_mdata;
           wb_vaddr <= m2_vaddr;
           wb_paddr <= m2_paddr;
-          wb_excp  <= |m2_excp_req[p];
+          wb_excp  <= |m2_excp_req[p] && exc_m2_q[p].valid_inst && !m2_stall;
           wb_ertn  <= p == 0 ? csr_ertn : '0;
         end
       end

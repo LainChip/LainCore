@@ -112,8 +112,9 @@ module core_lsu_dm #(
   end
 
   // SNOOP 部分
-  assign dm_snoop_o.data_waddr = dram_waddr;
   assign dm_snoop_o.data_we    = dram_we;
+  assign dm_snoop_o.data_waddr = dram_waddr;
+  assign dm_snoop_o.data_wdata = dram_wdata;
   assign dm_snoop_o.tag_waddr  = tram_waddr;
   assign dm_snoop_o.tag_we     = tram_we;
   assign dm_snoop_o.tag_wdata  = tram_wdata;

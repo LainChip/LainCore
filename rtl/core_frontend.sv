@@ -123,7 +123,7 @@ module core_frontend (
   logic[1:0][31:0] m_inst;
 
   logic paddr_ready;
-  logic[31:0] m_ppc;
+  logic[31:0] f_ppc;
 
   logic        tlb_req_valid,tlb_req_ready; // TODO: CONNECT ME
   tlb_s_resp_t tlb_resp     ;
@@ -136,7 +136,7 @@ module core_frontend (
     .vaddr_i        (f_pc                   ),
     .f_stall_i      (!icache_ready          ),
     .ready_o        (paddr_ready            ),
-    .paddr_o        (m_ppc                  ),
+    .paddr_o        (f_ppc                  ),
     .fetch_excp_o   (m_excp                 ),
     .csr_i          (frontend_resp_i.csr_reg),
     .flush_i        ('0 /*TODO: CONNECT ME*/),
@@ -158,7 +158,7 @@ module core_frontend (
     .ready_o        (icache_ready            ),
     .vpc_i          (f_pc                    ),
     .attached_i     (f_predict               ),
-    .ppc_i          (m_ppc                   ),
+    .ppc_i          (f_ppc                   ),
     .paddr_valid_i  (paddr_ready             ),
     .uncached_i     (uncached                ),
     .vpc_o          (m_pc                    ),
@@ -193,29 +193,32 @@ module core_frontend (
     m_num = m_valid[0] + m_valid[1];
   end
   inst_package_t[1:0] d_inst_pack;
+  logic[1:0] d_valid_fifo;
   logic[1:0] d_valid;
+  assign d_valid = d_valid_fifo & {2{~frontend_resp_i.rst_jmp}};
+
   multi_channel_fifo #(
-                       .DATA_WIDTH(64 + $bits(bpu_predict_t) + $bits(fetch_excp_t)),
-                       .DEPTH(16),
-                       .BANK(2),
-                       .WRITE_PORT(2),
-                       .READ_PORT(2)
-                     ) inst_fifo (
-                       .clk,
-                       .rst_n,
-
-                       .flush_i(frontend_resp_i.rst_jmp),
-
-                       .write_valid_i(1'b1),
-                       .write_ready_o(mimo_ready),
-                       .write_num_i(m_num),
-                       .write_data_i(m_inst_pack),
-
-                       .read_valid_o(d_valid),
-                       .read_ready_i(1'b1),
-                       .read_num_i(d_num),
-                       .read_data_o(d_inst_pack)
-                     );
+    .DATA_WIDTH(64 + $bits(bpu_predict_t) + $bits(fetch_excp_t)),
+    .DEPTH     (16                                             ),
+    .BANK      (2                                              ),
+    .WRITE_PORT(2                                              ),
+    .READ_PORT (2                                              )
+  ) inst_fifo (
+    .clk                                   ,
+    .rst_n                                 ,
+    
+    .flush_i      (frontend_resp_i.rst_jmp),
+    
+    .write_valid_i(1'b1                   ),
+    .write_ready_o(mimo_ready             ),
+    .write_num_i  (m_num                  ),
+    .write_data_i (m_inst_pack            ),
+    
+    .read_valid_o (d_valid_fifo           ),
+    .read_ready_i (1'b1                   ),
+    .read_num_i   (d_num                  ),
+    .read_data_o  (d_inst_pack            )
+  );
   // compress_fifo #(
   //   .DATA_WIDTH(64 + $bits(bpu_predict_t) + $bits(fetch_excp_t)),
   //   .DEPTH     (8                                              ),
@@ -224,14 +227,14 @@ module core_frontend (
   // ) inst_fifo (
   //   .clk                                   ,
   //   .rst_n                                 ,
-    
+
   //   .flush_i      (frontend_resp_i.rst_jmp),
-    
+
   //   .write_valid_i(1'b1                   ),
   //   .write_ready_o(mimo_ready             ),
   //   .write_num_i  (m_num                  ),
   //   .write_data_i (m_inst_pack            ),
-    
+
   //   .read_valid_o (d_valid                ),
   //   .read_ready_i (1'b1                   ),
   //   .read_num_i   (d_num                  ),
@@ -264,71 +267,72 @@ module core_frontend (
   always_ff @(posedge clk) begin
     if(frontend_resp_i.rst_jmp || ~rst_n) begin
       is_valid_q <= '0;
+    end else begin
+      is_valid_q <= is_valid;
     end
-    is_valid_q <= is_valid;
     is_inst_package_q <= is_inst_package;
   end
   always_comb begin
-    d_num = '0;
-    is_valid = is_valid_q;
+    d_num           = '0;
+    is_valid        = is_valid_q;
     is_inst_package = is_inst_package_q;
     unique casez({is_valid_q, d_valid, frontend_resp_i.issue})
       // NO VALID INST YET
-      6'b00????: begin
-        is_valid = d_valid;
-        d_num = d_valid[0] + d_valid[1];
+      6'b00???? : begin
+        is_valid        = d_valid;
+        d_num           = d_valid[0] + d_valid[1];
         is_inst_package = decoder_inst_package;
       end
       // HAS ONE VALID INST
-      6'b01?0?0: begin
+      6'b01?0?0 : begin
         is_valid = 2'b01;
       end
-      6'b01?0?1: begin
+      6'b01?0?1 : begin
         is_valid = '0;
       end
-      6'b01?1?0: begin
-        is_valid = 2'b11;
+      6'b01?1?0 : begin
+        is_valid           = 2'b11;
         is_inst_package[1] = decoder_inst_package[0];
-        d_num = 1;
+        d_num              = 1;
       end
-      6'b01?1?1: begin
-        is_valid = 2'b01;
+      6'b01?1?1 : begin
+        is_valid           = 2'b01;
         is_inst_package[0] = decoder_inst_package[0];
-        d_num = 1;
+        d_num              = 1;
       end
       // HAS TWO VALID INST
-      6'b1???00: begin
+      6'b1???00 : begin
         is_valid = 2'b11;
       end
-      6'b1?0001: begin
-        is_valid = 2'b01;
+      6'b1?0001 : begin
+        is_valid           = 2'b01;
         is_inst_package[0] = is_inst_package_q[1];
       end
-      6'b1?001?: begin
+      6'b1?001? : begin
         is_valid = 2'b00;
       end
-      6'b1?0101: begin
-        is_valid = 2'b11;
+      6'b1?0101 : begin
+        is_valid           = 2'b11;
         is_inst_package[0] = is_inst_package_q[1];
         is_inst_package[1] = decoder_inst_package[0];
-        d_num = 1;
+        d_num              = 1;
       end
-      6'b1?011?: begin
-        is_valid = 2'b01;
+      6'b1?011? : begin
+        is_valid           = 2'b01;
         is_inst_package[0] = decoder_inst_package[0];
-        d_num = 1;
+        d_num              = 1;
       end
-      6'b1?1?01: begin
-        is_valid = 2'b11;
+      6'b1?1?01 : begin
+        is_valid           = 2'b11;
         is_inst_package[0] = is_inst_package_q[1];
         is_inst_package[1] = decoder_inst_package[0];
-        d_num = 1;
+        d_num              = 1;
       end
-      6'b1?1?1?: begin
-        is_valid = 2'b11;
+      6'b1?1?1? : begin
+        is_valid           = 2'b11;
         is_inst_package[0] = decoder_inst_package[0];
         is_inst_package[1] = decoder_inst_package[1];
-        d_num = 2;
+        d_num              = 2;
       end
     endcase
   end

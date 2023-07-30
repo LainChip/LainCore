@@ -14,11 +14,11 @@ module core_ifetch#(
   input  logic [1: 0] valid_i,
   output logic ready_o, // TO NPC/BPU
 
+  // MMU 地址信号, 在 VPC 同一拍
   input  logic [31:0] vpc_i,
+  input  logic [31:0] ppc_i,
   input  logic [ATTACHED_INFO_WIDTH - 1 : 0] attached_i,
 
-  // MMU 访问信号, 在 VPC 后一拍
-  input  logic [31:0] ppc_i,
   input  logic paddr_valid_i,
   input  logic uncached_i,
 
@@ -40,7 +40,6 @@ module core_ifetch#(
 
 typedef logic[8:0] icache_fsm_t;
 localparam   FSM_NORMAL  = 9'b000000001;
-localparam   FSM_WAITBUS = 9'b100000000;
 localparam   FSM_RECVER  = 9'b000000010;
 localparam   FSM_RFADDR  = 9'b000000100;
 localparam   FSM_RFDATA  = 9'b000001000;
@@ -48,6 +47,7 @@ localparam   FSM_PTADDR0 = 9'b000010000;
 localparam   FSM_PTDATA0 = 9'b000100000;
 localparam   FSM_PTADDR1 = 9'b001000000;
 localparam   FSM_PTDATA1 = 9'b010000000;
+localparam   FSM_WAITBUS = 9'b100000000;
 icache_fsm_t fsm_q,fsm;
 
 // 只有一个周期
@@ -62,45 +62,58 @@ endfunction
 function logic[7 : 0] itramaddr(logic[31:0] va);
   return va[`_IIDX_LEN - 1 -: 8];
 endfunction
-function logic[`_DIDX_LEN - 1 : 2] idramaddr(logic[31:0] va);
-  return va[`_IIDX_LEN - 1 : 2];
+function logic[`_IIDX_LEN - 1 : 3] idramaddr(logic[31:0] va);
+  return va[`_IIDX_LEN - 1 : 3];
 endfunction
 function logic icache_hit(i_tag_t tag,logic[31:0] pa);
   return tag.valid && (itagaddr(pa) == tag.tag);
 endfunction
 
-logic[31:0] f1_vpc_q;
+logic[31:0] f1_vpc_q,f1_ppc_q;
 logic[1:0] f1_valid_q;
 // logic[511:0][1:0][31:0] data_ram;
 // i_tag_t[255:0] tag_ram;
 logic[8:0] dram_raddr;
-logic[1:0][31:0] dram_rdata;
+logic dram_we;
 logic[8:0] dram_waddr;
 logic[1:0][31:0] dram_wdata;
-i_tag_t tag;
-logic[9:0] refill_addr_q; // TODO
-logic refill_data_ok_q;
-logic[1:0][31:0] refill_data_q;
-logic skid_q;
 always_ff @(posedge clk) begin
   if(~rst_n || clr_i) begin
     f1_valid_q <= '0;
   end else if(ready_o) begin
     f1_vpc_q   <= vpc_i;
+    f1_ppc_q   <= ppc_i;
     f1_valid_q <= valid_i;
     attached_o <= attached_i;
   end
 end
+logic[9:0] refill_addr_q;// TODO
+logic[1:0] refill_addr_q_q;
+always_ff @(posedge clk) begin
+  refill_addr_q_q <= refill_addr_q;
+end
+logic refill_data_ok_q;
+logic[1:0][31:0] refill_data_q;
+logic skid_q;
+
+i_tag_t tram_rdata,tram_wdata;
+logic[7:0] tram_raddr;
+logic tram_we;
+logic[7:0] tram_waddr;
 assign vpc_o   = f1_vpc_q;
-assign ppc_o   = ppc_i;
+assign ppc_o   = f1_ppc_q;
 assign valid_o = ready_o ? f1_valid_q : 2'b00;
 // always_ff @(posedge clk) begin
 //   if(fsm_q == FSM_RFDATA && refill_data_ok_q) begin
-//     data_ram[refill_addr_q[9:1]] <= refill_data_q;
+//     data_ram[dram_waddr] <= refill_data_q;
 //   end
 // end
-assign dram_waddr = refill_addr_q[9:1];
+assign dram_we    = refill_data_ok_q;
+assign dram_waddr = {refill_addr_q[9:2],refill_addr_q_q[1]};
 assign dram_wdata = refill_data_q;
+assign dram_raddr = idramaddr(vpc_i);
+assign tram_raddr = itramaddr(vpc_i);
+logic[1:0][31:0] inst;
 always_ff @(posedge clk) begin
   if(fsm_q == FSM_RFDATA && refill_addr_q[0] && bus_resp_i.data_ok) begin
     refill_data_ok_q <= 1'b1;
@@ -111,19 +124,65 @@ always_ff @(posedge clk) begin
 end
 always_ff @(posedge clk) begin
   if(bus_resp_i.data_ok) begin
-    refill_data_q[1] <= refill_data_q[0];
-    refill_data_q[0] <= bus_resp_i.r_data;
+    refill_data_q[0] <= refill_data_q[1];
+    refill_data_q[1] <= bus_resp_i.r_data;
   end
 end
-logic[1:0][31:0] inst;
 // assign inst = data_ram[idramaddr(f1_vpc_q)];
-assign dram_raddr = idramaddr(f1_vpc_q);
+always_comb begin
+  // 更新 tag 的逻辑
+  tram_waddr       = itramaddr(f1_vpc_q);
+  tram_we          = fsm_q == FSM_RECVER || fsm_q == FSM_RFADDR;
+  tram_wdata.valid = 1'b1;
+  tram_wdata.tag   = itagaddr(f1_ppc_q);
+end
+for(genvar w = 0 ; w < WAY_CNT ; w++) begin
+  simpleDualPortRam #(
+    .dataWidth(64),
+    .ramSize  (1 << 9),
+    .latency  (1),
+    .readMuler(1)
+  ) dram (
+    .clk     (clk       ),
+    .rst_n   (rst_n     ),
+    .addressA(dram_waddr),
+    .we      (dram_we   ),
+    .addressB(dram_raddr),
+    .inData  (dram_wdata),
+    .outData (inst)
+  );
+  simpleDualPortLutRam #(
+    .dataWidth($bits(i_tag_t)),
+    .ramSize  (1 << 8        ),
+    .latency  (0             ),
+    .readMuler(1)
+  ) tram (
+    .clk     (clk       ),
+    .rst_n   (rst_n     ),
+    .addressA(tram_waddr),
+    .we      (tram_we   ),
+    .addressB(tram_raddr),
+    .re      (1'b1      ),
+    .inData  (tram_wdata),
+    .outData (tram_rdata)
+  );
+end
 // assign tag = tag_ram[itagaddr(f1_vpc_q)];
-assign tag = '0;
+// assign tag = '0;
 
-logic hit;
-assign hit = icache_hit(tag, ppc_i);
+// 与 VPC 同级
+logic hit_early, hit_q, hit;
+assign hit_early = icache_hit(tram_rdata, ppc_i);
+always_ff @(posedge clk) begin
+  hit_q <= hit;
+end
 
+always_comb begin
+  hit = ready_o ? hit_early : hit_q;
+  if(fsm_q == FSM_RFADDR) begin
+    hit = 1'b1; // TODO: WAY ASSOCIATIVE
+  end
+end
 logic uncached_finished_q,uncached_finished;
 always_ff @(posedge clk) begin
   if(!rst_n) begin
@@ -143,17 +202,20 @@ always_comb begin
       fsm = FSM_NORMAL;
     end
     FSM_NORMAL : begin
-      if(bus_busy_i) begin
-        fsm = FSM_WAITBUS;
-      end
-      else if(cacheop_valid_i) begin
+      if(cacheop_valid_i) begin
         fsm = FSM_RECVER;
       end
-      else if(paddr_valid_i && !uncached_i && !hit && |f1_valid_q) begin
-        fsm = FSM_RFADDR;
+      else if(paddr_valid_i && !uncached_i && !hit_q && |f1_valid_q) begin
+        if(bus_busy_i) begin
+          fsm = FSM_WAITBUS;
+        end else begin
+          fsm = FSM_RFADDR;
+        end
       end
       else if(paddr_valid_i && uncached_i && !uncached_finished_q) begin
-        if(f1_valid_q[0]) begin
+        if(bus_busy_i) begin
+          fsm = FSM_WAITBUS;
+        end else if(f1_valid_q[0]) begin
           fsm = FSM_PTADDR0;
         end
         else if(f1_valid_q[1]) begin
@@ -161,7 +223,7 @@ always_comb begin
         end
       end
     end
-    FSM_WAITBUS: begin
+    FSM_WAITBUS : begin
       if(!bus_busy_i) begin
         fsm = FSM_NORMAL;
       end
@@ -175,7 +237,7 @@ always_comb begin
       end
     end
     FSM_RFDATA : begin
-      if(bus_resp_i.data_ok && bus_resp_i.data_last) begin
+      if(refill_data_ok_q && refill_addr_q_q[1]) begin
         fsm = FSM_NORMAL;
       end
     end
@@ -214,12 +276,12 @@ always_ff @(posedge clk) begin
   end
   else begin
     if(bus_resp_i.data_ok) begin
-      refill_addr_q <= refill_addr_q + 1;
+      refill_addr_q[1:0] <= refill_addr_q[1:0] + 1;
     end
   end
 end
 always_ff @(posedge clk) begin
-  if(fsm_q != FSM_NORMAL) begin
+  if(!ready_o) begin
     skid_q <= 1'b1;
   end
   else begin
@@ -229,15 +291,19 @@ end
 logic[1:0][31:0] i_remember_data;
 // DATA FETCH HERE
 always_ff @(posedge clk) begin
-  if(bus_resp_i.data_ok) begin
-    if(fsm_q == FSM_RFDATA && f1_vpc_q[3] == refill_addr_q[3] && bus_resp_i.data_ok) begin
-      i_remember_data[refill_addr_q[2]] <= bus_resp_i.r_data;
-    end
-    else if(fsm_q == FSM_PTDATA0 && bus_resp_i.data_ok) begin
-      i_remember_data[0] <= bus_resp_i.r_data;
-    end
-    else if(fsm_q == FSM_PTDATA1 && bus_resp_i.data_ok) begin
-      i_remember_data[1] <= bus_resp_i.r_data;
+  if((fsm_q == FSM_PTDATA0 ||
+      (fsm_q == FSM_RFDATA && !refill_addr_q[0] && refill_addr_q[1] == f1_vpc_q[3])) &&
+    bus_resp_i.data_ok) begin
+    i_remember_data[0] <= bus_resp_i.r_data;
+  end
+  else if((fsm_q == FSM_PTDATA1 ||
+      (fsm_q == FSM_RFDATA && refill_addr_q[0] && refill_addr_q[1] == f1_vpc_q[3])) && bus_resp_i.data_ok) begin
+    i_remember_data[1] <= bus_resp_i.r_data;
+  end
+  else begin
+    // SKID
+    if(!skid_q) begin
+      i_remember_data <= inst_o;
     end
   end
 end
@@ -247,7 +313,8 @@ assign inst_o = skid_q ? i_remember_data : inst;
 
 // READY LOGIC
 assign cacheop_ready_o = fsm_q == FSM_NORMAL;
-assign ready_o         = ready_i && fsm_q == FSM_NORMAL && ((hit & !uncached_i) | (~|f1_valid_q) | uncached_finished_q);
+assign ready_o         = ready_i && fsm_q == FSM_NORMAL &&
+  ((hit_q & !uncached_i) | (~|f1_valid_q) | uncached_finished_q);
 
 // 产生总线赋值
 always_comb begin
@@ -256,7 +323,7 @@ always_comb begin
   bus_req_o.burst_size = 4'b0011;
   bus_req_o.cached     = 1'b0;
   bus_req_o.data_size  = 2'b10;
-  bus_req_o.addr       = {ppc_i[31:12],refill_addr_q[0],2'd0};
+  bus_req_o.addr       = {f1_ppc_q[31:12],refill_addr_q[0],2'd0};
 
   bus_req_o.data_ok     = 1'b0;
   bus_req_o.data_last   = 1'b0;
@@ -264,20 +331,20 @@ always_comb begin
   bus_req_o.w_data      = '0;
   if(fsm_q == FSM_RFADDR) begin
     bus_req_o.valid = 1'b1;
-    bus_req_o.addr  = {ppc_i[31:4],4'd0};
+    bus_req_o.addr  = {f1_ppc_q[31:4],4'd0};
   end
   else if(fsm_q == FSM_RFDATA || fsm_q == FSM_PTDATA0 || fsm_q == FSM_PTDATA1) begin
     bus_req_o.data_ok = 1'b1;
-    bus_req_o.addr    = {ppc_i[31:4],4'd0};
+    bus_req_o.addr    = {f1_ppc_q[31:4],4'd0};
   end
   else if(fsm_q == FSM_PTADDR0 || fsm_q == FSM_PTADDR1) begin
     bus_req_o.valid      = 1'b1;
     bus_req_o.burst_size = 4'b0000;
     if(fsm_q == FSM_PTADDR1) begin
-      bus_req_o.addr = {ppc_i[31:3],3'b100};
+      bus_req_o.addr = {f1_ppc_q[31:3],3'b100};
     end
     else begin
-      bus_req_o.addr = {ppc_i[31:3],3'b000};
+      bus_req_o.addr = {f1_ppc_q[31:3],3'b000};
     end
   end
 end
