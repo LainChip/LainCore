@@ -616,7 +616,7 @@ module core_backend (
     // SKID BUF 对于 scoreboard 来说应该是透明的，使用 valid-ready 握手
     // assign ex_skid_ready_q = ~is_skid_q;
     always_ff @(posedge clk) begin
-      if(~rst_n || ex_invalidate) begin
+      if(~rst_n/* || ex_invalidate*/) begin
         is_skid_q       <= '0;
         ex_skid_ready_q <= '1;
       end
