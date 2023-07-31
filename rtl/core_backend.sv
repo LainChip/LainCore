@@ -2,13 +2,13 @@
 `include "pipeline.svh"
 `include "lsu.svh"
 
-function fwd_data_t mkfwddata(pipeline_wdata_t in);
+function fwd_data_t mkfwddata(input pipeline_wdata_t in);
 mkfwddata.valid = in.w_flow.w_valid;
 mkfwddata.id = in.w_flow.w_id[2:0];
 mkfwddata.data = in.w_data;
 endfunction
 
-  function logic[1:0] mkmemsize(logic[2:0] sel);
+  function logic[1:0] mkmemsize(input logic[2:0] sel);
     case(sel[1:0])
       default : mkmemsize = 2'b11;
       2'b10   : mkmemsize = 2'b01;
@@ -16,7 +16,7 @@ endfunction
     endcase
   endfunction
 
-  function logic[27:0] mkimm_addr(logic[1:0] addr_imm_type, logic[25:0] raw_imm);
+  function logic[27:0] mkimm_addr(input logic[1:0] addr_imm_type, input logic[25:0] raw_imm);
     case (addr_imm_type)
       default : /*`_ADDR_IMM_S12:*/
         begin
@@ -34,7 +34,7 @@ endfunction
     endcase
   endfunction
 
-  function logic[31:0] mkimm_data(logic[2:0] data_imm_type, logic[25:0] raw_imm);
+  function logic[31:0] mkimm_data(input logic[2:0] data_imm_type, input logic[25:0] raw_imm);
     // !!! CAUTIOUS !!! : DOESN'T SUPPORT IMM U16 | IMM S21 FOR NOW
     case(data_imm_type[1:0])
       // default/*IMM U5*/: begin
@@ -246,6 +246,7 @@ module core_backend (
 
     // M2 级的跳转寄存器设计位
 
+    logic[1:0][31:0] m1_target;
     logic[31:0] m2_jump_target_q;
     bpu_correct_t[1:0] m1_bpu_feedback_req;
     bpu_correct_t m2_bpu_feedback_q;
@@ -806,7 +807,6 @@ module core_backend (
 
     /* ------ ------ ------ ------ ------ M1 级 ------ ------ ------ ------ ------ */
     logic[1:0] m1_excp_detect;
-    logic[1:0][31:0] m1_target;
     for(genvar p = 0 ; p < 2 ; p++) begin : M1
       // M1 的 FU 部分，接入 ALU、LSU（EARLY）
       m1_t decode_info;

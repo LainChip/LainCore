@@ -95,25 +95,25 @@ typedef struct packed {
   logic [`_DBANK_CNT-1:0][                              31:0]      data_wdata;
 } dram_manager_snoop_t;
 
-function logic[`_DTAG_LEN - 1 : 0] tagaddr(logic[31:0] va);
+function logic[`_DTAG_LEN - 1 : 0] tagaddr(input logic[31:0] va);
   return va[`_DTAG_LEN + `_DIDX_LEN - 1: `_DIDX_LEN];
 endfunction
-function logic[7 : 0] tramaddr(logic[31:0] va);
+function logic[7 : 0] tramaddr(input logic[31:0] va);
   return va[`_DIDX_LEN - 1 -: 8];
 endfunction
-function logic[`_DIDX_LEN - 1 : 2] dramaddr(logic[31:0] va);
+function logic[`_DIDX_LEN - 1 : 2] dramaddr(input logic[31:0] va);
   return va[`_DIDX_LEN - 1 : 2];
 endfunction
-function logic[`_DIDX_LEN - 1 : 3] bdramaddr(logic[31:0] va);
+function logic[`_DIDX_LEN - 1 : 3] bdramaddr(input logic[31:0] va);
   return va[`_DIDX_LEN - 1 : 3];
 endfunction
-function logic cache_hit(dcache_tag_t tag,logic[31:0] pa);
+function logic cache_hit(input dcache_tag_t tag,input logic[31:0] pa);
   return tag.valid && (tagaddr(pa) == tag.addr);
 endfunction
-function logic[31:0] mkstrobe(logic[31:0] data, logic[3:0] mask);
+function logic[31:0] mkstrobe(input logic[31:0] data, input logic[3:0] mask);
   return data & {{8{mask[3]}},{8{mask[2]}},{8{mask[1]}},{8{mask[0]}}};
 endfunction
-function logic[3:0] mkwstrobe(logic[2:0] select,logic[31:0] va);
+function logic[3:0] mkwstrobe(input logic[2:0] select,input logic[31:0] va);
   case(select[1:0])
     default : begin
       mkwstrobe = 4'b0000;
@@ -143,7 +143,7 @@ function logic[3:0] mkwstrobe(logic[2:0] select,logic[31:0] va);
   endcase
 endfunction
 
-function logic[31:0] mkrsft(logic[31:0] raw, logic[31:0] va, logic[2:0] op);
+function logic[31:0] mkrsft(input logic[31:0] raw, input logic[31:0] va, input logic[2:0] op);
   // M1 RDATA 电路
   logic ext_sign;
   case(op[1:0])
@@ -170,7 +170,7 @@ function logic[31:0] mkrsft(logic[31:0] raw, logic[31:0] va, logic[2:0] op);
     mkrsft = raw;
   end
 endfunction
-function logic[31:0] mkwsft(logic[31:0] raw, logic[31:0] va);
+function logic[31:0] mkwsft(input logic[31:0] raw, input logic[31:0] va);
   // M1 WDATA 电路
   mkwsft = raw;
   case(va[1:0])

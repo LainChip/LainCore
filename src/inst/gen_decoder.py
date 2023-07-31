@@ -116,7 +116,7 @@ class decoder_parser:
             # function [type]
             str_builder += 'function ' + to_stage + '_t '
             # [name]([type] [value])
-            str_builder += 'get_' + to_stage + '_from_' + from_stage + '(' + from_stage + '_t ' + from_stage + ');\n' 
+            str_builder += 'get_' + to_stage + '_from_' + from_stage + '(input ' + from_stage + '_t ' + from_stage + ');\n' 
             # <statement>
             str_builder += '    ' + to_stage + '_t ' + 'ret;\n'
             for to_stage_signal in self.parent_signals[to_stage]:

@@ -1,18 +1,18 @@
 `include "pipeline.svh"
 
-function logic[`_BHT_ADDR_WIDTH - 1 : 0] get_bht_addr(logic[31:0]va);
+function logic[`_BHT_ADDR_WIDTH - 1 : 0] get_bht_addr(input logic[31:0]va);
 return va[`_BHT_ADDR_WIDTH + 2 : 3] ^ va[`_BHT_ADDR_WIDTH + `_BHT_ADDR_WIDTH + 2 : `_BHT_ADDR_WIDTH + 3];
 endfunction
-  function logic[`_LPHT_ADDR_WIDTH - 1 : 0] get_lpht_addr(logic[`_BHT_DATA_WIDTH - 1 : 0] bht,logic[31:0]va);
+  function logic[`_LPHT_ADDR_WIDTH - 1 : 0] get_lpht_addr(input logic[`_BHT_DATA_WIDTH - 1 : 0] bht,input logic[31:0]va);
     return {va[11:10],bht}; // TODO: PARAMETERIZE ME
   endfunction
-  function logic[`_BTB_ADDR_WIDTH - 1 : 0] get_btb_addr(logic[31:0] va);
+  function logic[`_BTB_ADDR_WIDTH - 1 : 0] get_btb_addr(input logic[31:0] va);
     return {va[`_BTB_ADDR_WIDTH + 2 : 3]};
   endfunction
-  function logic[`_BTB_TAG_ADDR_WIDTH - 1 : 0] get_btb_tag(logic[31:0] va);
+  function logic[`_BTB_TAG_ADDR_WIDTH - 1 : 0] get_btb_tag(input logic[31:0] va);
     return va[`_BTB_TAG_ADDR_WIDTH + `_BTB_ADDR_WIDTH + 2 : `_BTB_ADDR_WIDTH + 3];
   endfunction
-  function logic[1:0] gen_next_lphr(logic[1:0] old, logic direction);
+  function logic[1:0] gen_next_lphr(input logic[1:0] old, input logic direction);
     case(old)
       default : begin
         return {1'b0,direction};

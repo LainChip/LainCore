@@ -5,7 +5,7 @@
 // random_num 用于处理 bank conflict 时候的选择
 // 返回需要的请求地址 (0 或者 1)
 // 可以使用 一个 LUT6 实现逻辑
-function logic judge_sel(logic[1:0] a, logic[1:0] v, logic local_addr, logic revert);
+function logic judge_sel(input logic[1:0] a, input logic[1:0] v, input logic local_addr, input logic revert);
   if(v[0] && !v[1] && a[0] == local_addr) begin
     return 1'b0;
   end
@@ -14,13 +14,13 @@ function logic judge_sel(logic[1:0] a, logic[1:0] v, logic local_addr, logic rev
   end
   return 1'b1;
 endfunction
-function logic[`_DWAY_CNT - 1 : 0][3:0] strobe_ext(logic[`_DWAY_CNT - 1 : 0] way_sel, logic[3:0] strobe);
+function logic[`_DWAY_CNT - 1 : 0][3:0] strobe_ext(input logic[`_DWAY_CNT - 1 : 0] way_sel, input logic[3:0] strobe);
   for(integer i = 0 ; i < `_DWAY_CNT ; i++) begin
     strobe_ext[i] = way_sel[i] ? strobe : '0;
   end
   return strobe_ext;
 endfunction
-function logic[31:0] oh_waysel(logic[`_DWAY_CNT - 1 : 0] way_sel, logic[`_DWAY_CNT - 1 : 0][31:0] data);
+function logic[31:0] oh_waysel(input logic[`_DWAY_CNT - 1 : 0] way_sel, input logic[`_DWAY_CNT - 1 : 0][31:0] data);
   oh_waysel = 0;
   for(integer i = 0 ; i < `_DWAY_CNT ; i++) begin
     oh_waysel |= way_sel[i] ? data[i] : '0;
@@ -322,6 +322,7 @@ module core_lsu_dm #(
     op_sel_q     <= op_sel;
     op_old_tag_q <= op_old_tag;
   end
+  logic sleep_end_half_q;
   always_comb begin
     op_old_tag = op_old_tag_q;
     op         = op_q;
@@ -371,7 +372,6 @@ module core_lsu_dm #(
   // 相关参数可以设置为可配置。
   logic sleep_cnt_rst   ;
   logic sleep_end_q     ; // TODO: FINISH THIS SIGNAL.
-  logic sleep_end_half_q;
   if(SLEEP_CNT != 0) begin
     logic[$clog2(SLEEP_CNT)-1: 0] sleep_cnt_q;
     always_ff @(posedge clk) begin

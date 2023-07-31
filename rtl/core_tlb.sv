@@ -1,6 +1,6 @@
 `include "pipeline.svh"
 
-function logic check_inv(tlb_entry_t entry, tlb_inv_req_t inv_req);
+function logic check_inv(input tlb_entry_t entry, input tlb_inv_req_t inv_req);
   check_inv = '0;
   if(inv_req.clr_global && entry.key.g) begin
     check_inv = '1;

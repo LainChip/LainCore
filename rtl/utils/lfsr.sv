@@ -125,7 +125,7 @@ localparam logic[63:0][5:0] Perm = {6'd63, 6'd47, 6'd31, 6'd15, 6'd62, 6'd46, 6'
                                     6'd49, 6'd33, 6'd17, 6'd01, 6'd48, 6'd32, 6'd16, 6'd00};
 
 
-function automatic logic [63:0] sbox4_layer(logic [63:0] in);
+function automatic logic [63:0] sbox4_layer(input logic [63:0] in);
   logic [63:0] out;
   //for (logic [4:0] j = '0; j<16; j++) out[j*4 +: 4] = sbox4[in[j*4 +: 4]];
   // this simulates much faster than the loop
@@ -151,7 +151,7 @@ function automatic logic [63:0] sbox4_layer(logic [63:0] in);
   return out;
 endfunction : sbox4_layer
 
-function automatic logic [63:0] perm_layer(logic [63:0] in);
+function automatic logic [63:0] perm_layer(input logic [63:0] in);
   logic [63:0] out;
   // for (logic [7:0] j = '0; j<64; j++) out[perm[j]] = in[j];
   // this simulates much faster than the loop
