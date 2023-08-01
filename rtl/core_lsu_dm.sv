@@ -730,15 +730,19 @@ module core_lsu_dm #(
     end
   end
   always_ff @(posedge clk) begin
-    if(wb_timer_trigger) begin
-      dram_preemption_valid <= 1'b1;
-    end
-    if(wb_timer_q[2]) begin
-      wb_skid_buf_q <= bram_read_result;
-    end
-    if(transfer_cnt_q[0] && bus_req_o.data_ok && bus_resp_i.data_ok) begin
-      wb_skid_buf_q <= bram_read_result;
+    if(!rst_n) begin
       dram_preemption_valid <= 1'b0;
+    end else begin
+      if(wb_timer_trigger) begin
+        dram_preemption_valid <= 1'b1;
+      end
+      if(wb_timer_q[2]) begin
+        wb_skid_buf_q <= bram_read_result;
+      end
+      if(transfer_cnt_q[0] && bus_req_o.data_ok && bus_resp_i.data_ok) begin
+        wb_skid_buf_q <= bram_read_result;
+        dram_preemption_valid <= 1'b0;
+      end
     end
   end
   // wb_data 是需要写回的数据
