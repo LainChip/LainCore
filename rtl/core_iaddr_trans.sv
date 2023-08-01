@@ -56,7 +56,9 @@ else begin
   logic[31:0] paddr_q;
   logic dmw0_hit, dmw1_hit;
   // assign paddr_o = paddr_q;
-  assign paddr_o = {da_mode ? vaddr_i[31:29] : '0,vaddr_i[28:0]};
+  assign paddr_o = {da_mode ? vaddr_i[31:29] : 
+  (dmw0_hit? dmw0_pseg  :  dmw1_pseg),
+  vaddr_i[28:0]};
   assign ready_o = 1'b1;
   logic uncached;
   always_ff@(posedge clk) begin

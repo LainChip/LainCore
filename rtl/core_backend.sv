@@ -92,7 +92,6 @@ module core_backend (
     logic[1:0] m1_stall_req;
     logic[1:0] m2_stall_req;
     logic[1:0] wb_stall_req;
-    logic[1:0] lsu_stall_req;
 
     // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
     logic       m1_refetch   ;
@@ -1040,7 +1039,9 @@ module core_backend (
         end
         // TODO: SUPPORT CACOP
       end
-
+      if(p == 0) begin
+        assign frontend_resp_o.icache_op_valid = '0;
+      end
       assign m2_mem_size[p]   = mkmemsize(decode_info.mem_type);
       assign m2_mem_vaddr[p]  = pipeline_ctrl_m2_q[p].vaddr;
       assign m2_mem_paddr[p]  = pipeline_ctrl_m2_q[p].paddr;
@@ -1097,8 +1098,7 @@ module core_backend (
       // 接入暂停请求
       always_comb begin
         m2_stall_req[p] = ((decode_info.latest_r0_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[0]) |
-          (decode_info.latest_r1_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[1]) |
-          lsu_stall_req[p]) &
+          (decode_info.latest_r1_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[1])) &
         exc_m2_q[p].valid_inst & exc_m2_q[p].need_commit; // LUT6 + MUXF7
       end
 

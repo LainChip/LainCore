@@ -38,7 +38,7 @@ module core_csr(
 //timer_64
 logic[63:0] timer_64_q;
 always_ff @(posedge clk) begin
-  if(~rst_n) begin
+  if(!rst_n) begin
     timer_64_q <= 64'd0;
   end
   else begin
@@ -237,7 +237,7 @@ logic prmd_we,prmd_re;
 assign prmd_we = csr_we && (csr_w_addr_i == `_CSR_PRMD);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    prmd_q[31:3] <= 29'b0;
+    prmd_q[31:0] <= '0;
   end
   else begin
     if (excp_valid) begin

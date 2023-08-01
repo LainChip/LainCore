@@ -79,9 +79,12 @@ module core_npc (
     logic [31:0] ras_target_q,btb_target,npc_target;
     logic        hit                  ;
     always_comb begin
-      predict_dir_type_q    = btb_q.dir_type && hit;
-      predict_target_type_q = btb_q.branch_type;
-      predict_dir_jmp       = |lpht[1] && hit;
+      // predict_dir_type_q    = btb_q.dir_type && hit;
+      // predict_target_type_q = btb_q.branch_type;
+      // predict_dir_jmp       = |lpht[1] && hit;
+      predict_dir_type_q = '0;
+      predict_target_type_q = '0;
+      predict_dir_jmp = '0;
     end
     assign hit        = btb_q.tag == get_btb_tag(pc) && (!pc[2] || btb_q.fsc);
     assign btb_target = {btb_q.target_pc, 2'b00};
@@ -268,5 +271,7 @@ module core_npc (
         end
       end
     end
+
+    assign predict_o.taken = '0;
 
   endmodule
