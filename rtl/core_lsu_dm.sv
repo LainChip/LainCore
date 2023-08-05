@@ -156,9 +156,9 @@ module core_lsu_dm #(
 
   // 状态控制
   logic[3:0] dreq_fsm_q,dreq_fsm;
-  parameter DREQ_FSM_NORMAL     = 4'b0001;
-  parameter DREQ_FSM_CONFLICT   = 4'b0010;
-  parameter DREQ_FSM_PREEMPTION = 4'b0100;
+  localparam DREQ_FSM_NORMAL     = 4'b0001;
+  localparam DREQ_FSM_CONFLICT   = 4'b0010;
+  localparam DREQ_FSM_PREEMPTION = 4'b0100;
   always_ff @(posedge clk) begin
     if(~rst_n) begin
       dreq_fsm_q <= DREQ_FSM_NORMAL;
@@ -241,8 +241,8 @@ module core_lsu_dm #(
   always_comb begin
     dm_resp_o[0].rdata_d1 = dram_rdata_d1[dr_req_sel_q[0]];
     dm_resp_o[1].rdata_d1 = dram_rdata_d1[dr_req_sel_q[1]];
-    dm_resp_o[0].r_valid_d1 = dr_req_valid_q[0];
-    dm_resp_o[1].r_valid_d1 = dr_req_valid_q[1];
+    dm_resp_o[0].r_valid_d1 = dr_req_ready_q[0];
+    dm_resp_o[1].r_valid_d1 = dr_req_ready_q[1];
     dm_resp_o[0].tag_d1 = tram_rdata_d1[0];
     dm_resp_o[1].tag_d1 = tram_rdata_d1[1];
     if(dreq_fsm_q == DREQ_FSM_CONFLICT) begin
@@ -317,6 +317,7 @@ module core_lsu_dm #(
       op_valid_q <= '0;
     end
     op_q         <= op;
+    wsize_q      <= wsize;
     op_valid_q   <= op_valid;
     op_addr_q    <= op_addr;
     op_sel_q     <= op_sel;
@@ -415,6 +416,10 @@ module core_lsu_dm #(
     else begin
       main_fsm_q <= main_fsm;
     end
+  end
+  // Dirty 位赋值
+  for(genvar b = 0 ; b < BANK_NUM ; b++) begin
+    assign dirty_raddr[b] = tramaddr(dm_req_i[b].op_addr);;
   end
   always_comb begin
     main_fsm      = main_fsm_q;
@@ -872,7 +877,7 @@ module core_lsu_dm #(
   logic[4:0] pw_w_ptr,pw_r_ptr,pw_cnt;
   assign pw_cnt    = pw_w_ptr - pw_r_ptr;
   assign pw_empty  = pw_cnt == '0;
-  assign fifo_full = pw_cnt >= 4'd14;
+  assign uncac_fifo_full = pw_cnt >= 4'd14;
   always_ff @(posedge clk) begin
     if(~rst_n) begin
       pw_w_ptr <= '0;

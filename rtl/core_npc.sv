@@ -272,6 +272,13 @@ module core_npc (
       end
     end
 
+    // TODO
     assign predict_o.taken = '0;
+    assign predict_o.predict_pc = '0;
+    assign predict_o.lphr = '0;
+    assign predict_o.history = '0;
+    assign predict_o.target_type = '0;
+    assign predict_o.dir_type = '0;
+    assign predict_o.ras_ptr = '0;
 
   endmodule

@@ -48,6 +48,7 @@
    logic[1:0] true_target_type;
    assign true_dir_type = |cmp_result[3:1]/*JUMPABLE*/ && !(&cmp_result[3:1]) /*BUT NOT ALWAYS JUMP*/;
    assign miss_dir_type = bpu_predict_i.dir_type != true_dir_type;
+   assign true_target_type = '0; // TODO: FIXME
    assign miss_target = true_target_type != bpu_predict_i.target_type;
    // 更新逻辑
    always_comb begin

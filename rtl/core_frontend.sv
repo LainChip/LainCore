@@ -125,6 +125,7 @@ module core_frontend (
   logic paddr_ready;
   logic[31:0] f_ppc;
 
+  logic [19:0] tlb_req_vppn; // TODO: CONNECT ME
   logic        tlb_req_valid,tlb_req_ready; // TODO: CONNECT ME
   tlb_s_resp_t tlb_resp     ;
 

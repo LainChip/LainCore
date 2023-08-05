@@ -745,7 +745,7 @@ always_ff @(posedge clk) begin
   if(!rst_n) begin
     llbctl_q[`_LLBCT_KLO]   <= /*DEFAULT VALUE*/'0;
     llbctl_q[31:3]          <= 29'b0;
-    llbctl_q[`_LLBCT_WCLLB] <= 1'b0;
+    // llbctl_q[`_LLBCT_WCLLB] <= 1'b0;
     llbit_q                 <= 1'b0;
   end
   else begin
@@ -769,6 +769,7 @@ always_ff @(posedge clk) begin
   end
 end
 assign csr_o.llbctl = llbctl_q;
+assign csr_o.llbit = llbit_q;
 
 //tlbrentry
 logic tlbrentry_we,tlbrentry_re;

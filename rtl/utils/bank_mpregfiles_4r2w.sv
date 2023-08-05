@@ -66,7 +66,7 @@ module bank_mpregfiles_4r2w #(
     // FIX: 0 端口有更高的优先级
 
     /* bank0 : manage even addr */
-    ram_3r1w_32d qram_b0_0(
+    ram_3r1w_32d #(WIDTH) qram_b0_0(
         .clk,
         .addr0(ra0_i[4:0]),
         .addr1(ra1_i[4:0]),
@@ -78,7 +78,7 @@ module bank_mpregfiles_4r2w #(
         .din((rst_n || !RESET_NEED) ? wd_0 : '0),
         .wea(we_0 || (~rst_n && RESET_NEED))
     );
-    ram_3r1w_32d qram_b0_1(
+    ram_3r1w_32d #(WIDTH) qram_b0_1(
         .clk,
         .addr0(ra3_i[4:0]),
         .addr1('0),
@@ -92,7 +92,7 @@ module bank_mpregfiles_4r2w #(
     );
 
     /* bank1 : manage odd addr */
-    ram_3r1w_32d qram_b1_0(
+    ram_3r1w_32d #(WIDTH) qram_b1_0(
         .clk,
         .addr0(ra0_i[4:0]),
         .addr1(ra1_i[4:0]),
@@ -105,7 +105,7 @@ module bank_mpregfiles_4r2w #(
         .din((rst_n || !RESET_NEED) ? wd_1 : '0),
         .wea(we_1 || (~rst_n && RESET_NEED))
     );
-    ram_3r1w_32d qram_b1_1(
+    ram_3r1w_32d #(WIDTH) qram_b1_1(
         .clk,
         .addr0(ra3_i[4:0]),
         .addr1('0),
