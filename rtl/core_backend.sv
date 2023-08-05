@@ -857,6 +857,7 @@ module core_backend (
 
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
+      // assign m1_mem_uncached[p] = 1'b1; // TODO: FIXME
       assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]    = paddr;
       assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
@@ -1034,7 +1035,7 @@ module core_backend (
         m2_mem_uncached[p] = pipeline_ctrl_m2_q[p].mem_uncached; // TODO: FIXME
         if(decode_info.mem_read) begin
           m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
-          m2_mem_op[p]    = `_DCAHE_OP_READ;
+          m2_mem_op[p]    = `_DCAHE_OP_READ ;
         end
         if(decode_info.mem_write) begin
           m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;

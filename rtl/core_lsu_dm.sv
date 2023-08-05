@@ -81,8 +81,8 @@ module core_lsu_dm #(
       rst_state_q <= '1;
     end
     else begin
-      rst_state_q <= '0;
       rst_addr_q <= '0;
+      rst_state_q <= '0;
     end
   end
 
@@ -434,7 +434,6 @@ module core_lsu_dm #(
   // Dirty 位赋值
   for(genvar b = 0 ; b < BANK_NUM ; b++) begin
     assign dirty_raddr[b] = tramaddr(dm_req_i[b].op_addr);
-    ;
   end
   always_comb begin
     main_fsm      = main_fsm_q;

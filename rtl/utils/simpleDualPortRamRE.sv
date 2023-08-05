@@ -17,7 +17,7 @@ module simpleDualPortRamRE
 );
 
 `ifdef _FPGA
-	// dataType rawData;
+	dataType rawData;
 xpm_memory_sdpram
 #(
 	.ADDR_WIDTH_A($clog2(ramSize)),
@@ -66,6 +66,7 @@ xpm_memory_sdpram
 	// 	end
 	// end
 	// assign outData = skid_n_q ? rawData : skidbuf_q;
+	assign outData = rawData;
 `endif
 
 `ifndef _FPGA
@@ -74,21 +75,21 @@ xpm_memory_sdpram
 		.WIDTH(dataWidth),
 		.DEPTH(ramSize)
 	)instanceSdpram(
-	.clka(clk),
-	.clkb(clk),
+		.clka(clk),
+		.clkb(clk),
 
-	.addra(addressA),
-	.addrb(addressB),
-	.rstb(1'b0),
-	.dina(inData),
-	.doutb(outData),
-	.wea(we),
-	.enb(re),
-	.ena(we),
-	.sleep(1'b0),
-	.injectsbiterra(1'b0),
-	.injectdbiterra(1'b0),
-	.regceb(re)
+		.addra(addressA),
+		.addrb(addressB),
+		.rstb(1'b0),
+		.dina(inData),
+		.doutb(outData),
+		.wea(we),
+		.enb(re),
+		.ena(we),
+		.sleep(1'b0),
+		.injectsbiterra(1'b0),
+		.injectdbiterra(1'b0),
+		.regceb(re)
 	);
 
 `endif
