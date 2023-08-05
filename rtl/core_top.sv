@@ -58,7 +58,12 @@ module core_top(
   output [ 3:0] debug0_wb_rf_wen,
   output [ 4:0] debug0_wb_rf_wnum,
   output [31:0] debug0_wb_rf_wdata,
-  output [31:0] debug0_wb_inst
+  output [31:0] debug0_wb_inst,
+  output [31:0] debug1_wb_pc,
+  output [ 3:0] debug1_wb_rf_wen,
+  output [ 4:0] debug1_wb_rf_wnum,
+  output [31:0] debug1_wb_rf_wdata,
+  output [31:0] debug1_wb_inst
 );
 
 LA_AXI_BUS mem_bus ();

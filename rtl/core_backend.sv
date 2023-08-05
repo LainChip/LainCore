@@ -96,7 +96,7 @@ module core_backend (
     // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
     logic       m1_refetch   ;
     logic [1:0] m1_invalidate, m1_invalidate_req, m1_invalidate_exclude_self;
-    logic       ex_invalidate;
+    logic       ex_invalidate, ex_m1_invalidate;
 
     logic is_skid_q;
     // 读取寄存器堆，或者生成立即数
@@ -181,7 +181,7 @@ module core_backend (
         else begin
           if(!m1_stall) begin
             exc_m1_q[p].valid_inst <= exc_ex_q[p].valid_inst;
-            if(ex_invalidate || ex_stall) begin
+            if(ex_m1_invalidate || ex_stall) begin
               exc_m1_q[p].need_commit <= '0;
             end else begin
               exc_m1_q[p].need_commit <= exc_ex_q[p].need_commit;
@@ -251,7 +251,7 @@ module core_backend (
     bpu_correct_t m2_bpu_feedback_q;
     logic         m2_jump_valid_q  ;
     always_ff @(posedge clk) begin
-      m2_jump_valid_q   <= |m1_invalidate_req;
+      m2_jump_valid_q   <= (m1_stall) ? '0 : |m1_invalidate_req;
       m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
       m2_bpu_feedback_q <= (m1_invalidate_req[0]) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
     end
@@ -261,9 +261,12 @@ module core_backend (
 
     // INVALIDATE MANAGER
     always_comb begin
-      ex_invalidate    = |m1_invalidate_req;
-      m1_invalidate[0] = m1_invalidate_req[0] & !m1_invalidate_exclude_self[0];
-      m1_invalidate[1] = m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[1]);
+      ex_invalidate    = /*|m1_invalidate_req*/ m2_jump_valid_q;
+      ex_m1_invalidate = |m1_invalidate_req | m2_jump_valid_q;
+      m1_invalidate[0] = (m1_invalidate_req[0] & !m1_invalidate_exclude_self[0]) | 
+      m2_jump_valid_q;
+      m1_invalidate[1] = (m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[1])) |
+      m2_jump_valid_q;
     end
 
     // forwarding manager

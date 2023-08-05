@@ -38,9 +38,9 @@ module ram_3r1w_32d#(
             .A2(addr2),
             .AW(addrw),
             .DI({1'b0,din[0]}),
-            .Q0({1'b0,dout0[0]}),
-            .Q1({1'b0,dout1[0]}),
-            .Q2({1'b0,dout2[0]})
+            .Q0(dout0[0]),
+            .Q1(dout1[0]),
+            .Q2(dout2[0])
         );
     end
 

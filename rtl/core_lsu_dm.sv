@@ -225,8 +225,8 @@ module core_lsu_dm #(
     if(dreq_fsm_q == DREQ_FSM_NORMAL) begin
       dr_req_sel_q[0]   <= dr_req_addr[0][0];
       dr_req_sel_q[1]   <= dr_req_addr[1][0];
-      dr_req_ready_q[0] <= dr_req_valid[0] && ((!bank0_sel_normal && !dr_req_addr[0][0]) || (bank1_sel_normal && dr_req_addr[0][0]));
-      dr_req_ready_q[1] <= dr_req_valid[1] && ((bank0_sel_normal && !dr_req_addr[1][0]) || (!bank1_sel_normal && dr_req_addr[1][0]));
+      dr_req_ready_q[0] <= dr_req_valid[0] && ((!bank0_sel_normal && !dr_req_addr[0][0]) || (!bank1_sel_normal && dr_req_addr[0][0]));
+      dr_req_ready_q[1] <= dr_req_valid[1] && ((bank0_sel_normal && !dr_req_addr[1][0]) || (bank1_sel_normal && dr_req_addr[1][0]));
       dr_req_valid_q    <= dr_req_valid;
     end
     if(dreq_fsm_q == DREQ_FSM_PREEMPTION) begin
