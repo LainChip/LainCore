@@ -28,20 +28,20 @@ function logic[31:0] oh_waysel(input logic[`_DWAY_CNT - 1 : 0] way_sel, input lo
   return oh_waysel;
 endfunction
 module core_lsu_dm #(
-  parameter int PIPE_MANAGE_NUM = 2          ,
-  parameter int BANK_NUM        = `_DBANK_CNT, // This two parameter is FIXED ACTUALLY.
-  parameter int WAY_CNT         = `_DWAY_CNT ,
-  parameter int SLEEP_CNT       = 4
-) (
-  input  logic                                     clk       ,
-  input  logic                                     rst_n     ,
-  input  dram_manager_req_t  [PIPE_MANAGE_NUM-1:0] dm_req_i  ,
-  output dram_manager_resp_t [PIPE_MANAGE_NUM-1:0] dm_resp_o ,
-  output dram_manager_snoop_t                      dm_snoop_o,
-  output cache_bus_req_t                           bus_req_o ,
-  input  cache_bus_resp_t                          bus_resp_i,
-  output logic                                     bus_busy_o
-);
+    parameter int PIPE_MANAGE_NUM = 2          ,
+    parameter int BANK_NUM        = `_DBANK_CNT, // This two parameter is FIXED ACTUALLY.
+    parameter int WAY_CNT         = `_DWAY_CNT ,
+    parameter int SLEEP_CNT       = 4
+  ) (
+    input  logic                                     clk       ,
+    input  logic                                     rst_n     ,
+    input  dram_manager_req_t  [PIPE_MANAGE_NUM-1:0] dm_req_i  ,
+    output dram_manager_resp_t [PIPE_MANAGE_NUM-1:0] dm_resp_o ,
+    output dram_manager_snoop_t                      dm_snoop_o,
+    output cache_bus_req_t                           bus_req_o ,
+    input  cache_bus_resp_t                          bus_resp_i,
+    output logic                                     bus_busy_o
+  );
 
   localparam integer BANK_ID_LEN = $clog2(BANK_NUM);
 
@@ -57,22 +57,35 @@ module core_lsu_dm #(
   for(genvar b = 0 ; b < BANK_NUM ; b++) begin
     for(genvar w = 0 ; w < WAY_CNT ; w++) begin
       simpleDualPortRamByteen #(
-        .dataWidth(32),
-        .ramSize(1 << (`_DIDX_LEN - 2 - BANK_ID_LEN)),
-        .readMuler(1),
-        .latency(1)
-      ) data_ram (
-        .clk,
-        .rst_n,
-        .addressA(dram_waddr[b]),
-        .we(dram_we[b][w]),
-        .addressB(dram_raddr[b]),
-        .inData(dram_wdata[b]),
-        .outData(dram_rdata_d1[b][w])
-      );
+                                .dataWidth(32),
+                                .ramSize(1 << (`_DIDX_LEN - 2 - BANK_ID_LEN)),
+                                .readMuler(1),
+                                .latency(1)
+                              ) data_ram (
+                                .clk,
+                                .rst_n,
+                                .addressA(dram_waddr[b]),
+                                .we(dram_we[b][w]),
+                                .addressB(dram_raddr[b]),
+                                .inData(dram_wdata[b]),
+                                .outData(dram_rdata_d1[b][w])
+                              );
     end
   end
   // dirty ram
+  logic rst_state_q;
+  logic[7:0] rst_addr_q;
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      rst_addr_q <= rst_addr_q + 8'd1;
+      rst_state_q <= '1;
+    end
+    else begin
+      rst_state_q <= '0;
+      rst_addr_q <= '0;
+    end
+  end
+
   logic[BANK_NUM - 1:0][7:0] dirty_raddr;
   logic[7:0] dirty_waddr;
   logic[WAY_CNT - 1 : 0] dirty_we;
@@ -81,20 +94,20 @@ module core_lsu_dm #(
   for(genvar b = 0 ; b < BANK_NUM ; b++) begin
     for(genvar w = 0 ; w < WAY_CNT ; w++) begin
       simpleDualPortLutRam #(
-        .dataWidth(1),
-        .ramSize  (1 << 8),
-        .latency  (0),
-        .readMuler(1)
-      ) dirty_ram (
-        .clk     (clk       ),
-        .rst_n   (rst_n     ),
-        .addressA(dirty_waddr),
-        .we      (dirty_we[w]),
-        .addressB(dirty_raddr[b]),
-        .re      (1'b1      ),
-        .inData  (dirty_wdata),
-        .outData (dirty_rdata[b][w])
-      );
+                             .dataWidth(1),
+                             .ramSize  (1 << 8),
+                             .latency  (0),
+                             .readMuler(1)
+                           ) dirty_ram (
+                             .clk     (clk       ),
+                             .rst_n   (rst_n     ),
+                             .addressA(dirty_waddr ^ rst_addr_q),
+                             .we      (dirty_we[w] | rst_state_q),
+                             .addressB(dirty_raddr[b]),
+                             .re      (1'b1      ),
+                             .inData  (dirty_wdata),
+                             .outData (dirty_rdata[b][w])
+                           );
     end
   end
 
@@ -105,35 +118,35 @@ module core_lsu_dm #(
   dcache_tag_t [BANK_NUM-1:0][WAY_CNT-1:0] tram_rdata_d1;
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     simpleDualPortRamRE #(
-      .dataWidth($size(dcache_tag_t)),
-      .ramSize(1 << 8),
-      .readMuler(1),
-      .latency(1)
-    ) tag_ram_p0 (
-      .clk,
-      .rst_n,
-      .addressA(tram_waddr),
-      .we(tram_we[w]),
-      .addressB(tram_raddr[0]),
-      .re(tram_re[w]),
-      .inData(tram_wdata),
-      .outData(tram_rdata_d1[0][w])
-    );
+                          .dataWidth($size(dcache_tag_t)),
+                          .ramSize(1 << 8),
+                          .readMuler(1),
+                          .latency(1)
+                        ) tag_ram_p0 (
+                          .clk,
+                          .rst_n,
+                          .addressA(tram_waddr ^ rst_addr_q),
+                          .we(tram_we[w] | rst_state_q),
+                          .addressB(tram_raddr[0]),
+                          .re(tram_re[w]),
+                          .inData(tram_wdata),
+                          .outData(tram_rdata_d1[0][w])
+                        );
     simpleDualPortRamRE #(
-      .dataWidth($size(dcache_tag_t)),
-      .ramSize  (1 << 8             ),
-      .readMuler(1                  ),
-      .latency  (1                  )
-    ) tag_ram_p1 (
-      .clk                          ,
-      .rst_n                        ,
-      .addressA(tram_waddr         ),
-      .we      (tram_we[w]         ),
-      .addressB(tram_raddr[1]      ),
-      .re      (tram_re[w]         ),
-      .inData  (tram_wdata         ),
-      .outData (tram_rdata_d1[1][w])
-    );
+                          .dataWidth($size(dcache_tag_t)),
+                          .ramSize  (1 << 8             ),
+                          .readMuler(1                  ),
+                          .latency  (1                  )
+                        ) tag_ram_p1 (
+                          .clk                          ,
+                          .rst_n                        ,
+                          .addressA(tram_waddr ^ rst_addr_q),
+                          .we      (tram_we[w] | rst_state_q),
+                          .addressB(tram_raddr[1]      ),
+                          .re      (tram_re[w]         ),
+                          .inData  (tram_wdata         ),
+                          .outData (tram_rdata_d1[1][w])
+                        );
   end
 
   // SNOOP 部分
@@ -196,6 +209,7 @@ module core_lsu_dm #(
   logic[1:0][`_DIDX_LEN - 3 : 0] dr_req_addr;
   logic[1:0][`_DIDX_LEN - 3 : BANK_ID_LEN] dram_rnormal_other_q,dram_rnormal_other,dram_rnormal,dram_rfsm;
 
+  assign dreq_conflict = (&dr_req_valid) && (dr_req_addr[0][0] == dr_req_addr[1][0]);
   // TODO: check logic here
   wire bank0_sel_normal;
   assign bank0_sel_normal = judge_sel({dr_req_addr[1][0],dr_req_addr[0][0]}, dr_req_valid, 1'b0, 1'b0);
@@ -217,9 +231,9 @@ module core_lsu_dm #(
 
   assign dram_raddr = (dreq_fsm_q == DREQ_FSM_NORMAL) ? dram_rnormal : dram_rfsm;
   assign dram_rfsm  = (dreq_fsm_q == DREQ_FSM_CONFLICT) ? dram_rnormal_other_q : {
-    dram_preemption_addr[`_DIDX_LEN - 3 : BANK_ID_LEN],
-    dram_preemption_addr[`_DIDX_LEN - 3 : BANK_ID_LEN]
-  };
+           dram_preemption_addr[`_DIDX_LEN - 3 : BANK_ID_LEN],
+           dram_preemption_addr[`_DIDX_LEN - 3 : BANK_ID_LEN]
+         };
 
   always_ff @(posedge clk) begin
     if(dreq_fsm_q == DREQ_FSM_NORMAL) begin
@@ -419,7 +433,8 @@ module core_lsu_dm #(
   end
   // Dirty 位赋值
   for(genvar b = 0 ; b < BANK_NUM ; b++) begin
-    assign dirty_raddr[b] = tramaddr(dm_req_i[b].op_addr);;
+    assign dirty_raddr[b] = tramaddr(dm_req_i[b].op_addr);
+    ;
   end
   always_comb begin
     main_fsm      = main_fsm_q;
@@ -550,7 +565,7 @@ module core_lsu_dm #(
           dram_wreq_ready = 2'b01;
         end
         else if((((~dirty_rdata[0]) & dm_req_i[0].we_sel) != 0 && dram_wreq_valid[0]) &&
-          (((~dirty_rdata[1]) & dm_req_i[1].we_sel) != 0 && dram_wreq_valid[1])) begin
+                (((~dirty_rdata[1]) & dm_req_i[1].we_sel) != 0 && dram_wreq_valid[1])) begin
           cacw_fsm        = CAC_FSM_WBANKCONFLICT;
           dram_wreq_ready = 2'b01;
         end
@@ -655,7 +670,7 @@ module core_lsu_dm #(
         dram_waddr[b] = refill_addr_q[`_DIDX_LEN - 1 : 3];
         // dram_we[b] = (bus_resp_i.data_ok && main_fsm_q == MAIN_FSM_REFIL_RDAT && refill_addr_q[2] == b[0]) ? strobe_ext(refill_sel_q, 4'b1111) : '0;
         dram_we[b][refill_sel_q] = (bus_resp_i.data_ok && main_fsm_q == MAIN_FSM_REFIL_RDAT && refill_addr_q[2] == b[0])
-          ? 4'b1111 : '0;
+               ? 4'b1111 : '0;
       end
     end
   end
@@ -720,7 +735,8 @@ module core_lsu_dm #(
     wb_valid = wb_valid_q;
     if(wb_timer_trigger) begin
       wb_valid = '0;
-    end else if(wb_timer_q[2]) begin
+    end
+    else if(wb_timer_q[2]) begin
       wb_valid = '1;
     end
   end
@@ -737,7 +753,8 @@ module core_lsu_dm #(
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       dram_preemption_valid <= 1'b0;
-    end else begin
+    end
+    else begin
       if(wb_timer_trigger) begin
         dram_preemption_valid <= 1'b1;
       end
@@ -756,7 +773,8 @@ module core_lsu_dm #(
   always_ff @(posedge clk) begin
     if(main_fsm_q == MAIN_FSM_REFIL_WADR) begin
       transfer_cnt_q <= '0;
-    end else begin
+    end
+    else begin
       if(main_fsm_q == MAIN_FSM_REFIL_WDAT) begin
         if(bus_resp_i.data_ok && bus_req_o.data_ok) begin
           transfer_cnt_q <= transfer_cnt_q + 3'd1;
@@ -800,11 +818,11 @@ module core_lsu_dm #(
   end
   // 写回 FIFO 状态机
   typedef struct packed {
-    logic [31:0] addr  ;
-    logic [31:0] data  ;
-    logic [ 3:0] strobe;
-    logic [ 1:0] size  ;
-  } pw_fifo_t;
+            logic [31:0] addr  ;
+            logic [31:0] data  ;
+            logic [ 3:0] strobe;
+            logic [ 1:0] size  ;
+          } pw_fifo_t;
   pw_fifo_t [15:0] pw_fifo;
   pw_fifo_t        pw_req,pw_handling;
   // CACHE 总线交互机制
@@ -910,7 +928,7 @@ module core_lsu_dm #(
   // W-R使能
   // pw_r_e pw_w_e
   assign pw_r_e = (fifo_fsm_q == S_FDAT && fifo_fsm == S_FADR) ||
-    (fifo_fsm_q == S_FEMPTY && fifo_fsm == S_FADR);
+         (fifo_fsm_q == S_FEMPTY && fifo_fsm == S_FADR);
   always_comb begin
     if(uncacw_fsm_q == UNCAC_FSM_NORMAL) begin
       pw_req.addr   = uncac_wreq_valid[0] ? dm_req_i[0].op_addr : dm_req_i[1].op_addr;

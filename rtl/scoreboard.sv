@@ -63,7 +63,7 @@ module scoreboard (
   bank_mpregfiles_4r2w #(
     .WIDTH          (5   ),
     .RESET_NEED     (1'b1),
-    .ONLY_RESET_ZERO(1'b1)
+    .ONLY_RESET_ZERO(1'b0)
   ) issue_board (
     .clk                                          ,
     .rst_n                                        ,
@@ -93,7 +93,7 @@ module scoreboard (
   bank_mpregfiles_6r2w #(
     .WIDTH          (4   ), // 额外加一位，用于避免重复
     .RESET_NEED     (1'b1),
-    .ONLY_RESET_ZERO(1'b1)
+    .ONLY_RESET_ZERO(1'b0)
   ) commit_board (
     .clk                                                ,
     .rst_n                                              ,

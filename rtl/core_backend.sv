@@ -855,7 +855,7 @@ module core_backend (
       .jmp_o        (m1_branch_jmp_req                                             )
     );
 
-      assign m1_mem_read[p]     = exc_ex_q[p].need_commit && decode_info.mem_read;
+      assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
       assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]    = paddr;
