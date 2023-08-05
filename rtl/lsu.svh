@@ -17,7 +17,7 @@
 `define _IIDX_LEN 12
 `define _ITAG_LEN 20
 
-typedef struct packed{
+        typedef struct packed{
           // 请求信号
           logic       valid     ; // 拉高时说明cache的请求有效，请求有效后，valid信号应该被拉低
           logic       write     ; // 拉高时说明cache请求进行写入
@@ -117,6 +117,9 @@ typedef struct packed {
           // 不可能同时出现的请求
           logic uncached_write_ready;
           logic uop_ready;
+
+          logic dram_take_over;
+          logic[`_DIDX_LEN - 1 : 2] data_raddr;
         } wport_state_t;
 
 typedef struct packed {
@@ -127,9 +130,6 @@ typedef struct packed {
           logic[`_DIDX_LEN - 1 : 2] data_waddr;
           logic[31:0] data_wdata;
           logic[`_DWAY_CNT - 1 : 0][3:0] data_we;
-
-          logic dram_take_over;
-          logic[`_DIDX_LEN - 1 : 2] data_raddr;
         } wport_wreq_t;
 
 // 有 256 个 CACHE 行

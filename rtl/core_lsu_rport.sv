@@ -66,7 +66,7 @@ module core_lsu_rport #(
   logic[WAY_CNT - 1 : 0][31:0] raw_data_rdata;
   logic[7:0] raw_tag_raddr;
   dcache_tag_t [WAY_CNT - 1 : 0] raw_tag_rdata;
-  assign raw_data_raddr = wreq_i.dram_take_over ? wreq_i.data_raddr : dramaddr(ex_vaddr_i);
+  assign raw_data_raddr = wstate_i.dram_take_over ? wstate_i.data_raddr : dramaddr(ex_vaddr_i);
   assign rstate_o.rdata = raw_data_rdata;
   assign raw_tag_raddr = tramaddr(ex_vaddr_i);
   for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
