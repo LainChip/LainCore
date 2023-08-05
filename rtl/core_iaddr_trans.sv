@@ -83,12 +83,12 @@ else begin
   assign tlb_req_valid_o = '0;
   always_comb begin
     if(da_mode) begin
-      // uncached = da_matf != 2'd1;
-      uncached = '0;
+      uncached = da_matf != 2'd1;
+      // uncached = '0;
     end
     else begin
-      // uncached = dmw0_hit ? (dmw0_mat != 2'd1) : (dmw1_mat != 2'd1);
-      uncached = '0;
+      uncached = dmw0_hit ? (dmw0_mat != 2'd1) : (dmw1_mat != 2'd1);
+      // uncached = '0;
     end
   end
 end

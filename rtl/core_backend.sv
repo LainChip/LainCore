@@ -282,8 +282,8 @@ module core_backend (
       pipeline_data_skid_q[p],
       pipeline_data_skid_fwd[p]
     );
-    core_fwd_unit #(2) ex_fwd (
-      {fwd_data_wb, fwd_data_m1 /* SUPPORT LD-ALU */},
+    core_fwd_unit #(3) ex_fwd (
+      {fwd_data_wb, fwd_data_m1, fwd_data_m2 /* SUPPORT FULL */},
       pipeline_data_ex_q[p],
       pipeline_data_ex_fwd[p]
     );
@@ -544,10 +544,10 @@ module core_backend (
     .csr_w_data_i(csr_w_data         ),
     .badv_i      (csr_badv           ),
     .tlb_op_i    (tlb_op             ),
-    .tlb_srch_i  (/*TODO*/           ),
-    .tlb_entry_i (/*TODO*/           ),
-    .llbit_set_i (/*TODO*/           ),
-    .llbit_i     (/*TODO*/           ),
+    .tlb_srch_i  (/*TODO*/'0         ),
+    .tlb_entry_i (/*TODO*/'0         ),
+    .llbit_set_i (/*TODO*/'0         ),
+    .llbit_i     (/*TODO*/'0         ),
     
     .pc_i        (csr_pc             ),
     .vaddr_i     (csr_badv           ),
@@ -767,7 +767,7 @@ module core_backend (
 
       // 接入 dcache
       // 接入 addr-trans 模块
-      assign ex_mem_read[p] = decode_info.mem_read;
+      assign ex_mem_read[p] = decode_info.mem_read && exc_ex_q[p].need_commit;
       if(p == 0) begin
         assign ex_mem_vaddr[p]        = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
         assign ex_addr_trans_valid[p] = decode_info.need_lsu | decode_info.tlbsrch_en;
@@ -855,7 +855,7 @@ module core_backend (
       .jmp_o        (m1_branch_jmp_req                                             )
     );
 
-      assign m1_mem_read[p]     = exc_m1_q[p].valid_inst && decode_info.mem_read;
+      assign m1_mem_read[p]     = exc_ex_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
       assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]    = paddr;

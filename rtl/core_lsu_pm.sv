@@ -46,11 +46,6 @@ module core_lsu_pm #(
 // 对 ICACHE FLUSH 类 cacop，需要刷新管线。
 // 最后统一的妥协就是单发射 cacop。
 
-// EX 级接线（真的就是单纯的接线）
-always_comb begin
-  dm_req_o.rvalid = ex_read_i;
-  dm_req_o.raddr  = ex_vaddr_i;
-end
 
 // M1 级接线，具有时序逻辑。
 // M1 级共三个状态：
@@ -60,9 +55,16 @@ end
 
 // M1 状态机电路
 logic[2:0] m1_fsm_q, m1_fsm;
+logic m1_rvalid;
+// EX 级接线（真的就是单纯的接线）
+always_comb begin
+  dm_req_o.rvalid = m1_busy_o ? m1_rvalid : ex_read_i;
+  dm_req_o.raddr  = m1_busy_o ? m1_vaddr_i : ex_vaddr_i;
+end
 localparam logic[2:0]M1_FSM_NORMAL = 3'b001;
 localparam logic[2:0]M1_FSM_WAIT = 3'b010;
 localparam logic[2:0]M1_FSM_SNOOP = 3'b100;
+assign m1_rvalid = m1_fsm_q == M1_FSM_WAIT;
 always_ff@(posedge clk) begin
   if(~rst_n) begin
     m1_fsm_q <= M1_FSM_NORMAL;
@@ -149,8 +151,14 @@ else begin
     m1_rvalid_o = '0;
   end
 end
-// assign dm_req_o.pending_write = (m2_op_i == `_DCAHE_OP_WRITE && m2_valid_i);
-assign dm_req_o.pending_write = 1'b1;
+logic wb_pending_write_q;
+logic m2_pending_write;
+assign m2_pending_write = ((m2_op_i == `_DCAHE_OP_WRITE) && m2_valid_i) || m2_busy_o;
+always_ff @(posedge clk) begin
+  wb_pending_write_q <= m2_pending_write;
+end
+assign dm_req_o.pending_write = wb_pending_write_q | m2_pending_write;
+// assign dm_req_o.pending_write = 1'b1;
 
 // M1 busy 电路
 always_comb begin
