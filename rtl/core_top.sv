@@ -159,11 +159,16 @@ core core (
   .mem_bus(mem_bus)
 );
 
-// assign debug0_wb_pc = core.backend.wb_data_flow[0].pc;
-// assign debug0_wb_pc = '0;
-// assign debug0_wb_rf_wen = '0;
-// assign debug0_wb_rf_wnum = '0;
-// assign debug0_wb_rf_wdata = '0;
-// assign debug0_wb_inst = '0;
+assign debug0_wb_pc = core.core_backend_inst.pipeline_ctrl_wb_q[0].pc;
+assign debug0_wb_rf_wen = core.core_backend_inst.reg_file_inst.w_en_i[0];
+assign debug0_wb_rf_wnum = core.core_backend_inst.wb_w_addr[0];
+assign debug0_wb_rf_wdata = core.core_backend_inst.wb_w_data[0];
+assign debug0_wb_inst = core.core_backend_inst.pipeline_ctrl_wb_q[0].decode_info.debug_inst;
+
+assign debug1_wb_pc = core.core_backend_inst.pipeline_ctrl_wb_q[1].pc;
+assign debug1_wb_rf_wen = core.core_backend_inst.reg_file_inst.w_en_i[1];
+assign debug1_wb_rf_wnum = core.core_backend_inst.wb_w_addr[1];
+assign debug1_wb_rf_wdata = core.core_backend_inst.wb_w_data[1];
+assign debug1_wb_inst = core.core_backend_inst.pipeline_ctrl_wb_q[1].decode_info.debug_inst;
 
 endmodule

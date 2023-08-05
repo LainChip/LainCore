@@ -20,7 +20,7 @@ interface LA_AXI_BUS #(
   parameter int unsigned AXI_ADDR_WIDTH = 32,
   parameter int unsigned AXI_DATA_WIDTH = 32,
   parameter int unsigned AXI_ID_WIDTH   = 4,
-  parameter int unsigned AXI_USER_WIDTH = 0
+  parameter int AXI_USER_WIDTH = 0
 );
 
   localparam int unsigned AXI_STRB_WIDTH = AXI_DATA_WIDTH / 8;

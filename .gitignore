@@ -20,3 +20,5 @@ dist
 # self trial
 rtl/test
 rtl/pipeline/issue/decoder.svh
+
+tmp

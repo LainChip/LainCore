@@ -488,8 +488,8 @@ module core_backend (
         .ready_o(m1_addr_trans_ready[p]),
         .csr_i(csr_value),
         .flush_trans_i(flush_trans),
-        .tlb_req_valid_o(addr_tlb_req_valid),
-        .tlb_req_ready_i(addr_tlb_req_ready),
+        .tlb_req_valid_o(addr_tlb_req_valid[p]),
+        .tlb_req_ready_i(addr_tlb_req_ready[p]),
         .tlb_resp_i(addr_tlb_resp[p]),
         .tlb_raw_result_o(m1_addr_trans_result[p])
       );

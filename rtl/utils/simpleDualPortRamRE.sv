@@ -4,7 +4,7 @@ module simpleDualPortRamRE
 	parameter int unsigned ramSize = 1024,
 	parameter type dataType = logic [dataWidth-1:0],
 	parameter int unsigned latency = 1,
-	parameter int readMuler = 4
+	parameter int readMuler = 1
 ) (
 	input clk,    // Clock
 	input rst_n,  // Asynchronous reset active low
@@ -17,6 +17,7 @@ module simpleDualPortRamRE
 );
 
 `ifdef _FPGA
+	// dataType rawData;
 xpm_memory_sdpram
 #(
 	.ADDR_WIDTH_A($clog2(ramSize)),
@@ -47,16 +48,24 @@ xpm_memory_sdpram
 	.addrb(addressB),
 	.rstb(~rst_n),
 	.dina(inData),
-	.doutb(outData),
+	.doutb(rawData),
 	.wea(we),
-	.enb(re),
+	.enb(/*1'b1*/re),
 	.ena(1'b1),
 	.sleep(1'b0),
 	.injectsbiterra(1'b0),
 	.injectdbiterra(1'b0),
-	.regceb(re)
+	.regceb(1'b1)
 	);
-    
+    // logic skid_n_q;
+	// dataType skidbuf_q;
+	// always_ff @(posedge clk) begin
+	// 	skid_n_q <= re;
+	// 	if(skid_n_q) begin
+	// 		skidbuf_q <= rawData;
+	// 	end
+	// end
+	// assign outData = skid_n_q ? rawData : skidbuf_q;
 `endif
 
 `ifndef _FPGA

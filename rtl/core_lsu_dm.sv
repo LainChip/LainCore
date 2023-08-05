@@ -693,7 +693,7 @@ module core_lsu_dm #(
   // TODO: DIRTY check
   always_comb begin
     if(main_fsm_q == MAIN_FSM_NORMAL) begin
-      dirty_wdata = '1;
+      dirty_wdata = ~rst_state_q;
       if(cacw_fsm_q == CAC_FSM_NORMAL && dm_req_i[0].we_valid) begin
         dirty_waddr = tramaddr(dm_req_i[0].op_addr);
         dirty_we    = dm_req_i[0].we_sel;

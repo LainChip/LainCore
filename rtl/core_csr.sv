@@ -514,12 +514,12 @@ always_ff @(posedge clk) begin
       tlbelo1_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
     end
     else if (tlbrd_valid_wr_en) begin
-      tlbelo0_q[`_TLBELO_TLB_V]   <= tlb_entry_i.value[1].v;
-      tlbelo0_q[`_TLBELO_TLB_D]   <= tlb_entry_i.value[1].d;
-      tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.value[1].plv;
-      tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.value[1].mat;
-      tlbelo0_q[`_TLBELO_TLB_G]   <= tlb_entry_i.key.g;
-      tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.value[1].ppn;
+      tlbelo1_q[`_TLBELO_TLB_V]   <= tlb_entry_i.value[1].v;
+      tlbelo1_q[`_TLBELO_TLB_D]   <= tlb_entry_i.value[1].d;
+      tlbelo1_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.value[1].plv;
+      tlbelo1_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.value[1].mat;
+      tlbelo1_q[`_TLBELO_TLB_G]   <= tlb_entry_i.key.g;
+      tlbelo1_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.value[1].ppn;
     end
     else if (tlbrd_invalid_wr_en) begin
       tlbelo1_q[`_TLBELO_TLB_V]   <= '0;
