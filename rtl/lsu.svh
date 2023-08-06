@@ -109,27 +109,27 @@ typedef struct packed {
 
 typedef struct packed {
           // 仅有这两个请求有可能同时出现
-          logic cache_refill_ready;
+          logic cache_refill_ready; // nc
           // 握手要求： ready 拉高后，一周期 valid 拉低。
-          logic read_ready; // 标识当前数据有效
-          logic [31:0] rdata;
+          logic read_ready; // 标识当前数据有效 c
+          logic [31:0] rdata; // c
 
           // 不可能同时出现的请求
-          logic uncached_write_ready;
-          logic uop_ready;
+          logic uncached_write_ready; // nc
+          logic uop_ready; // nc
 
-          logic dram_take_over;
-          logic[`_DIDX_LEN - 1 : 2] data_raddr;
+          logic dram_take_over; // c
+          logic[`_DIDX_LEN - 1 : 2] data_raddr; // c
         } wport_state_t;
 
 typedef struct packed {
-          logic[7:0] tag_waddr;
-          dcache_tag_t tag_wdata;
-          logic[`_DWAY_CNT - 1 : 0] tag_we;
+          logic[7:0] tag_waddr; // nc
+          dcache_tag_t tag_wdata; // nc
+          logic[`_DWAY_CNT - 1 : 0] tag_we; // nc
 
-          logic[`_DIDX_LEN - 1 : 2] data_waddr;
-          logic[31:0] data_wdata;
-          logic[`_DWAY_CNT - 1 : 0][3:0] data_we;
+          logic[`_DIDX_LEN - 1 : 2] data_waddr; // nc
+          logic[31:0] data_wdata; // nc
+          logic[`_DWAY_CNT - 1 : 0][3:0] data_we; // nc
         } wport_wreq_t;
 
 // 有 256 个 CACHE 行

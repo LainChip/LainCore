@@ -53,19 +53,34 @@ module core_lsu_wport #(
   wport_wreq_t wport_req;
   assign wport_req_o = wport_req;
 
-  always_comb begin
-    wport_req.tag_waddr = '0;
-    wport_req.tag_wdata = '0;
-    wport_req.tag_we = '0;
-    wport_req.data_waddr = '0;
-    wport_req.data_wdata = '0;
-    wport_req.data_we = '0;
+  // 写请求汇总层：总计只有一个写请求
+  logic[31:0] wreq_addr;
+  logic[31:0] wreq_data;
+  logic[ 3:0] wreq_strobe;
+  logic[ 1:0] wreq_size;
+  logic[WAY_CNT - 1 : 0] wreq_hit;
+  logic       wreq_uncached;
+  if(WAY_CNT == 2) begin
+    always_comb begin
+      wreq_addr = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+                rstate_i[0].addr : rstate_i[1].addr;
+      wreq_data = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+                rstate_i[0].wdata : rstate_i[1].wdata;
+      wreq_strobe = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+                  rstate_i[0].wstrobe : rstate_i[1].wstrobe;
+      wreq_size = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+                rstate_i[0].rwsize : rstate_i[1].rwsize;
+      // wreq_hit = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+      wreq_hit = rstate_i[0].wsel | rstate_i[1].wsel;
+      wreq_uncached = rstate_i[0].uncached_write_valid | rstate_i[1].uncached_write_valid;
+    end
   end
 
   // 读取 REFILL（Uncached） 、写入 REFILL 汇总级
 
   // TODO: CONNECT US
   logic[31:0] op_addr_q; // 汇总后的处理地址
+  logic[31:0] refill_addr_q;
   logic[1:0] op_type_q; // 0读 refill, 1写 refill, 2读uncached, 3缓存inv请求
   localparam logic[1:0] O_READ_REFILL = 0;
   localparam logic[1:0] O_WRITE_REFILL = 1;
@@ -73,6 +88,8 @@ module core_lsu_wport #(
   localparam logic[1:0] O_CACHE_INV = 3;
   logic op_valid_q; // 由汇总层负责的握手信号
   logic[$clog2(WAY_CNT) - 1 : 0] refill_sel_q; // 由汇总层负责的 重填/回写 路选择信号
+  logic[$clog2(PIPE_MANAGE_NUM) - 1 : 0] p_sel_q;
+  dcache_tag_t oldtag_q;
   logic op_ready; // 由状态机控制的握手信号
   // TODO: CONNECT US
 
@@ -91,6 +108,7 @@ module core_lsu_wport #(
   localparam fsm_t S_TAG_UPDATE = 7;
   localparam fsm_t S_WAIT_BUS = 8;
   fsm_t fsm_q, fsm;
+  logic set_timer;
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       fsm_q <= S_NORMAL;
@@ -147,6 +165,12 @@ module core_lsu_wport #(
       S_WB_WDAT: begin
         if(bus_resp_i.data_ok && bus_req_o.data_last) begin
           // todo: 明确不同类型的 op 在写回完成后的操作
+          if(op_type_q == O_CACHE_INV) begin
+            fsm = S_TAG_UPDATE;
+          end
+          else begin
+            fsm = S_REFIL_RADR;
+          end
         end
       end
       S_REFIL_RADR: begin
@@ -175,11 +199,92 @@ module core_lsu_wport #(
     endcase
   end
 
+  // 写回抢夺总线相关信号
+  logic refill_take_over_q;
+  always_ff @(posedge clk) begin
+    if(fsm_q == S_NORMAL && fsm == S_WB_WADR) begin
+      refill_take_over_q <= '1;
+    end
+    else if(fsm_q != S_WB_WADR && fsm_q != S_WB_WDAT) begin
+      refill_take_over_q <= '0;
+    end
+  end
+  assign wstate_o.dram_take_over = refill_take_over_q;
+
   // 写回相关计数器
+  logic[3:2] cur_wb_ram_addr_q_q;
   logic[31:0] cur_wb_ram_addr_q;
   logic[31:0] cur_wb_bus_addr_q;
+  logic[3:0][31:0] refill_fifo_q;
+  logic refill_fifo_ready_q; // 写回时标记 fifo 中的数据是否已经就绪
+  assign wstate_o.data_raddr = cur_wb_ram_addr_q[`_DIDX_LEN - 1 : 2];
+  always_ff @(posedge clk) begin
+    if(fsm_q == S_WB_WADR) begin
+      refill_fifo_ready_q <= '1;
+    end
+    else begin
+      refill_fifo_ready_q <= '0;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(set_timer) begin
+      cur_wb_ram_addr_q <= {oldtag_q.addr, refill_addr_q[11:0]};
+      cur_wb_bus_addr_q <= {oldtag_q.addr, refill_addr_q[11:0]};
+    end
+    else begin
+      if(bus_resp_i.data_ok) begin
+        cur_wb_bus_addr_q[3:2] <= cur_wb_bus_addr_q[3:2] + 2'd1;
+      end
+      cur_wb_ram_addr_q[3:2] <= cur_wb_ram_addr_q[3:2] + 2'd1;
+      cur_wb_ram_addr_q_q[3:2] <= cur_wb_ram_addr_q[3:2];
+    end
+  end
+  always_ff @(posedge clk) begin
+    refill_fifo_q[cur_wb_ram_addr_q_q] <= rstate_i[1].rdata[refill_sel_q];
+  end
 
   // 重填相关计数器
-  logic[31:0] cur_refill_ram_addr;
+  logic[31:0] cur_refill_ram_addr_q;
+  // 注意，rport 所持有的 read_ready 由此为依据进行赋值。
+  always_ff @(posedge clk) begin
+    if(set_timer) begin
+      cur_refill_ram_addr_q <= refill_addr_q;
+    end
+    else begin
+      if(bus_resp_i.data_ok) begin
+        cur_refill_ram_addr_q[3:2] <= cur_refill_ram_addr_q[3:2] + 2'd1;
+      end
+    end
+  end
+  for(genvar p = 0 ; p < PIPE_MANAGE_NUM ; p++) begin
+    assign wstate_o[p].read_ready = bus_resp_i.data_ok &&
+           cur_refill_ram_addr_q[3:2] == rstate_i[p].addr[3:2] &&
+           p_sel_q == p[$clog2(PIPE_MANAGE_NUM) - 1 : 0];
+    assign wstate_o[p].rdata = bus_resp_i.r_data;
+  end
+
+  // 管理 dram 的写口
+  always_comb begin
+    wport_req.data_waddr = wreq_addr[`_DIDX_LEN - 1 : 2];
+    wport_req.data_wdata = wreq_data;
+    wport_req.data_we = '0;
+    if(fsm_q == S_NORMAL) begin
+      for(integer w = 0 ; w < WAY_CNT ; w++) begin
+        wport_req.data_we[w] = wreq_hit[w] ? wreq_strobe : '0;
+      end
+    end
+    else if(fsm_q == S_REFIL_RDAT) begin
+      wport_req.data_we[refill_sel_q] = 4'b1111;
+      wport_req.data_waddr = cur_refill_ram_addr_q[`_DIDX_LEN - 1 : 2];
+      wport_req.data_wdata = bus_resp_i.r_data;
+    end
+  end
+
+  // 管理 tag 的写口
+  always_comb begin
+    wport_req.tag_waddr = '0;
+    wport_req.tag_wdata = '0;
+    wport_req.tag_we = '0;
+  end
 
 endmodule
