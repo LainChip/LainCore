@@ -225,12 +225,6 @@ module core_lsu_wport #(
   // pw_r_e pw_w_e
   assign pw_r_e = (fifo_fsm_q == S_FDAT && fifo_fsm == S_FADR) ||
          (fifo_fsm_q == S_FEMPTY && fifo_fsm == S_FADR);
-  logic[31:0] wreq_addr;
-  logic[31:0] wreq_data;
-  logic[ 3:0] wreq_strobe;
-  logic[ 1:0] wreq_size;
-  logic[WAY_CNT - 1 : 0] wreq_hit;
-  logic       wreq_uncached;
   always_comb begin
     pw_req.addr   = wreq_addr;
     pw_req.data   = wreq_data;
@@ -387,7 +381,7 @@ module core_lsu_wport #(
       refill_take_over_q <= '0;
     end
   end
-  assign wstate_o.dram_take_over = refill_take_over_q;
+  assign wstate_o[1].dram_take_over = refill_take_over_q;
 
   // 写回相关计数器
   logic[3:2] cur_wb_ram_addr_q_q;
@@ -395,7 +389,7 @@ module core_lsu_wport #(
   logic[31:0] cur_wb_bus_addr_q;
   logic[3:0][31:0] refill_fifo_q;
   logic refill_fifo_ready_q; // 写回时标记 fifo 中的数据是否已经就绪
-  assign wstate_o.data_raddr = cur_wb_ram_addr_q[`_DIDX_LEN - 1 : 2];
+  assign wstate_o[1].data_raddr = cur_wb_ram_addr_q[`_DIDX_LEN - 1 : 2];
   always_ff @(posedge clk) begin
     if(fsm_q == S_WB_WADR) begin
       refill_fifo_ready_q <= '1;
@@ -418,7 +412,7 @@ module core_lsu_wport #(
     end
   end
   always_ff @(posedge clk) begin
-    refill_fifo_q[cur_wb_ram_addr_q_q] <= rstate_i[1].rdata[refill_sel_q];
+    refill_fifo_q[cur_wb_ram_addr_q_q[3:2]] <= rstate_i[1].rdata[refill_sel_q];
   end
 
   // 重填相关计数器
@@ -520,7 +514,7 @@ module core_lsu_wport #(
     bus_req_o.data_ok     = 1'b0;
     bus_req_o.data_last   = 1'b0;
     bus_req_o.data_strobe = 4'b1111;
-    bus_req_o.w_data      = wb_data; // TODO: FIND BETTER VALUE HERE.
+    bus_req_o.w_data      = refill_fifo_q[cur_wb_ram_addr_q[3:2]]; // TODO: FIND BETTER VALUE HERE.
     if(fifo_fsm_q != S_FEMPTY) begin
       bus_busy_o = '1;
       if(fifo_fsm_q == S_FADR) begin

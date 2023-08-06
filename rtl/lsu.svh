@@ -105,7 +105,7 @@ typedef struct packed {
 
           // take over 写回用
           logic [`_DWAY_CNT - 1 : 0][31:0] rdata; // c
-          dcache_tag_t [WAY_CNT - 1 : 0] tag_rdata; // c
+          dcache_tag_t [`_DWAY_CNT - 1 : 0] tag_rdata; // c
         } rport_state_t;
 
 typedef struct packed {

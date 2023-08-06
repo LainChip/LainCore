@@ -263,10 +263,10 @@ module core_backend (
     always_comb begin
       ex_invalidate    = /*|m1_invalidate_req*/ m2_jump_valid_q;
       ex_m1_invalidate = |m1_invalidate_req | m2_jump_valid_q;
-      m1_invalidate[0] = (m1_invalidate_req[0] & !m1_invalidate_exclude_self[0]) | 
-      m2_jump_valid_q;
+      m1_invalidate[0] = (m1_invalidate_req[0] & !m1_invalidate_exclude_self[0]) |
+        m2_jump_valid_q;
       m1_invalidate[1] = (m1_invalidate_req[0] | (m1_invalidate_req[1] & !m1_invalidate_exclude_self[1])) |
-      m2_jump_valid_q;
+        m2_jump_valid_q;
     end
 
     // forwarding manager
@@ -324,24 +324,26 @@ module core_backend (
     end
 
     // DM 模块实例化
-    dram_manager_req_t[1:0] dm_req;
-    dram_manager_resp_t[1:0] dm_resp;
-    dram_manager_snoop_t dm_snoop;
-    logic                bus_busy;
-  core_lsu_dm #(
+    // dram_manager_req_t[1:0] dm_req;
+    // dram_manager_resp_t[1:0] dm_resp;
+    // dram_manager_snoop_t dm_snoop;
+    rport_state_t [1:0] rstate   ;
+    wport_state_t [1:0] wstate   ;
+    wport_wreq_t        wport_req;
+  core_lsu_wport #(
     .PIPE_MANAGE_NUM(2),
-    .BANK_NUM       (2),
-    .WAY_CNT        (1),
+    // .BANK_NUM       (2),
+    .WAY_CNT        (2),
     .SLEEP_CNT      (4)
-  ) lsu_dm_inst (
-    .clk       (clk       ),
-    .rst_n     (rst_n     ),
-    .dm_req_i  (dm_req    ),
-    .dm_resp_o (dm_resp   ),
-    .dm_snoop_o(dm_snoop  ),
-    .bus_req_o (bus_req_o ),
-    .bus_resp_i(bus_resp_i),
-    .bus_busy_o(bus_busy  )
+  ) lsu_wport_inst (
+    .clk        (clk       ),
+    .rst_n      (rst_n     ),
+    .rstate_i   (rstate    ),
+    .wstate_o   (wstate    ),
+    .wport_req_o(wport_req ),
+    .bus_req_o  (bus_req_o ),
+    .bus_resp_i (bus_resp_i),
+    .bus_busy_o (bus_busy  )
   );
     // BUS 一致锁
     assign frontend_resp_o.bus_busy = bus_busy;
@@ -357,8 +359,8 @@ module core_backend (
     logic[1:0][31:0] m2_mem_wdata;
     logic[1:0][2:0] m2_mem_op;
     for(genvar p = 0 ; p < 2 ; p ++) begin : lsu_pm_block
-      core_lsu_pm # (
-        .WAY_CNT(1)
+      core_lsu_rport # (
+        .WAY_CNT(2)
       )
       lsu_inst (
         .clk(clk),
@@ -387,9 +389,12 @@ module core_backend (
         .m2_op_i(m2_mem_op[p]),
         .m2_rdata_o(m2_mem_rdata[p]),
         .m2_rvalid_o(m2_mem_rvalid[p]),
-        .dm_req_o(dm_req[p]),
-        .dm_resp_i(dm_resp[p]),
-        .dm_snoop_i(dm_snoop)
+        // .dm_req_o(dm_req[p]),
+        // .dm_resp_i(dm_resp[p]),
+        // .dm_snoop_i(dm_snoop)
+        .rstate_o(rstate[p]),
+        .wstate_i(wstate[p]),
+        .wreq_i(wport_req) // 需要做 snoop
       );
     end
     // MUL 端口实例化
@@ -858,9 +863,9 @@ module core_backend (
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
       // assign m1_mem_uncached[p] = 1'b1; // TODO: FIXME
-      assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
-      assign m1_mem_paddr[p]    = paddr;
-      assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
+      assign m1_mem_vaddr[p]  = pipeline_ctrl_m1_q[p].vaddr;
+      assign m1_mem_paddr[p]  = paddr;
+      assign m1_mem_strobe[p] = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
       // 异常的处理：完成相关模块
       logic local_excp_detect;
     core_excp_handler m1_excp (
@@ -1207,7 +1212,7 @@ module core_backend (
       logic[31:0] m2_mdata,wb_mdata,cm_mdata;
       logic[31:0] m2_vaddr,wb_vaddr,cm_vaddr;
       logic[31:0] m2_paddr,wb_paddr,cm_paddr;
-      assign m2_mdata = lsu_pm_block[p].lsu_inst.m2_wdata;
+      assign m2_mdata = lsu_pm_block[p].lsu_inst.rstate_o.wdata;
       assign m2_vaddr = pipeline_ctrl_m2_q[p].vaddr;
       assign m2_paddr = pipeline_ctrl_m2_q[p].paddr;
 
