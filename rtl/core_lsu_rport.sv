@@ -283,7 +283,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     else begin
       m2_tag_rdata = m2_tag_rdata_q;
       for(integer w = 0 ; w < WAY_CNT ; w++) begin
-        if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m2_valid_i)) begin
+        if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
           m2_tag_rdata[w] = wreq_i.tag_wdata;
         end
       end
@@ -336,14 +336,14 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     rstate_o.cache_refill_valid = fsm_q == S_REFILL_READ;
     rstate_o.uncached_read      = fsm_q == S_UNCACHE_READ;
 
-    rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
+    rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
     rstate_o.cache_op_inv         = fsm_q == S_CACHE_INVOP;
     rstate_o.miss_write_req_valid = fsm_q == S_REFILL_WRITE;
-    rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE)
+    rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE)
       || fsm_q == S_UNCACHE_WRITE;
     rstate_o.addr    = m2_paddr_i;
     rstate_o.rwsize  = m2_size_i;
-    rstate_o.wsel    = hit_q;
+    rstate_o.wsel    = (m2_valid_i && m2_op_i == `_DCAHE_OP_WRITE) ? hit_q : '0;
     rstate_o.wstrobe = m2_strobe_i;
     rstate_o.wdata   = mkstrobe(mkwsft(m2_wdata_i, m2_vaddr_i),m2_strobe_i);
 
