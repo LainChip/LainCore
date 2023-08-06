@@ -54,11 +54,11 @@ logic[WAY_CNT - 1 : 0] wreq_hit;
 logic wreq_uncached;
 if(WAY_CNT == 2) begin
   always_comb begin
-    wreq_addr = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+    wreq_addr = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid || rstate_i[0].miss_write_req_valid) ?
       rstate_i[0].addr : rstate_i[1].addr;
-    wreq_data = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+    wreq_data = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid || rstate_i[0].miss_write_req_valid) ?
       rstate_i[0].wdata : rstate_i[1].wdata;
-    wreq_strobe = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+    wreq_strobe = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid || rstate_i[0].miss_write_req_valid) ?
       rstate_i[0].wstrobe : rstate_i[1].wstrobe;
     wreq_size = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
       rstate_i[0].rwsize : rstate_i[1].rwsize;
@@ -75,6 +75,7 @@ logic[31:0] refill_addr_q,refill_addr;
 logic[1:0] op_type_q,op_type;// 0读 refill, 1写 refill, 2读uncached, 3缓存inv请求
 logic[1:0] op_size_q,op_size;// 对于 uncached 读，需要判断其读长度
 logic op_valid_q,op_valid; // 由汇总层负责的握手信号
+logic op_taken_q;
 logic[$clog2(WAY_CNT) - 1 : 0] refill_sel_q,refill_sel; // 由汇总层负责的 重填/回写 路选择信号
 logic[PIPE_MANAGE_NUM - 1 : 0] p_sel_q,p_sel;// 由汇总层负责处理的信号，指示目前在处理哪一路信号。
 dcache_tag_t oldtag_q,oldtag;
@@ -96,6 +97,7 @@ always_ff @(posedge clk) begin
     op_type_q     <= op_type;
     op_size_q     <= op_size;
     op_valid_q    <= op_valid;
+    op_taken_q    <= op_valid_q;
     refill_sel_q  <= refill_sel;
     p_sel_q       <= p_sel;
     oldtag_q      <= oldtag;
@@ -109,7 +111,7 @@ always_comb begin
   refill_sel  = refill_sel_q;
   p_sel       = p_sel_q;
   oldtag      = oldtag_q;
-  if(op_ready_q) begin
+  if(op_ready_q && op_ready) begin
     for(integer i = PIPE_MANAGE_NUM - 1; i >= 0; i--) begin
       if(rstate_i[i].cache_refill_valid) begin
         // 读重填
@@ -518,7 +520,7 @@ end
 // 管理与 rport 之间的握手信号
 for(genvar p = 0 ; p < PIPE_MANAGE_NUM ; p ++) begin
   always_comb begin
-    wstate_o[p].uop_ready = op_ready && p_sel_q[p];
+    wstate_o[p].uop_ready = op_ready && p_sel_q[p] && op_taken_q;
   end
 end
 

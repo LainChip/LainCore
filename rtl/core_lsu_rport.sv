@@ -163,7 +163,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   logic[WAY_CNT - 1 : 0] hit_q;
   logic miss_q;
   always_ff @(posedge clk) begin
-    if(m2_stall_i) begin
+    if(!m2_stall_i) begin
       hit_q  <= m1_hit;
       miss_q <= m1_miss;
     end
