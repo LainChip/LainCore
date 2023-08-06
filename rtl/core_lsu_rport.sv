@@ -356,7 +356,9 @@ module core_lsu_rport #(
     rstate_o.rwsize = m2_size_i;
     rstate_o.wsel = hit_q;
     rstate_o.wstrobe = m2_strobe_i;
-    rstate_o.wdata = m2_wdata_i;
+    rstate_o.wdata = mkstrobe(mkwsft(m2_wdata_i, m2_vaddr_i),m2_strobe_i);
+
+    rstate_o.tag_rdata = m2_tag_rdata_q;
   end
 
 endmodule
