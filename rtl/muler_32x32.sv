@@ -38,14 +38,26 @@ always_ff@(posedge clk) begin
   end
 end
 
-// M1-M2 stage: do sum up
-(* use_dsp = "yes" *) logic[63:0] full_result;
+logic[47:0] l_q_q;
+logic[63:16] h_q_q;
+logic[63:32] h_fix_q_q;
 always_ff @(posedge clk) begin
   if(!m2_stall_i) begin
-    full_result <= {16'd0,l_q} + {h_q,16'd0} + {h_fix_q,32'd0};
+    l_q_q <= l_q;
+    h_q_q <= h_q;
+    h_fix_q_q <= h_fix_q;
+  end
+end
+
+// M1-M2 stage: do sum up
+/*(* use_dsp = "yes" *)*/ logic[63:0] full_result;
+always_ff @(posedge clk) begin
+  if(!m2_stall_i) begin
+//     full_result <= {16'd0,l_q} + {h_q,16'd0} + {h_fix_q,32'd0};
     get_high_q <= get_high_m1;
   end
 end
+assign full_result = {16'd0,l_q_q} + {h_q_q,16'd0} + {h_fix_q_q,32'd0};
 
 // OUTPUT LOGIC
 assign result_o = get_high_q ? full_result[63:32] : full_result[31:0];

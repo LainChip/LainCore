@@ -1,4 +1,5 @@
 `include "pipeline.svh"
+/*--JSON--{"module_name":"core_npc","module_ver":"1","module_type":"module"}--JSON--*/
 
 function logic[`_BHT_ADDR_WIDTH - 1 : 0] get_bht_addr(input logic[31:0]va);
 return va[`_BHT_ADDR_WIDTH + 2 : 3] ^ va[`_BHT_ADDR_WIDTH + `_BHT_ADDR_WIDTH + 2 : `_BHT_ADDR_WIDTH + 3];
@@ -35,7 +36,7 @@ module core_npc (
   input  logic              rst_jmp   ,
   input  logic [31:0]       rst_target,
   input  logic              f_stall_i ,
-  output logic [ 1:0][31:0] pc_o      ,
+  output logic [31:0]       pc_o      ,
   output logic [ 1:0]       valid_o   , // 2'b00 | 2'b01 | 2'b11 | 2'b10
   output bpu_predict_t      predict_o ,
   input  bpu_correct_t      correct_i
@@ -57,13 +58,13 @@ module core_npc (
     always_ff @(posedge clk) begin
       if(!rst_n) begin
         pc      <= 32'h1c000000;
-        pc_o[0] <= 32'h1c000000;
-        pc_o[1] <= 32'h1c000004;
+        pc_o    <= 32'h1c000000;
+        // pc_o[1] <= 32'h1c000004;
       end else if(!f_stall_i || rst_jmp) begin
-        pc_o[0][2] <= '0;
-        pc_o[1][2] <= '0;
-        {pc_o[0][31:3],pc_o[0][1:0]} <= {ppc[31:3],ppc[1:0]};
-        {pc_o[1][31:3],pc_o[1][1:0]} <= {ppc[31:3],ppc[1:0]};
+        pc_o[2] <= '0;
+        // pc_o[1][2] <= '0;
+        {pc_o[31:3],pc_o[1:0]} <= {ppc[31:3],ppc[1:0]};
+        // {pc_o[1][31:3],pc_o[1][1:0]} <= {ppc[31:3],ppc[1:0]};
         pc         <= ppc;
         bht_addr_q <= get_bht_addr(ppc);
       end
@@ -182,7 +183,7 @@ module core_npc (
     assign ppcplus4 = {ppc[31:3],1'b1,ppc[1:0]};
 
     // NPC 逻辑
-    assign npc_target = pc_o[0] + 32'd8;
+    assign npc_target = pc_o + 32'd8;
 
     // BTB 地址逻辑
     assign btb_addr = get_btb_addr(ppc);

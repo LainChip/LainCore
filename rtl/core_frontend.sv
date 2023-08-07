@@ -74,7 +74,7 @@ module core_frontend (
   end
 
   // NPC 模块
-  logic[1:0][31:0] pc_vaddr;
+  logic[31:0] pc_vaddr;
   logic[31:0] f_pc;
   logic[1:0] f_valid;
   bpu_predict_t f_predict   ;
@@ -83,7 +83,7 @@ module core_frontend (
   logic         mimo_ready  ;
   assign f_stall      = !icache_ready | !mimo_ready | idle_lock;
   assign icache_stall = !icache_ready | !mimo_ready;
-  assign f_pc         = pc_vaddr[0];
+  assign f_pc         = pc_vaddr;
   core_npc npc_inst (
     .clk       (clk                           ),
     .rst_n     (rst_n                         ),

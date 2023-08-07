@@ -127,6 +127,7 @@ module core_lsu_wport #(
           refill_addr = {rstate_i[i].addr[31:4], 4'd0};
           op_type     = O_READ_REFILL;
           refill_sel  = refill_sel_q + 1;
+          p_sel       = '0;
           p_sel[i]    = '1;
           oldtag      = rstate_i[i].tag_rdata[refill_sel];
           for(integer j = i; j < PIPE_MANAGE_NUM; j++) begin
@@ -142,6 +143,7 @@ module core_lsu_wport #(
           op_size     = rstate_i[i].rwsize;
           refill_addr = rstate_i[i].addr;
           op_type     = O_READ_UNCACHE;
+          p_sel       = '0;
           p_sel[i]    = '1;
         end
         else if(rstate_i[i].miss_write_req_valid) begin
@@ -378,8 +380,8 @@ module core_lsu_wport #(
         end
       end
       S_REFIL_RADR : begin
+        set_timer = '1;
         if(bus_resp_i.ready) begin
-          set_timer = '1;
           fsm       = S_REFIL_RDAT;
         end
       end
@@ -389,6 +391,7 @@ module core_lsu_wport #(
         end
       end
       S_PT_RADR : begin
+        set_timer = '1;
         if(bus_resp_i.ready) begin
           fsm = S_PT_RDAT;
         end
