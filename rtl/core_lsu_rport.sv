@@ -129,9 +129,13 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     m1_data_rdata_q <= m1_data_rdata;
     m1_tag_rdata_q  <= m1_tag_rdata;
   end
+  logic m1_stall_q;
+  always_ff @(posedge clk) begin
+    m1_stall_q <= m1_stall_i;
+  end
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     always_comb begin
-      m1_data_rdata[w] = m1_stall_i ? m1_data_rdata_q[w] : raw_data_rdata[w];
+      m1_data_rdata[w] = m1_stall_q ? m1_data_rdata_q[w] : raw_data_rdata[w];
       for(integer i = 0 ; i < 4 ; i++) begin
         if(wreq_i.data_we[w][i] &&
           wreq_i.data_waddr == dramaddr(m1_vaddr_i)) begin
@@ -144,9 +148,13 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       end
     end
     always_comb begin
-      m1_tag_rdata[w] = m1_stall_i?m1_tag_rdata_q[w] : raw_tag_rdata[w];
-      if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i)) begin
-        m1_tag_rdata[w] = wreq_i.tag_wdata;
+      if(m1_stall_q) begin
+        m1_tag_rdata[w] = m1_tag_rdata_q[w];
+        if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i)) begin
+          m1_tag_rdata[w] = wreq_i.tag_wdata;
+        end
+      end else begin
+        m1_tag_rdata[w] = raw_tag_rdata[w];
       end
     end
   end
@@ -276,6 +284,10 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       m2_tag_rdata_q  <= m2_tag_rdata;
     end
   end
+  logic m2_stall_q;
+  always_ff @(posedge clk) begin
+    m2_stall_q <= m2_stall_i;
+  end
   always_comb begin
     if(!m2_stall_i) begin
       m2_tag_rdata = m1_tag_rdata;
@@ -291,7 +303,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   end
   logic[31:0] data_rdata,data_rdata_q;
   always_ff @(posedge clk) begin
-    if(m2_stall_i) begin
+    if(fsm_q == S_UNCACHE_READ || fsm_q == S_REFILL_READ) begin
       if(wstate_i.read_ready) begin
         data_rdata_q <= wstate_i.rdata;
       end

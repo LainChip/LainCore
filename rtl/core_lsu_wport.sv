@@ -38,7 +38,7 @@ for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     .addressB (dirty_raddr),
     .re       (1'b1       ),
     .inData   (dirty_wdata),
-    .outData  (dirty_rdata)
+    .outData  (dirty_rdata[w])
   );
 end
 
@@ -103,6 +103,10 @@ always_ff @(posedge clk) begin
     oldtag_q      <= oldtag;
   end
 end
+logic op_hide_q;
+always_ff @(posedge clk) begin
+  op_hide_q <= op_valid && !op_valid_q;
+end
 always_comb begin
   op_addr     = op_addr_q;
   refill_addr = refill_addr_q;
@@ -111,7 +115,7 @@ always_comb begin
   refill_sel  = refill_sel_q;
   p_sel       = p_sel_q;
   oldtag      = oldtag_q;
-  if(op_ready_q && op_ready) begin
+  if(!op_hide_q && op_ready && op_ready_q) begin
     for(integer i = PIPE_MANAGE_NUM - 1; i >= 0; i--) begin
       if(rstate_i[i].cache_refill_valid) begin
         // 读重填
@@ -159,7 +163,7 @@ always_comb begin
       end
     end
   end
-  else if(op_ready) begin
+  else if(op_ready && !op_ready_q) begin
     op_valid = '0;
     p_sel    = '0;
   end else begin
@@ -293,26 +297,6 @@ always_comb begin
   op_ready  = '0;
   set_timer = '0;
   case(fsm_q)
-    S_WAIT_BUS : begin
-      if(!bus_busy_o) begin
-        case(op_type_q)
-          default/*O_READ_REFILL,O_WRITE_REFILL*/: begin
-            if(dirty_rdata[refill_sel_q]) begin
-              // 脏写回
-              set_timer = '1;
-              fsm       = S_WB_WADR;
-            end
-          end
-          O_READ_UNCACHE : begin
-            fsm = S_PT_RADR;
-          end
-          O_CACHE_INV : begin
-            // todo: 明确不同类型的 op 在写回完成后的操作
-            fsm = S_TAG_UPDATE;
-          end
-        endcase
-      end
-    end
     default/*S_NORMAL*/: begin
       op_ready = '1;
       if(op_valid_q & op_ready_q) begin
@@ -323,7 +307,7 @@ always_comb begin
               fsm = S_WAIT_BUS;
             end
             else begin
-              if(dirty_rdata[refill_sel_q]) begin
+              if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
                 // 脏写回
                 set_timer = '1;
                 fsm       = S_WB_WADR;
@@ -349,6 +333,29 @@ always_comb begin
               // todo: 明确不同类型的 op 在写回完成后的操作
               fsm = S_TAG_UPDATE;
             end
+          end
+        endcase
+      end
+    end
+    S_WAIT_BUS : begin
+      if(!bus_busy_o) begin
+        case(op_type_q)
+          default/*O_READ_REFILL,O_WRITE_REFILL*/: begin
+            if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
+              // 脏写回
+              set_timer = '1;
+              fsm       = S_WB_WADR;
+            end
+            else begin
+              fsm = S_REFIL_RADR;
+            end
+          end
+          O_READ_UNCACHE : begin
+            fsm = S_PT_RADR;
+          end
+          O_CACHE_INV : begin
+            // todo: 明确不同类型的 op 在写回完成后的操作
+            fsm = S_TAG_UPDATE;
           end
         endcase
       end
@@ -457,7 +464,7 @@ for(genvar p = 0 ; p < PIPE_MANAGE_NUM ; p++) begin
   assign wstate_o[p].read_ready = bus_resp_i.data_ok &&
     cur_refill_ram_addr_q[3:2] == rstate_i[p].addr[3:2] &&
       p_sel_q[p] &&
-      (fsm_q == S_REFIL_RDAT || fsm_q == S_PT_RDAT);
+        (fsm_q == S_REFIL_RDAT || fsm_q == S_PT_RDAT);
   assign wstate_o[p].rdata = bus_resp_i.r_data;
 end
 
@@ -540,7 +547,7 @@ always_comb begin
   bus_req_o.data_ok     = 1'b0;
   bus_req_o.data_last   = 1'b0;
   bus_req_o.data_strobe = 4'b1111;
-  bus_req_o.w_data      = refill_fifo_q[cur_wb_ram_addr_q[3:2]]; // TODO: FIND BETTER VALUE HERE.
+  bus_req_o.w_data      = refill_fifo_q[cur_wb_bus_addr_q[3:2]]; // TODO: FIND BETTER VALUE HERE.
   if(fifo_fsm_q != S_FEMPTY) begin
     bus_busy_o = '1;
     if(fifo_fsm_q == S_FADR) begin
