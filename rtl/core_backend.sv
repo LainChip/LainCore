@@ -401,27 +401,30 @@ module core_backend (
     logic[1:0] mul_req;
     logic[1:0][1:0] mul_op_req;
     logic[1:0][31:0] mul_r0_req,mul_r1_req;
-    logic[1:0] mul_op;
-    logic[31:0] mul_r0,mul_r1,mul_result;
-    always_comb begin
-      mul_op = mul_req[0] ? mul_op_req[0] : mul_op_req[1];
-      mul_r0 = mul_req[0] ? mul_r0_req[0] : mul_r0_req[1];
-      mul_r1 = mul_req[0] ? mul_r1_req[0] : mul_r1_req[1];
+    // logic[1:0] mul_op;
+    // logic[31:0] mul_r0,mul_r1,mul_result;
+    logic[1:0][31:0] mul_result;
+    // always_comb begin
+    //   mul_op = mul_req[0] ? mul_op_req[0] : mul_op_req[1];
+    //   mul_r0 = mul_req[0] ? mul_r0_req[0] : mul_r0_req[1];
+    //   mul_r1 = mul_req[0] ? mul_r1_req[0] : mul_r1_req[1];
+    // end
+    for(genvar p = 0; p < 2 ; p++) begin
+      muler_32x32 mul_i (
+        .clk       (clk       ),
+        .rst_n     (rst_n     ),
+        .op_i      (mul_op_req[p]),
+        
+        .ex_stall_i(ex_stall  ),
+        .m1_stall_i(m1_stall  ),
+        .m2_stall_i(m2_stall  ),
+        
+        .r0_i      (mul_r0_req[p]),
+        .r1_i      (mul_r1_req[p]),
+        
+        .result_o  (mul_result[p])
+      );
     end
-  muler_32x32 mul_i (
-    .clk       (clk       ),
-    .rst_n     (rst_n     ),
-    .op_i      (mul_op    ),
-    
-    .ex_stall_i(ex_stall  ),
-    .m1_stall_i(m1_stall  ),
-    .m2_stall_i(m2_stall  ),
-    
-    .r0_i      (mul_r0    ),
-    .r1_i      (mul_r1    ),
-    
-    .result_o  (mul_result)
-  );
 
     // 除法器例化 FIXME: FREQUENCY
     logic[1:0] div_req;
@@ -1007,7 +1010,7 @@ module core_backend (
       .grand_op_i(decode_info.alu_grand_op       ),
       .op_i      (decode_info.alu_op             ),
       
-      .mul_i     (mul_result                     ),
+      .mul_i     (mul_result[p]                  ),
       // .div_i     (div_result                     ),
       .r0_i      (pipeline_data_m2_q[p].r_data[0]),
       .r1_i      (pipeline_data_m2_q[p].r_data[1]),
