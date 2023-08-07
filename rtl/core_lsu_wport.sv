@@ -423,6 +423,7 @@ module core_lsu_wport #(
   logic[31:0] cur_wb_bus_addr_q;
   logic[3:0][31:0] refill_fifo_q;
   logic refill_fifo_ready_q; // 写回时标记 fifo 中的数据是否已经就绪
+  assign wstate_o[0].data_raddr = '0;
   assign wstate_o[1].data_raddr = cur_wb_ram_addr_q[`_DIDX_LEN - 1 : 2];
   always_ff @(posedge clk) begin
     if(fsm_q == S_WB_WADR) begin
@@ -502,6 +503,7 @@ module core_lsu_wport #(
     end
     else if(fsm_q == S_TAG_UPDATE) begin
       dirty_we[refill_sel_q] = '1;
+      dirty_waddr = tramaddr(op_addr_q);
       if(op_type_q == O_WRITE_REFILL) begin
         dirty_wdata = 1'b1;
       end

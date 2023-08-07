@@ -8,7 +8,7 @@
 // 由于时间，调试难度，收益等综合考虑，放弃基于 BANK 的多端口 cache。
 
 `include "lsu.svh"
-`default_nettype none
+// `default_nettype none
 
 module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   input  wire          clk          ,

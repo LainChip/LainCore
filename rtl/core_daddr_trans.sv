@@ -24,6 +24,7 @@ module core_daddr_trans#(
 );
 
 logic        da_mode      ;
+logic        pg_mode      ;
 tlb_s_resp_t da_fake_tlb  ;
 tlb_s_resp_t dmw0_fake_tlb;
 tlb_s_resp_t dmw1_fake_tlb;
@@ -33,6 +34,7 @@ logic plv0, plv3;
 
 always_comb begin
   da_mode               = csr_i.crmd[`DA];
+  pg_mode               = csr_i.crmd[`PG];
   da_fake_tlb.dmw       = 1'b1;
   da_fake_tlb.found     = 1'b1;
   da_fake_tlb.index     = 5'd0;
@@ -184,7 +186,7 @@ else begin
   end
   if(SUPPORT_32_PADDR) begin
     assign paddr[28:0]  = vaddr_i[28:0];
-    assign paddr[31:29] = da_mode ? vaddr_i[31:29] : dmw_hit_result;
+    assign paddr[31:29] = pg_mode ? dmw_hit_result : vaddr_i[31:29];
     // assign paddr[31:29] = dmw_hit_result;
   end
   else begin
