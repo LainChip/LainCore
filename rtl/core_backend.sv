@@ -862,16 +862,16 @@ module core_backend (
 
       // M1 的额外部分
       // 跳转的处理：TODO 完成相关模块
-      bpu_correct_t m1_bpu_feedback_req;
       logic         m1_branch_jmp_req  ;
+      logic   [1:0] target_type; // TODO: CONNECT ME
     core_jmp m1_cmp (
       .clk          (clk                                                           ),
       .rst_n        (rst_n                                                         ),
       .valid_i      (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
-      // .branch_type_i(decode_info.branch_type                                       ),
+      .target_type_i(target_type                                                   ),
       .cmp_type_i   (decode_info.cmp_type                                          ),
       .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict                             ),
-      .bpu_correct_o(m1_bpu_feedback_req                                           ),
+      .bpu_correct_o(m1_bpu_feedback_req[p]                                        ),
       .target_i     (pipeline_ctrl_m1_q[p].jump_target                             ),
       .r0_i         (pipeline_data_m1_q[p].r_data[0]                               ),
       .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),

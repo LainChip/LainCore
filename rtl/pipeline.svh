@@ -53,7 +53,7 @@ typedef logic priv_req_t;
 `define _LPHT_ADDR_WIDTH 8
 `define _RAS_ADDR_WIDTH 3
 `define _BHT_ADDR_WIDTH 6
-`define _BHT_DATA_WIDTH 4
+`define _BHT_DATA_WIDTH 5
 `define _BPU_DIRECTION_FIXED (1'd0)
 `define _BPU_DIRECTION_CONDITION (1'd1)
 `define _BPU_TARGET_NPC  (2'd0)
@@ -70,6 +70,7 @@ typedef struct packed{
         }btb_t;
 typedef struct packed {
           logic taken;
+          logic pc_off;
           logic [31:0] predict_pc;
           logic [1:0] lphr;
           logic [`_BHT_DATA_WIDTH- 1:0] history;

@@ -14,7 +14,7 @@ module qpram_32x2(
 
 wire [1:0] Q3;
 
-`ifdef _FPGA
+`ifdef _FPGA 
     RAM32M #(
     .INIT_A(64'h0000000000000000), // Initial contents of A Port
     .INIT_B(64'h0000000000000000), // Initial contents of B Port

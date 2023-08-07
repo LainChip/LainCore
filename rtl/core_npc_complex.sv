@@ -61,10 +61,10 @@ module core_npc (
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       pc <= 32'h1c000000;
-      valid_q <= 1'b11;
+      valid_q <= 2'b11;
     end
     else begin
-      if(!f_stall_i) begin
+      if(!f_stall_i || rst_jmp) begin
         pc <= npc;
         valid_q <= nvalid;
       end
@@ -81,25 +81,32 @@ module core_npc (
   // TODO: check npc 组合逻辑
   always_comb begin
     // npc = pc;
+    predict_o.taken = '0;
     case(npc_target_type)
       default/*`_BPU_TARGET_NPC*/: begin
         npc = ppc_plus8;
       end
       `_BPU_TARGET_CALL: begin
         npc = ppc_btb;
+        predict_o.taken = '1;
       end
       `_BPU_TARGET_RETURN: begin
         npc = ppc_ras_q;
+        predict_o.taken = '1;
       end
       `_BPU_TARGET_IMM: begin
         if(npc_predict_taken) begin
           npc = ppc_btb;
+          predict_o.taken = '1;
         end
         else begin
           npc = ppc_plus8;
         end
       end
     endcase
+    if(rst_jmp) begin
+      npc = jpc;
+    end
   end
 
   // TODO:check ppc_ras_q 时序逻辑
@@ -122,13 +129,16 @@ module core_npc (
   // TODO: RAS 更新逻辑
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      ras_ptr_q <= '0;
+      ras_ptr_q <= '1;
+      ras_w_ptr_q <= '0;
     end
     else begin
       // TODO: check
       // RETURN MISS: RAS_PTR_Q <= (TRUE_PTR == R_PTR)
       // CALL MISS RAS_PTR_Q <= TRUE_PTR AND ras_q[TRUE_PTR] <= TRUE_TARGET;
-      if(correct_i.need_update) begin
+      if(correct_i.miss) begin
+        /* 考虑一下，没有 miss 但是类型估计错误的情况，这时候也需要更新 */
+        /* printf */
         ras_w_ptr_q <= correct_i.ras_ptr + 3'd1;
         ras_ptr_q <= correct_i.ras_ptr;
         if(correct_i.true_target_type == `_BPU_TARGET_CALL) begin
@@ -159,9 +169,10 @@ module core_npc (
   // 表格中存储 2bits 分支类型, 1bits 条件跳转, 5bits 历史信息, 6bits tag 信息。
   // 也即是说，可以在 17位 == 128KB 的代码中区别开两个分支
   // 这一点已经足够使用了。
+  //
   typedef struct packed {
-            logic [1:0] target_type;
-            logic conditional_jmp;
+            logic [1:0] target_type; // 0 npc, 1 call, 2 return, 3 imm
+            logic conditional_jmp;   // 0 / 1 condition
             logic [4:0] history;
             logic [5:0] tag;
           } branch_info_t;
@@ -191,8 +202,8 @@ module core_npc (
     info_we[correct_i.pc[2]] = correct_i.need_update;
   end
   always_comb begin
-    winfo.target_type = correct_i.target_type;
-    winfo.conditional_jmp = correct_i.conditional_jmp;
+    winfo.target_type = correct_i.true_target_type;
+    winfo.conditional_jmp = correct_i.true_conditional_jmp;
     winfo.history = {correct_i.history[3:0], correct_i.true_taken};
     winfo.tag = get_tag(correct_i.pc);
   end
@@ -238,7 +249,7 @@ module core_npc (
   logic [1:0] level2_wdata;
   logic [1:0][4:0] level2_raddr;
   logic [1:0][1:0] level2_cnt;
-  
+
   assign level2_wdata = gen_next_lphr(correct_i.lphr, correct_i.true_taken);
   assign level2_waddr = correct_i.history;
   assign level2_we = correct_i.true_conditional_jmp && correct_i.need_update;
@@ -308,6 +319,21 @@ module core_npc (
     if(inst_0_jmp) begin
       valid_o[1] = '0;
     end
+  end
+
+  always_comb begin
+    // predict_o.taken = '0; // 在npc 逻辑块中描述
+    predict_o.pc_off = (branch_need_jmp[0] ? '0 : branch_need_jmp[1]) | pc[2];
+    predict_o.predict_pc = npc;
+    predict_o.lphr = inst_0_jmp ? level2_cnt[0] :
+                   level2_cnt[1];
+    predict_o.history = inst_0_jmp ? rinfo_q[0].history :
+                      rinfo_q[1].history;
+    predict_o.target_type = inst_0_jmp ? rinfo_q[0].target_type :
+                          rinfo_q[1].target_type;
+    predict_o.dir_type = inst_0_jmp ? rinfo_q[0].conditional_jmp :
+                       rinfo_q[1].conditional_jmp;
+    predict_o.ras_ptr = ras_ptr_q;
   end
 
 endmodule
