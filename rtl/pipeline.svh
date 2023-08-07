@@ -86,10 +86,9 @@ typedef struct packed {
           logic [1:0] lphr;
           logic [`_BHT_DATA_WIDTH- 1:0] history;
 
-          logic miss_dir_type;
-          logic true_dir;
+          logic need_update;
+          logic true_conditional_jmp;
 
-          logic miss_target_type;
           logic[1:0] true_target_type;
 
           logic [`_RAS_ADDR_WIDTH - 1: 0] ras_ptr;

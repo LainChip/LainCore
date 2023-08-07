@@ -54,10 +54,10 @@ module core_npc (
   // PPC_PLUS8: 不预测跳转情况下，正常 +8
   // JPC: 后端刷新管线的跳转地址
   logic[31:0] pc, npc, ppc_ras_q, ppc_btb, ppc_plus8, jpc;
-  logic[7:0][31:0] ras_q; // TODO: CONNECT ME
+  logic[7:0][31:0] ras_q;
   assign npc_o = npc;
   assign pc_o = pc;
-  logic[1:0] valid_q,nvalid; // TODO: CONNECT ME
+  logic[1:0] valid_q,nvalid;
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       pc <= 32'h1c000000;
@@ -103,9 +103,9 @@ module core_npc (
   end
 
   // TODO:check ppc_ras_q 时序逻辑
-  logic[2:0] ras_r_ptr_q,ras_w_ptr_q,ras_r_ptr,ras_w_ptr; // TODO: CONNECT ME
+  logic[2:0] ras_w_ptr_q,ras_ptr_q; // TODO:check
   always_ff @(posedge clk) begin
-    ppc_ras_q <= {ras_q[ras_r_ptr_q][31:2], 2'b00};
+    ppc_ras_q <= {ras_q[ras_ptr_q][31:2], 2'b00};
   end
 
   // TODO:check ppc_btb 逻辑
@@ -121,7 +121,32 @@ module core_npc (
 
   // TODO: RAS 更新逻辑
   always_ff @(posedge clk) begin
-    ras_q <= '0;
+    if(!rst_n) begin
+      ras_ptr_q <= '0;
+    end
+    else begin
+      // TODO: check
+      // RETURN MISS: RAS_PTR_Q <= (TRUE_PTR == R_PTR)
+      // CALL MISS RAS_PTR_Q <= TRUE_PTR AND ras_q[TRUE_PTR] <= TRUE_TARGET;
+      if(correct_i.need_update) begin
+        ras_w_ptr_q <= correct_i.ras_ptr + 3'd1;
+        ras_ptr_q <= correct_i.ras_ptr;
+        if(correct_i.true_target_type == `_BPU_TARGET_CALL) begin
+          ras_q[correct_i.ras_ptr] <= correct_i.pc + 3'd4;
+        end
+      end
+      else begin
+        if(npc_target_type == `_BPU_TARGET_CALL && !f_stall_i) begin
+          ras_q[ras_w_ptr_q] <= pc + (inst_0_jmp ? 3'd4 : 3'd8);
+          ras_w_ptr_q <= ras_w_ptr_q + 3'd1;
+          ras_ptr_q <= ras_ptr_q + 3'd1;
+        end
+        if(npc_target_type == `_BPU_TARGET_RETURN && !f_stall_i) begin
+          ras_w_ptr_q <= ras_w_ptr_q - 3'd1;
+          ras_ptr_q <= ras_ptr_q - 3'd1;
+        end
+      end
+    end
   end
 
   // BTB 以及 分支信息 ram
@@ -140,18 +165,37 @@ module core_npc (
             logic [4:0] history;
             logic [5:0] tag;
           } branch_info_t;
-  logic[8:0] btb_waddr,btb_raddr; // TODO: CONNECT US
-  logic[1:0] btb_we;  // TODO: CONNECT US
-  logic[31:0] btb_wdata; // TODO: CONNECT US
+  logic[8:0] btb_waddr,btb_raddr;
+  logic[1:0] btb_we;
+  logic[31:0] btb_wdata;
   logic[1:0][31:0] btb_rdata;
   assign raw_ppc_btb = btb_rdata;
+  assign btb_raddr = npc[12:3];
+  assign btb_waddr = correct_i.pc[12:3];
+  assign btb_wdata = correct_i.true_target;
+  always_comb begin
+    btb_we = '0;
+    btb_we[correct_i.pc[2]] = correct_i.need_update;
+  end
 
-  logic[7:0] info_waddr,info_raddr; // TODO: CONNECT US
-  logic[1:0] info_we; // TODO: CONNECT US
-  branch_info_t winfo; // TODO: CONNECT US
+  logic[7:0] info_waddr,info_raddr;
+  logic[1:0] info_we;
+  branch_info_t winfo;
+  branch_info_t [1:0]rinfo_q;
   // 注意：这个 rinfo_q 实际上是对应 PC 持有的预测信息
   // 也就是在这之后的有效域，转为 PC 了。
-  branch_info_t [1:0]rinfo_q;
+  assign info_raddr = npc[11:3];
+  assign info_waddr = correct_i.pc[11:3];
+  always_comb begin
+    info_we = '0;
+    info_we[correct_i.pc[2]] = correct_i.need_update;
+  end
+  always_comb begin
+    winfo.target_type = correct_i.target_type;
+    winfo.conditional_jmp = correct_i.conditional_jmp;
+    winfo.history = {correct_i.history[3:0], correct_i.true_taken};
+    winfo.tag = get_tag(correct_i.pc);
+  end
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 创建两个 btb 和 info mem，用于写更新时区别开来。
     simpleDualPortRamRE #(
@@ -189,11 +233,15 @@ module core_npc (
 
   // 预测逻辑
   // 根据 info 中指定的 history，寻址查找第二级 lutram，获得最终用于预测跳转信息的两位饱和计数器
-  logic level2_we; // TODO: CONNECT ME
-  logic [4:0] level2_waddr; // TODO: CONNECT ME
-  logic [1:0] level2_wdata; // TODO: CONNECT ME
-  logic [1:0][4:0] level2_raddr; // TODO: CONNECT ME
+  logic level2_we;
+  logic [4:0] level2_waddr;
+  logic [1:0] level2_wdata;
+  logic [1:0][4:0] level2_raddr;
   logic [1:0][1:0] level2_cnt;
+  
+  assign level2_wdata = gen_next_lphr(correct_i.lphr, correct_i.true_taken);
+  assign level2_waddr = correct_i.history;
+  assign level2_we = correct_i.true_conditional_jmp && correct_i.need_update;
 
   // taken 逻辑
   logic [1:0] branch_need_jmp;
@@ -233,9 +281,7 @@ module core_npc (
   end
 
   // 合成两路结果
-  // logic[1:0] npc_target_type; // TODO: CONNECT ME
   // 对于条件跳转指令，预测是否会 taken
-  // logic npc_predict_taken;    // TODO: CONNECT ME
   always_comb begin
     if(branch_need_jmp[0]) begin
       npc_target_type = rinfo_q[0].target_type;
@@ -248,6 +294,20 @@ module core_npc (
   end
   assign inst_0_jmp = branch_need_jmp[0];
 
+  // nvalid 逻辑
+  always_comb begin
+    nvalid = 2'b11;
+    if(npc[2]) begin
+      nvalid[0] = '0;
+    end
+  end
 
+  // valid_o 逻辑
+  always_comb begin
+    valid_o = valid_q;
+    if(inst_0_jmp) begin
+      valid_o[1] = '0;
+    end
+  end
 
 endmodule
