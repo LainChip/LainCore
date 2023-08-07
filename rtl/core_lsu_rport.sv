@@ -349,10 +349,9 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     rstate_o.uncached_read      = fsm_q == S_UNCACHE_READ;
 
     rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
-    rstate_o.cache_op_inv         = fsm_q == S_CACHE_INVOP;
-    rstate_o.miss_write_req_valid = fsm_q == S_REFILL_WRITE;
-    rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE)
-      || fsm_q == S_UNCACHE_WRITE;
+    rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE) || (fsm_q == S_UNCACHE_WRITE);
+    rstate_o.cache_op_inv         = (fsm_q == S_CACHE_INVOP/* && m2_valid_i*/ /*TODO: CHECK HIT*/);
+    rstate_o.miss_write_req_valid = (fsm_q == S_REFILL_WRITE /*&& m2_valid_i && !m2_uncached_i && miss_q && m2_op_i == `_DCAHE_OP_WRITE*/);
     rstate_o.addr    = m2_paddr_i;
     rstate_o.rwsize  = m2_size_i;
     rstate_o.wsel    = (m2_valid_i && m2_op_i == `_DCAHE_OP_WRITE) ? hit_q : '0;
