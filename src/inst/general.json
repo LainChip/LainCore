@@ -65,11 +65,6 @@
             "stage": "m2",
             "default_value": 0
         },
-        "need_bpu": {
-            "length": 1,
-            "stage": "m2",
-            "default_value": 0
-        },
         "latest_r0_ex": {
             "length": 1,
             "stage": "ex",

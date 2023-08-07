@@ -22,6 +22,11 @@
             "length": 4,
             "stage": "m1",
             "default_value": 0
+        },
+        "need_bpu": {
+            "length": 1,
+            "stage": "m1",
+            "default_value": 0
         }
     },
     "inst": {
@@ -36,7 +41,8 @@
             "reg_type_w": "`_REG_W_RD",
             "latest_r0_ex": 1,
             "latest_r1_ex": 1,
-            "fu_sel_ex": "`_FUSEL_EX_ALU"
+            "fu_sel_ex": "`_FUSEL_EX_ALU",
+            "need_bpu": 1
         },
         "b": {
             "opcode": "010100","cmp_type": "`_CMP_NOCONDITION",
@@ -47,7 +53,8 @@
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_ex": 1,
             "latest_r1_ex": 1,
-            "fu_sel_ex": "`_FUSEL_EX_ALU"
+            "fu_sel_ex": "`_FUSEL_EX_ALU",
+            "need_bpu": 1
         },
         "bl": {
             "opcode": "010101",
@@ -60,7 +67,8 @@
             "reg_type_w": "`_REG_W_BL1",
             "latest_r0_ex": 1,
             "latest_r1_ex": 1,
-            "fu_sel_ex": "`_FUSEL_EX_ALU"
+            "fu_sel_ex": "`_FUSEL_EX_ALU",
+            "need_bpu": 1
         },
         "beq": {
             "opcode": "010110",
@@ -71,7 +79,8 @@
             "addr_imm_type": "`_ADDR_IMM_S16",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_m1": 1,
-            "latest_r1_m1": 1
+            "latest_r1_m1": 1,
+            "need_bpu": 1
         },
         "bne": {
             "opcode": "010111",
@@ -82,7 +91,8 @@
             "addr_imm_type": "`_ADDR_IMM_S16",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_m1": 1,
-            "latest_r1_m1": 1
+            "latest_r1_m1": 1,
+            "need_bpu": 1
         },
         "blt": {
             "opcode": "011000",
@@ -93,7 +103,8 @@
             "addr_imm_type": "`_ADDR_IMM_S16",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_m1": 1,
-            "latest_r1_m1": 1
+            "latest_r1_m1": 1,
+            "need_bpu": 1
         },
         "bge": {
             "opcode": "011001",
@@ -104,7 +115,8 @@
             "addr_imm_type": "`_ADDR_IMM_S16",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_m1": 1,
-            "latest_r1_m1": 1
+            "latest_r1_m1": 1,
+            "need_bpu": 1
         },
         "bltu": {
             "opcode": "011010",
@@ -115,7 +127,8 @@
             "addr_imm_type": "`_ADDR_IMM_S16",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_m1": 1,
-            "latest_r1_m1": 1
+            "latest_r1_m1": 1,
+            "need_bpu": 1
         },
         "bgeu": {
             "opcode": "011011",
@@ -126,7 +139,8 @@
             "addr_imm_type": "`_ADDR_IMM_S16",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r0_m1": 1,
-            "latest_r1_m1": 1
+            "latest_r1_m1": 1,
+            "need_bpu": 1
         }
     }
 }

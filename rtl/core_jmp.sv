@@ -11,6 +11,7 @@ module core_jmp(
     output bpu_correct_t bpu_correct_o,
     input logic[31:0] pc_i,
     input logic[31:0] target_i,
+    output logic[31:0] target_o,
     input logic[31:0] r0_i,
     input logic[31:0] r1_i,
     output logic jmp_o
@@ -20,16 +21,14 @@ module core_jmp(
   logic true_taken;
   logic predict_miss;
   assign address_correct = bpu_predict_i.predict_pc == target_i;
-  assign direction_correct = bpu_predict_i.taken == true_taken;
+  assign direction_correct = (
+           bpu_predict_i.taken &&
+           bpu_predict_i.pc_off == pc_i[2]
+         ) == true_taken;
   always_comb begin
     predict_miss = '0;
     if((true_taken || bpu_predict_i.taken) && valid_i) begin
-      if(!direction_correct) begin
-        predict_miss = '1;
-      end
-      else begin
-        predict_miss = !address_correct;
-      end
+      predict_miss = !address_correct || !direction_correct;
     end
   end
   assign jmp_o = predict_miss;
@@ -55,12 +54,13 @@ module core_jmp(
     bpu_correct_o.miss = predict_miss;
     bpu_correct_o.pc = pc_i;
     bpu_correct_o.true_taken = true_taken;
-    bpu_correct_o.true_target = true_taken ? (pc_i + 32'd4) : target_i;
+    // bpu_correct_o.true_target = true_taken ? target_i : (pc_i + 32'd4);
+    bpu_correct_o.true_target = target_i;
     bpu_correct_o.lphr = bpu_predict_i.lphr;
     bpu_correct_o.history = bpu_predict_i.history;
 
     //  bpu_correct_o.miss_dir_type = miss_dir_type;
-    bpu_correct_o.need_update = (|true_target_type) || miss_target_type;
+    bpu_correct_o.need_update = ((|true_target_type) || miss_target_type) && valid_i;
     bpu_correct_o.true_conditional_jmp = true_conditional_jmp;
 
     bpu_correct_o.true_target_type = true_target_type;
@@ -71,6 +71,25 @@ module core_jmp(
     end
     if(true_target_type == `_BPU_TARGET_RETURN) begin
       bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr - 1;
+    end
+  end
+  assign target_o = true_taken ? target_i : (pc_i + 32'd4);
+  // debug
+  int total = 0;
+  int miss = 0;
+  always_ff @(negedge clk) begin
+    if (true_target_type != `_BPU_TARGET_NPC && valid_i /* && (total % 10 == 0) */) begin
+      total <= total + 1;
+      if (bpu_correct_o.need_update) begin
+        miss <= miss + predict_miss;
+        $display("SRC: %x", pc_i);
+        $display("DST: %x", target_o);
+        $display("MISS: %d", predict_miss);
+        $display("predict_i: lphr: %d, predict_pc: %x, taken: %d, target_type: %d, pc_off: %d", bpu_predict_i.lphr, bpu_predict_i.predict_pc, bpu_predict_i.taken, bpu_predict_i.target_type, bpu_predict_i.pc_off);
+        $display("update_o: target: %x, target_type: %d, taken: %d", bpu_correct_o.true_target, bpu_correct_o.true_target_type, true_taken);
+        $display("total: %d, miss: %d, miss_rate: %f", total, miss, 1.0 * miss/total);
+
+      end
     end
   end
 

@@ -257,6 +257,7 @@ module core_backend (
     end
     assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
     assign frontend_resp_o.rst_jmp_target = m2_jump_target_q;
+    assign frontend_resp_o.bpu_correct = m2_bpu_feedback_q;
 
 
     // INVALIDATE MANAGER
@@ -545,7 +546,7 @@ module core_backend (
       csr_valid  = (csr_we | csr_excp_req[0]) ? m2_valid_req[0] : m2_valid_req[1];
       csr_commit = (csr_we | csr_excp_req[0]) ? m2_commit_req[0] : m2_commit_req[1];
       csr_badv   = csr_excp_req[0] ? m2_badv_req[0] : m2_badv_req[1];
-      csr_excp   = csr_excp_req[0] ? m2_excp_req[0] : m2_excp_req[1];
+      csr_excp   = csr_excp_req[0] ? m2_excp_req[0] : (csr_excp_req[1] ? m2_excp_req[1] : '0);
       csr_pc     = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
     end
 
@@ -864,19 +865,33 @@ module core_backend (
       // 跳转的处理：TODO 完成相关模块
       logic         m1_branch_jmp_req  ;
       logic   [1:0] target_type; // TODO: CONNECT ME
+      logic  [31:0] true_bpu_target;
     core_jmp m1_cmp (
       .clk          (clk                                                           ),
       .rst_n        (rst_n                                                         ),
-      .valid_i      (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit),
+      .valid_i      (!m1_stall && exc_m1_q[p].need_commit                          ),
       .target_type_i(target_type                                                   ),
       .cmp_type_i   (decode_info.cmp_type                                          ),
       .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict                             ),
       .bpu_correct_o(m1_bpu_feedback_req[p]                                        ),
+      .pc_i         (pipeline_ctrl_m1_q[p].pc                                      ),
       .target_i     (pipeline_ctrl_m1_q[p].jump_target                             ),
+      .target_o     (true_bpu_target                                               ),
       .r0_i         (pipeline_data_m1_q[p].r_data[0]                               ),
       .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
       .jmp_o        (m1_branch_jmp_req                                             )
     );
+
+    always_comb begin
+      target_type = '0;
+      if(decode_info.need_bpu && pipeline_wdata_m1[p].w_flow.w_addr == 5'd1) begin // 1 -> CALL JIRL BL
+        target_type = 2'd1;
+      end else if(decode_info.need_bpu && pipeline_data_m1_q[p].r_flow.r_addr[1] == 5'd1) begin // 2 -> RETURN
+        target_type = 2'd2;
+      end else if(decode_info.need_bpu) begin  // 3 -> IMM
+        target_type = 2'd3;
+      end
+    end
 
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
@@ -946,7 +961,7 @@ module core_backend (
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excp_detect[p];
       end
-      assign m1_target[p] = m1_excp_detect[p] ? excp_target : jump_target;
+      assign m1_target[p] = m1_excp_detect[p] ? excp_target : true_bpu_target;
 
       // 接入转发源
       always_comb begin
@@ -964,7 +979,7 @@ module core_backend (
         m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
 
-        m1_excp_flow.ale = ~(|m1_excp_flow) && (
+        m1_excp_flow.ale = (!(|m1_excp_flow)) && (
           (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& (|pipeline_ctrl_m1_q[p].vaddr[1:0])) ||
           (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]))
         && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
@@ -988,7 +1003,7 @@ module core_backend (
       // 流水线间信息传递
       always_comb begin
         pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
-        pipeline_ctrl_m2[p].excp_flow = exc_m1_q[p].need_commit ? m1_excp_flow : '0;
+        pipeline_ctrl_m2[p].excp_flow = m1_excp_flow;
         pipeline_ctrl_m2[p].excp_valid = m1_excp_detect[p];
         pipeline_ctrl_m2[p].mem_uncached = m1_mem_uncached[p];
         pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;

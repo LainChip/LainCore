@@ -30,7 +30,7 @@ function logic[1:0] gen_next_lphr(input logic[1:0] old, input logic direction);
   endcase
 endfunction
 function logic[5:0] get_tag(input logic[31:0] addr);
-  return addr[15:10];
+  return addr[16:11];
 endfunction
 
 // 8.7 还是只做 8 对齐的 npc 模块
@@ -147,7 +147,7 @@ module core_npc (
       end
       else begin
         if(npc_target_type == `_BPU_TARGET_CALL && !f_stall_i) begin
-          ras_q[ras_w_ptr_q] <= pc + (inst_0_jmp ? 3'd4 : 3'd8);
+          ras_q[ras_w_ptr_q] <= {pc[31:3], 3'b000} + (inst_0_jmp ? 3'd4 : 3'd8);
           ras_w_ptr_q <= ras_w_ptr_q + 3'd1;
           ras_ptr_q <= ras_ptr_q + 3'd1;
         end
@@ -181,8 +181,8 @@ module core_npc (
   logic[31:0] btb_wdata;
   logic[1:0][31:0] btb_rdata;
   assign raw_ppc_btb = btb_rdata;
-  assign btb_raddr = npc[12:3];
-  assign btb_waddr = correct_i.pc[12:3];
+  assign btb_raddr = npc[11:3];
+  assign btb_waddr = correct_i.pc[11:3];
   assign btb_wdata = correct_i.true_target;
   always_comb begin
     btb_we = '0;
@@ -195,8 +195,8 @@ module core_npc (
   branch_info_t [1:0]rinfo_q;
   // 注意：这个 rinfo_q 实际上是对应 PC 持有的预测信息
   // 也就是在这之后的有效域，转为 PC 了。
-  assign info_raddr = npc[11:3];
-  assign info_waddr = correct_i.pc[11:3];
+  assign info_raddr = npc[10:3];
+  assign info_waddr = correct_i.pc[10:3];
   always_comb begin
     info_we = '0;
     info_we[correct_i.pc[2]] = correct_i.need_update;
@@ -256,6 +256,7 @@ module core_npc (
 
   // taken 逻辑
   logic [1:0] branch_need_jmp;
+  logic [1:0] tag_match;
   for(genvar p = 0 ; p < 2; p++) begin
     simpleDualPortLutRam #(
                            .dataWidth(2 ),
@@ -273,11 +274,10 @@ module core_npc (
                            .outData (level2_cnt[p]  )
                          );
     assign level2_raddr[p] = rinfo_q[p].history;
-    logic tag_match;
     // 可以被综合成一个 lut6
     always_comb begin
       branch_need_jmp[p] = '0; // 注意这个信号有 3 级逻辑
-      if(rinfo_q[p].target_type != `_BPU_TARGET_NPC && tag_match) begin
+      if(rinfo_q[p].target_type != `_BPU_TARGET_NPC && tag_match[p]) begin
         if(rinfo_q[p].target_type != `_BPU_TARGET_IMM || !rinfo_q[p].conditional_jmp) begin
           // 这些情况下，是无条件跳转的
           branch_need_jmp[p] = /*'1*/valid_q[p];
@@ -288,22 +288,8 @@ module core_npc (
         end
       end
     end
-    assign tag_match = rinfo_q[p].tag == get_tag(pc);
+    assign tag_match[p] = rinfo_q[p].tag == get_tag(pc);
   end
-
-  // 合成两路结果
-  // 对于条件跳转指令，预测是否会 taken
-  always_comb begin
-    if(branch_need_jmp[0]) begin
-      npc_target_type = rinfo_q[0].target_type;
-      npc_predict_taken = 1'b1;
-    end
-    else begin
-      npc_target_type = rinfo_q[1].target_type;
-      npc_predict_taken = branch_need_jmp[1];
-    end
-  end
-  assign inst_0_jmp = branch_need_jmp[0];
 
   // nvalid 逻辑
   always_comb begin
@@ -321,19 +307,48 @@ module core_npc (
     end
   end
 
+  // 合成两路结果
+  // 对于条件跳转指令，预测是否会 taken
+  always_comb begin
+    npc_target_type = '0;
+    npc_predict_taken = 1'b0;
+    if(branch_need_jmp[0]) begin
+      npc_target_type = rinfo_q[0].target_type;
+      npc_predict_taken = 1'b1;
+    end
+    else if(branch_need_jmp[1]) begin
+      npc_target_type = rinfo_q[1].target_type;
+      npc_predict_taken = 1'b1;
+    end
+  end
+  assign inst_0_jmp = branch_need_jmp[0];
   always_comb begin
     // predict_o.taken = '0; // 在npc 逻辑块中描述
-    predict_o.pc_off = (branch_need_jmp[0] ? '0 : branch_need_jmp[1]) | pc[2];
+    predict_o.pc_off = pc[2];
     predict_o.predict_pc = npc;
-    predict_o.lphr = inst_0_jmp ? level2_cnt[0] :
-                   level2_cnt[1];
-    predict_o.history = inst_0_jmp ? rinfo_q[0].history :
-                      rinfo_q[1].history;
-    predict_o.target_type = inst_0_jmp ? rinfo_q[0].target_type :
-                          rinfo_q[1].target_type;
-    predict_o.dir_type = inst_0_jmp ? rinfo_q[0].conditional_jmp :
-                       rinfo_q[1].conditional_jmp;
+    predict_o.lphr = level2_cnt[0];
+    predict_o.history = rinfo_q[0].history;
+    predict_o.target_type = '0;
+    predict_o.dir_type = rinfo_q[0].conditional_jmp;
+    // predict_o.lphr = inst_0_jmp ? level2_cnt[0] :
+    //                level2_cnt[1];
+    // predict_o.history = inst_0_jmp ? rinfo_q[0].history :
+    //                   rinfo_q[1].history;
+    // predict_o.target_type = inst_0_jmp ? rinfo_q[0].target_type :
+    //                       rinfo_q[1].target_type;
+    // predict_o.dir_type = inst_0_jmp ? rinfo_q[0].conditional_jmp :
+    //                    rinfo_q[1].conditional_jmp;
     predict_o.ras_ptr = ras_ptr_q;
+    if(/*tag_match[0] && */branch_need_jmp[0]) begin
+      predict_o.pc_off = '0;
+      predict_o.target_type = rinfo_q[0].target_type;
+    end else if(/*tag_match[1] && */branch_need_jmp[1]) begin
+      predict_o.pc_off = '1;
+      predict_o.lphr = level2_cnt[1];
+      predict_o.history = rinfo_q[1].history;
+      predict_o.target_type = rinfo_q[1].target_type;
+      predict_o.dir_type = rinfo_q[1].conditional_jmp;
+    end
   end
 
 endmodule
