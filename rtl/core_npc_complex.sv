@@ -129,14 +129,14 @@ module core_npc (
   // TODO: RAS 更新逻辑
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      ras_ptr_q <= '1;
-      ras_w_ptr_q <= '0;
+      ras_ptr_q <= 0;
+      ras_w_ptr_q <= 1;
     end
     else begin
       // TODO: check
       // RETURN MISS: RAS_PTR_Q <= (TRUE_PTR == R_PTR)
       // CALL MISS RAS_PTR_Q <= TRUE_PTR AND ras_q[TRUE_PTR] <= TRUE_TARGET;
-      if(correct_i.miss) begin
+      if(correct_i.miss || correct_i.ras_miss_type) begin
         /* 考虑一下，没有 miss 但是类型估计错误的情况，这时候也需要更新 */
         /* printf */
         ras_w_ptr_q <= correct_i.ras_ptr + 3'd1;
@@ -147,7 +147,7 @@ module core_npc (
       end
       else begin
         if(npc_target_type == `_BPU_TARGET_CALL && !f_stall_i) begin
-          ras_q[ras_w_ptr_q] <= {pc[31:3], 3'b000} + (inst_0_jmp ? 3'd4 : 3'd8);
+          ras_q[ras_w_ptr_q] <= {pc[31:3], 3'b000} + (inst_0_jmp ? 32'd4 : 32'd8);
           ras_w_ptr_q <= ras_w_ptr_q + 3'd1;
           ras_ptr_q <= ras_ptr_q + 3'd1;
         end

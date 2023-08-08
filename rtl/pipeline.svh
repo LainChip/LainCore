@@ -90,6 +90,8 @@ typedef struct packed {
           logic need_update;
           logic true_conditional_jmp;
 
+          logic ras_miss_type;
+
           logic[1:0] true_target_type;
 
           logic [`_RAS_ADDR_WIDTH - 1: 0] ras_ptr;

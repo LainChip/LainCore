@@ -253,7 +253,7 @@ module core_backend (
     always_ff @(posedge clk) begin
       m2_jump_valid_q   <= (m1_stall) ? '0 : |m1_invalidate_req;
       m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
-      m2_bpu_feedback_q <= (m1_invalidate_req[0]) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
+      m2_bpu_feedback_q <= (m1_bpu_feedback_req[0].need_update || m1_bpu_feedback_req[0].ras_miss_type) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
     end
     assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
     assign frontend_resp_o.rst_jmp_target = m2_jump_target_q;

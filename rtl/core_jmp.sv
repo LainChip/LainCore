@@ -60,17 +60,20 @@ module core_jmp(
     bpu_correct_o.history = bpu_predict_i.history;
 
     //  bpu_correct_o.miss_dir_type = miss_dir_type;
-    bpu_correct_o.need_update = ((|true_target_type) || miss_target_type) && valid_i;
+    bpu_correct_o.need_update = (((|true_target_type) || miss_target_type) && valid_i) || predict_miss;
     bpu_correct_o.true_conditional_jmp = true_conditional_jmp;
 
     bpu_correct_o.true_target_type = true_target_type;
 
     bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr;
-    if(true_target_type == `_BPU_TARGET_CALL) begin
+    bpu_correct_o.ras_miss_type = '0;
+    if(true_target_type == `_BPU_TARGET_CALL && miss_target_type) begin
       bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr + 1;
+      bpu_correct_o.ras_miss_type = '1;
     end
-    if(true_target_type == `_BPU_TARGET_RETURN) begin
+    if(true_target_type == `_BPU_TARGET_RETURN && miss_target_type) begin
       bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr - 1;
+      bpu_correct_o.ras_miss_type = '1;
     end
   end
   assign target_o = true_taken ? target_i : (pc_i + 32'd4);
