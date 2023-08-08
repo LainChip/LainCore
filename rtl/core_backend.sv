@@ -972,7 +972,7 @@ module core_backend (
       always_comb begin
         // 按照产生优先级排序
         m1_excp_flow       = '0;
-        m1_excp_flow.m1int = csr_m1_int && (p == 0 ? 1'b1 : !m1_invalidate_req[0]); // TODO: FIXME
+        m1_excp_flow.m1int = csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]); // TODO: FIXME
         m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);

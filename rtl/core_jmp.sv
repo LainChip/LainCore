@@ -80,8 +80,8 @@ module core_jmp(
   always_ff @(negedge clk) begin
     if (true_target_type != `_BPU_TARGET_NPC && valid_i /* && (total % 10 == 0) */) begin
       total <= total + 1;
-      if (bpu_correct_o.need_update) begin
-        miss <= miss + predict_miss;
+      if (predict_miss) begin
+        miss <= miss + 1;
         $display("SRC: %x", pc_i);
         $display("DST: %x", target_o);
         $display("MISS: %d", predict_miss);

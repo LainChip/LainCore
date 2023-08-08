@@ -186,7 +186,8 @@ module core_npc (
   assign btb_wdata = correct_i.true_target;
   always_comb begin
     btb_we = '0;
-    btb_we[correct_i.pc[2]] = correct_i.need_update;
+    btb_we[correct_i.pc[2]] = correct_i.need_update && 
+    (correct_i.true_target_type == `_BPU_TARGET_CALL ||correct_i.true_target_type == `_BPU_TARGET_IMM);
   end
 
   logic[7:0] info_waddr,info_raddr;
