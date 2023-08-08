@@ -22,8 +22,8 @@ module core_jmp(
   logic predict_miss;
   assign address_correct = bpu_predict_i.predict_pc == target_i;
   assign direction_correct = (
-           bpu_predict_i.taken &&
-           bpu_predict_i.pc_off == pc_i[2]
+           bpu_predict_i.taken
+          //  && bpu_predict_i.pc_off == pc_i[2]
          ) == true_taken;
   always_comb begin
     predict_miss = '0;
@@ -88,7 +88,7 @@ module core_jmp(
         $display("SRC: %x", pc_i);
         $display("DST: %x", target_o);
         $display("MISS: %d", predict_miss);
-        $display("predict_i: lphr: %d, predict_pc: %x, taken: %d, target_type: %d, pc_off: %d", bpu_predict_i.lphr, bpu_predict_i.predict_pc, bpu_predict_i.taken, bpu_predict_i.target_type, bpu_predict_i.pc_off);
+        $display("predict_i: lphr: %d, predict_pc: %x, taken: %d, target_type: %d", bpu_predict_i.lphr, bpu_predict_i.predict_pc, bpu_predict_i.taken, bpu_predict_i.target_type);
         $display("update_o: target: %x, target_type: %d, taken: %d", bpu_correct_o.true_target, bpu_correct_o.true_target_type, true_taken);
         $display("total: %d, miss: %d, miss_rate: %f", total, miss, 1.0 * miss/total);
 

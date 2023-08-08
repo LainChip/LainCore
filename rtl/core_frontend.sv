@@ -77,7 +77,7 @@ module core_frontend (
   logic[31:0] pc_vaddr;
   logic[31:0] f_pc;
   logic[1:0] f_valid;
-  bpu_predict_t f_predict   ;
+  bpu_predict_t [1:0] f_predict;
   logic         f_stall     ;
   logic         icache_ready,icache_stall;
   logic         mimo_ready  ;
@@ -118,7 +118,7 @@ module core_frontend (
   // I CACHE 模块
   logic[31:0] m_pc;
   logic[1:0] m_valid;
-  bpu_predict_t m_predict;
+  bpu_predict_t[1:0] m_predict;
   fetch_excp_t  m_excp   ;
   logic[1:0][31:0] m_inst;
 
@@ -149,7 +149,7 @@ module core_frontend (
   );
 
   logic[31:0] ppc_nc;
-  core_ifetch #(.ATTACHED_INFO_WIDTH($bits(bpu_predict_t))) ifetch_inst (
+  core_ifetch #(.ATTACHED_INFO_WIDTH(2 * $bits(bpu_predict_t))) ifetch_inst (
     .clk            (clk                     ),
     .rst_n          (rst_n                   ),
     .cacheop_i      (icacheop                ),
@@ -187,8 +187,8 @@ module core_frontend (
   assign m_inst_pack[1].inst = m_inst[1];
   assign m_inst_pack[0].fetch_excp = m_excp;
   assign m_inst_pack[1].fetch_excp = m_excp;
-  assign m_inst_pack[0].bpu_predict = m_predict;
-  assign m_inst_pack[1].bpu_predict = m_predict;
+  assign m_inst_pack[0].bpu_predict = m_valid[0] ? m_predict[0] : m_predict[1];
+  assign m_inst_pack[1].bpu_predict = m_predict[1];
   logic[1:0] m_num,d_num;
   always_comb begin
     m_num = m_valid[0] + m_valid[1];

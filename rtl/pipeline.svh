@@ -70,7 +70,7 @@ typedef struct packed{
         }btb_t;
 typedef struct packed {
           logic taken;
-          logic pc_off;
+          // logic pc_off;
           logic [31:0] predict_pc;
           logic [1:0] lphr;
           logic [`_BHT_DATA_WIDTH- 1:0] history;

@@ -44,7 +44,7 @@ module core_npc (
     output logic [31:0]       pc_o      , // F1 STAGE
     output logic [31:0]       npc_o     ,
     output logic [ 1:0]       valid_o   , // 2'b00 | 2'b01 | 2'b11 | 2'b10
-    output bpu_predict_t      predict_o ,
+    output bpu_predict_t [1:0]predict_o ,
     input  bpu_correct_t      correct_i
   );
   // PC: pc 寄存器，f1 流水级
@@ -74,40 +74,36 @@ module core_npc (
   // TARGET_TYPE: 分为 NPC，CALL，RETURN，IMM 四种
   // 其中 NPC 表示非跳转/分支指令，CALL 表示调用指令，RETURN 表示返回指令，IMM 表示立即数跳转指令
   // 立即数跳转指令中，又包含 条件跳转， 以及永远跳转两种类型
-  logic[1:0] npc_target_type; // TODO: CHECK
-  // 对于条件跳转指令，预测是否会 taken
-  logic npc_predict_taken;    // TODO: CHECK
+  // logic[1:0] npc_target_type; // TODO: CHECK
+  // // 对于条件跳转指令，预测是否会 taken
+  // logic npc_predict_taken;    // TODO: CHECK
 
-  // TODO: check npc 组合逻辑
-  always_comb begin
-    // npc = pc;
-    predict_o.taken = '0;
-    case(npc_target_type)
-      default/*`_BPU_TARGET_NPC*/: begin
-        npc = ppc_plus8;
-      end
-      `_BPU_TARGET_CALL: begin
-        npc = ppc_btb;
-        predict_o.taken = '1;
-      end
-      `_BPU_TARGET_RETURN: begin
-        npc = ppc_ras_q;
-        predict_o.taken = '1;
-      end
-      `_BPU_TARGET_IMM: begin
-        if(npc_predict_taken) begin
-          npc = ppc_btb;
-          predict_o.taken = '1;
-        end
-        else begin
-          npc = ppc_plus8;
-        end
-      end
-    endcase
-    if(rst_jmp) begin
-      npc = jpc;
-    end
-  end
+  // // TODO: check npc 组合逻辑
+  // always_comb begin
+  //   // npc = pc;
+  //   case(npc_target_type)
+  //     default/*`_BPU_TARGET_NPC*/: begin
+  //       npc = ppc_plus8;
+  //     end
+  //     `_BPU_TARGET_CALL: begin
+  //       npc = ppc_btb;
+  //     end
+  //     `_BPU_TARGET_RETURN: begin
+  //       npc = ppc_ras_q;
+  //     end
+  //     `_BPU_TARGET_IMM: begin
+  //       if(npc_predict_taken) begin
+  //         npc = ppc_btb;
+  //       end
+  //       else begin
+  //         npc = ppc_plus8;
+  //       end
+  //     end
+  //   endcase
+  //   if(rst_jmp) begin
+  //     npc = jpc;
+  //   end
+  // end
 
   // TODO:check ppc_ras_q 时序逻辑
   logic[2:0] ras_w_ptr_q,ras_ptr_q; // TODO:check
@@ -127,6 +123,7 @@ module core_npc (
   assign jpc = rst_target;
 
   // TODO: RAS 更新逻辑
+  logic pc_is_call, pc_is_return;
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       ras_ptr_q <= 0;
@@ -146,12 +143,12 @@ module core_npc (
         end
       end
       else begin
-        if(npc_target_type == `_BPU_TARGET_CALL && !f_stall_i) begin
+        if(pc_is_call && !f_stall_i) begin
           ras_q[ras_w_ptr_q] <= {pc[31:3], 3'b000} + (inst_0_jmp ? 32'd4 : 32'd8);
           ras_w_ptr_q <= ras_w_ptr_q + 3'd1;
           ras_ptr_q <= ras_ptr_q + 3'd1;
         end
-        if(npc_target_type == `_BPU_TARGET_RETURN && !f_stall_i) begin
+        if(pc_is_return && !f_stall_i) begin
           ras_w_ptr_q <= ras_w_ptr_q - 3'd1;
           ras_ptr_q <= ras_ptr_q - 3'd1;
         end
@@ -311,45 +308,49 @@ module core_npc (
   // 合成两路结果
   // 对于条件跳转指令，预测是否会 taken
   always_comb begin
-    npc_target_type = '0;
-    npc_predict_taken = 1'b0;
+    npc = ppc_plus8;
+    // npc_target_type = '0;
+    // npc_predict_taken = 1'b0;
+    predict_o[0].taken = '0;
+    predict_o[1].taken = '0;
+    pc_is_call = '0;
+    pc_is_return = '0;
     if(branch_need_jmp[0]) begin
-      npc_target_type = rinfo_q[0].target_type;
-      npc_predict_taken = 1'b1;
+      // npc_target_type = rinfo_q[0].target_type;
+      // npc_predict_taken = 1'b1;
+      pc_is_call = rinfo_q[0].target_type == `_BPU_TARGET_CALL;
+      pc_is_return = rinfo_q[0].target_type == `_BPU_TARGET_RETURN;
+      npc = rinfo_q[0].target_type == `_BPU_TARGET_RETURN ? ppc_ras_q : raw_ppc_btb[0];
+      predict_o[0].taken = '1;
     end
     else if(branch_need_jmp[1]) begin
-      npc_target_type = rinfo_q[1].target_type;
-      npc_predict_taken = 1'b1;
+      // npc_target_type = rinfo_q[1].target_type;
+      // npc_predict_taken = 1'b1;
+      pc_is_call = rinfo_q[1].target_type == `_BPU_TARGET_CALL;
+      pc_is_return = rinfo_q[1].target_type == `_BPU_TARGET_RETURN;
+      npc = rinfo_q[1].target_type == `_BPU_TARGET_RETURN ? ppc_ras_q : raw_ppc_btb[1];
+      predict_o[1].taken = '1;
+    end
+    if(rst_jmp) begin
+      npc = jpc;
     end
   end
   assign inst_0_jmp = branch_need_jmp[0];
   always_comb begin
     // predict_o.taken = '0; // 在npc 逻辑块中描述
-    predict_o.pc_off = pc[2];
-    predict_o.predict_pc = npc;
-    predict_o.lphr = level2_cnt[0];
-    predict_o.history = rinfo_q[0].history;
-    predict_o.target_type = '0;
-    predict_o.dir_type = rinfo_q[0].conditional_jmp;
-    // predict_o.lphr = inst_0_jmp ? level2_cnt[0] :
-    //                level2_cnt[1];
-    // predict_o.history = inst_0_jmp ? rinfo_q[0].history :
-    //                   rinfo_q[1].history;
-    // predict_o.target_type = inst_0_jmp ? rinfo_q[0].target_type :
-    //                       rinfo_q[1].target_type;
-    // predict_o.dir_type = inst_0_jmp ? rinfo_q[0].conditional_jmp :
-    //                    rinfo_q[1].conditional_jmp;
-    predict_o.ras_ptr = ras_ptr_q;
-    if(/*tag_match[0] && */branch_need_jmp[0]) begin
-      predict_o.pc_off = '0;
-      predict_o.target_type = rinfo_q[0].target_type;
-    end else if(/*tag_match[1] && */branch_need_jmp[1]) begin
-      predict_o.pc_off = '1;
-      predict_o.lphr = level2_cnt[1];
-      predict_o.history = rinfo_q[1].history;
-      predict_o.target_type = rinfo_q[1].target_type;
-      predict_o.dir_type = rinfo_q[1].conditional_jmp;
-    end
+    // predict_o.pc_off = pc[2];
+    predict_o[0].predict_pc = npc;
+    predict_o[1].predict_pc = npc;
+    predict_o[0].lphr = level2_cnt[0];
+    predict_o[1].lphr = level2_cnt[1];
+    predict_o[0].history = rinfo_q[0].history;
+    predict_o[1].history = rinfo_q[1].history;
+    predict_o[0].target_type = rinfo_q[0].target_type;
+    predict_o[1].target_type = rinfo_q[1].target_type;
+    predict_o[0].dir_type = rinfo_q[0].conditional_jmp;
+    predict_o[1].dir_type = rinfo_q[1].conditional_jmp;
+    predict_o[0].ras_ptr = ras_ptr_q;
+    predict_o[1].ras_ptr = ras_ptr_q;
   end
 
 endmodule
