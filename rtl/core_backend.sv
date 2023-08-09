@@ -1094,11 +1094,11 @@ module core_backend (
             tlb_op.tlbrd,
             tlb_op.tlbsrch
           } = {
-            decode_info.invtlb_en,
-            decode_info.tlbfill_en,
-            decode_info.tlbwr_en,
-            decode_info.tlbrd_en,
-            decode_info.tlbsrch_en};
+            decode_info.invtlb_en && exc_m2_q[p].need_commit,
+            decode_info.tlbfill_en && exc_m2_q[p].need_commit,
+            decode_info.tlbwr_en && exc_m2_q[p].need_commit,
+            decode_info.tlbrd_en && exc_m2_q[p].need_commit,
+            decode_info.tlbsrch_en && exc_m2_q[p].need_commit};
         end
       end
       // 写数据输入
