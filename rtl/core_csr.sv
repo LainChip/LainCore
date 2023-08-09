@@ -1,7 +1,10 @@
 `include "pipeline.svh"
 `include "csr.svh"
 
-module core_csr(
+module core_csr #(
+  parameter bit ENABLE_TLB = 1'b1,
+  parameter int TLB_ENTRY_NUM    = `_TLB_ENTRY_NUM
+)(
   input logic clk,
   input logic rst_n,
   input logic[7:0] int_i,
@@ -19,9 +22,14 @@ module core_csr(
   input logic[31:0] csr_w_mask_i,
   input logic[31:0] csr_w_data_i,
   input logic[31:0] badv_i,
-  input tlb_op_t tlb_op_i,
-  input tlb_s_resp_t tlb_srch_i,
-  input tlb_entry_t tlb_entry_i,
+
+  input logic[31:0] tlb_op_vaddr_i,  // M1
+  input logic[9:0] tlb_op_asid_i,    // M1
+
+  input tlb_op_t tlb_op_i,           // M2
+  input logic[4:0] tlb_inv_op_i,     // M2
+  output tlb_update_req_t tlb_update_req_o,
+
   input logic llbit_set_i,
   input logic llbit_i,
 
@@ -34,6 +42,49 @@ module core_csr(
   output logic[31:0] csr_r_data_o,
   output csr_t csr_o
 );
+
+// TLB 控制模块，执行 TLB 相关指令，产生 tlb_update_req_o 信号控制外部 ADDR_TRANS 模块。
+// 注意，TLB 指令在 M2 级执行，同级会发出 REFETCH 信号。
+// REFETCH 后，需要在前端进行阻塞， addr trans 模块中应有相应 flag 标识当前地址翻译结果是否有效。
+// 当地址翻译结果无效时，新的输入不会被响应，直到 flag 被置为高。
+
+if(ENABLE_TLB) begin
+  tlb_entry_t [TLB_ENTRY_NUM-1:0] tlb_entrys;
+  logic[TLB_ENTRY_NUM-1:0] tlb_inv_addr_match_q, tlb_inv_asid_match_q, tlb_need_inv;
+  for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
+    // tlb_entrys 更新逻辑
+    // 只需要响应三条指令：invtlb, tlbfill, tlbwr
+    // 注：不进行硬件复位
+    always_ff @(posedge clk) begin
+      if(!m2_stall_i) begin
+        tlb_inv_addr_match_q[i] <= (tlb_entrys[i].key.vppn[18:10] == tlb_op_vaddr_i[31:23]) &&
+          ((tlb_entrys[i].key.vppn[9:0] == tlb_op_vaddr_i[22:13]) || (tlb_entrys[i].key.ps == 6'd22));
+        tlb_inv_asid_match_q[i] <= tlb_entrys[i].key.asid == tlb_op_asid_i;
+      end
+    end
+    always_comb begin
+      tlb_need_inv[i] = '0;
+      if(tlb_inv_op_i == 0 || tlb_inv_op_i == 1) begin
+        tlb_need_inv[i] = '1;
+      end
+      if(tlb_inv_op_i == 2) begin
+        tlb_need_inv[i] = tlb_entrys[i].key.g;
+      end
+      if(tlb_inv_op_i == 3) begin
+        tlb_need_inv[i] = !tlb_entrys[i].key.g;
+      end
+      if(tlb_inv_op_i == 4) begin
+        tlb_need_inv[i] = !tlb_entrys[i].key.g && tlb_inv_asid_match_q[i];
+      end
+      if(tlb_inv_op_i == 5) begin
+        tlb_need_inv[i] = !tlb_entrys[i].key.g && tlb_inv_asid_match_q[i] && tlb_inv_addr_match_q[i];
+      end
+      if(tlb_inv_op_i == 6) begin
+        tlb_need_inv[i] = (tlb_entrys[i].key.g || tlb_inv_asid_match_q[i]) && tlb_inv_addr_match_q[i];
+      end
+    end
+  end
+end
 
 //timer_64
 logic[63:0] timer_64_q;
@@ -743,10 +794,10 @@ logic llbctl_we,llbctl_re;
 assign llbctl_we = csr_we && (csr_w_addr_i == `_CSR_LLBCTL);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    llbctl_q[`_LLBCT_KLO]   <= /*DEFAULT VALUE*/'0;
-    llbctl_q[31:3]          <= 29'b0;
+    llbctl_q[`_LLBCT_KLO] <= /*DEFAULT VALUE*/'0;
+    llbctl_q[31:3]        <= 29'b0;
     // llbctl_q[`_LLBCT_WCLLB] <= 1'b0;
-    llbit_q                 <= 1'b0;
+    llbit_q               <= 1'b0;
   end
   else begin
     if (ertn_valid) begin
@@ -769,7 +820,7 @@ always_ff @(posedge clk) begin
   end
 end
 assign csr_o.llbctl = llbctl_q;
-assign csr_o.llbit = llbit_q;
+assign csr_o.llbit  = llbit_q;
 
 //tlbrentry
 logic tlbrentry_we,tlbrentry_re;
