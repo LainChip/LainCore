@@ -979,18 +979,36 @@ module core_backend (
         m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
 
-        m1_excp_flow.ale = (!(|m1_excp_flow)) && (
+        m1_excp_flow.ale = (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) && (
           (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& (|pipeline_ctrl_m1_q[p].vaddr[1:0])) ||
-          (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]))
-        && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
-        m1_excp_flow.adem = '0;
-        m1_excp_flow.pil  = '0;
-        m1_excp_flow.pis  = '0;
-        m1_excp_flow.pme  = '0;
-        m1_excp_flow.ppi  = '0;
-        m1_excp_flow.tlbr = '0; // TODO: FIXME
-        m1_excp_flow.brk  = pipeline_ctrl_m1_q[p].excp_flow.brk && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
-        m1_excp_flow.sys  = pipeline_ctrl_m1_q[p].excp_flow.sys && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+          (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]));
+        m1_excp_flow.adem = m1_addr_trans_result[p].dmw ? '0 : (
+          (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
+          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31])
+        );
+        m1_excp_flow.tlbr = (
+          (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
+          (!m1_addr_trans_result[p].found && decode_info.need_lsu)
+        ); // TODO: CHECK
+        m1_excp_flow.pis = (
+          (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
+          (!m1_addr_trans_result[p].value.v && decode_info.mem_write)
+        ); // TODO: CHECK
+        m1_excp_flow.pil = (
+          (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
+          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu)
+        ); // TODO: CHECK
+        m1_excp_flow.ppi = (
+          (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
+          (m1_addr_trans_result[p].value.plv == 2'b00 && csr_value.crmd[`PLV] == 2'd3
+            && decode_info.need_lsu)
+        ); // TODO: CHECK
+        m1_excp_flow.pme = (
+          (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
+          (!m1_addr_trans_result[p].value.d && decode_info.mem_write)
+        ); // TODO: CHECK
+        m1_excp_flow.brk = pipeline_ctrl_m1_q[p].excp_flow.brk && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.sys = pipeline_ctrl_m1_q[p].excp_flow.sys && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
       end
 
       // 接入暂停请求

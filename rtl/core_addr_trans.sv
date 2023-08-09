@@ -94,7 +94,7 @@ module core_addr_trans #(
 
     dmw0_vseg               = csr_i.dmw0[`VSEG];
     dmw0_kseg               = csr_i.dmw0[`PSEG];
-    dmw0_fake_tlb.dmw       = 1'b1;
+    dmw0_fake_tlb.dmw       = dmw0_hit;
     dmw0_fake_tlb.found     = dmw0_hit;
     dmw0_fake_tlb.index     = 5'd0;
     dmw0_fake_tlb.ps        = 6'd12;
@@ -106,7 +106,7 @@ module core_addr_trans #(
 
     dmw1_vseg               = csr_i.dmw1[`VSEG];
     dmw1_kseg               = csr_i.dmw1[`PSEG];
-    dmw1_fake_tlb.dmw       = 1'b1;
+    dmw1_fake_tlb.dmw       = dmw1_hit;
     dmw1_fake_tlb.found     = dmw1_hit;
     dmw1_fake_tlb.index     = 5'd0;
     dmw1_fake_tlb.ps        = 6'd12;
