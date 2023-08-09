@@ -74,7 +74,7 @@ module core_frontend (
 
   // NPC 模块
   logic paddr_ready;
-  logic[31:0] pc_vaddr;
+  logic[31:0] pc_vaddr, npc_vaddr;
   logic[31:0] f_pc;
   logic[1:0] f_valid;
   bpu_predict_t [1:0] f_predict   ;
@@ -129,10 +129,11 @@ module core_frontend (
   assign f_ppc    = {trans_result.value.ppn, f_pc[11:0]};
   assign uncached = trans_result.value.mat != 2'b01;
   always_comb begin
+    m_excp      = '0;
     m_excp.adef = (|f_ppc[1:0]) || (trans_result.dmw ? '0 :
       ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f_pc[31]));
     m_excp.tlbr = (!m_excp) && !trans_result.found;
-    m_excp.pif  = (!m_excp) && trans_result.value.v;
+    m_excp.pif  = (!m_excp) && !trans_result.value.v;
     m_excp.ppi  = (!m_excp) && (trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
     // m_excp.ipe = (!m_excp) && (trans_result.value.plv == 2'd0 &&
     // frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
@@ -141,15 +142,15 @@ module core_frontend (
     .ENABLE_TLB('1), // TODO: PARAMETERIZE ME
     .FETCH_ADDR('1)
   ) core_iaddr_trans_inst (
-    .clk             (clk                    ),
-    .rst_n           (rst_n                  ),
-    .valid_i         (|f_valid               ),
-    .vaddr_i         (npc_vaddr              ),
-    .m1_stall_i      (f_stall                ),
-    .ready_o         (paddr_ready            ),
-    .csr_i           (frontend_resp_i.csr_reg),
-    .tlb_update_req_i(tlb_update_req_i       ),
-    .trans_result_o  (trans_result           )
+    .clk             (clk                               ),
+    .rst_n           (rst_n                             ),
+    .valid_i         (|f_valid                          ),
+    .vaddr_i         (npc_vaddr                         ),
+    .m1_stall_i      (f_stall && !frontend_resp_i.rst_jmp),
+    .ready_o         (paddr_ready                       ),
+    .csr_i           (frontend_resp_i.csr_reg           ),
+    .tlb_update_req_i(tlb_update_req_i                  ),
+    .trans_result_o  (trans_result                      )
   );
   logic[31:0] ppc_nc;
   core_ifetch #(.ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t))) ifetch_inst (

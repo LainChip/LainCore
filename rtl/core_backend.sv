@@ -742,15 +742,15 @@ module core_backend (
         // TODO: CACOP IN HIT IS NOT A PRIVILIGE INST
         ex_excp_flow.ipe = csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
 
-        ex_excp_flow.adef  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
-        ex_excp_flow.itlbr = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
-        ex_excp_flow.pif   = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.pif & exc_ex_q[p].need_commit;
-        ex_excp_flow.ippi  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
+        ex_excp_flow.adef  = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.adef && exc_ex_q[p].need_commit;
+        ex_excp_flow.itlbr = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.tlbr && exc_ex_q[p].need_commit;
+        ex_excp_flow.pif   = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.pif && exc_ex_q[p].need_commit;
+        ex_excp_flow.ippi  = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.ppi && exc_ex_q[p].need_commit;
 
         // TODO: INVALID TLBINV
-        ex_excp_flow.ine = ~(|ex_excp_flow) & decode_info.invalid_inst & exc_ex_q[p].need_commit;
-        ex_excp_flow.sys = ~(|ex_excp_flow) & decode_info.syscall_inst & exc_ex_q[p].need_commit;
-        ex_excp_flow.brk = ~(|ex_excp_flow) & decode_info.break_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.ine = (~(|ex_excp_flow)) && decode_info.invalid_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.sys = (~(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.brk =( ~(|ex_excp_flow)) && decode_info.break_inst && exc_ex_q[p].need_commit;
 
       end
       // EX 的额外部分
