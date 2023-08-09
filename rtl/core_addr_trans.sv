@@ -136,6 +136,7 @@ module core_addr_trans #(
       );
     end
   end
+
   assign ready_o = 1'b1;
 
 endmodule

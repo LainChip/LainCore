@@ -740,10 +740,15 @@ module core_backend (
         ex_excp_flow.ale   = '0;
         ex_excp_flow.tlbr  = '0;
 
+        // TODO: CACOP IN HIT IS NOT A PRIVILIGE INST
+        ex_excp_flow.ipe   = csr_value.crmd[`PLV] = = 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
+
         ex_excp_flow.adef  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
         ex_excp_flow.itlbr = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
         ex_excp_flow.pif   = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.pif & exc_ex_q[p].need_commit;
         ex_excp_flow.ippi  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
+
+        // TODO: INVALID TLBINV
         ex_excp_flow.ine   = ~(|ex_excp_flow) & decode_info.invalid_inst & exc_ex_q[p].need_commit;
         ex_excp_flow.sys   = ~(|ex_excp_flow) & decode_info.syscall_inst & exc_ex_q[p].need_commit;
         ex_excp_flow.brk   = ~(|ex_excp_flow) & decode_info.break_inst & exc_ex_q[p].need_commit;
@@ -972,12 +977,20 @@ module core_backend (
       always_comb begin
         // 按照产生优先级排序
         m1_excp_flow       = '0;
-        m1_excp_flow.m1int = csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]); // TODO: FIXME
-        m1_excp_flow.adef  = pipeline_ctrl_m1_q[p].excp_flow.adef && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
-        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
-        m1_excp_flow.pif   = pipeline_ctrl_m1_q[p].excp_flow.pif && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
-        m1_excp_flow.ippi  = pipeline_ctrl_m1_q[p].excp_flow.ippi && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
-        m1_excp_flow.ine   = pipeline_ctrl_m1_q[p].excp_flow.ine && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.m1int = csr_m1_int
+          && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]); // TODO: FIXME
+        m1_excp_flow.ipe = pipeline_ctrl_m1_q[p].excp_flow.ipe &&
+          !csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]); // TODO: FIXME
+        m1_excp_flow.adef = pipeline_ctrl_m1_q[p].excp_flow.adef &&
+          !csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.itlbr = pipeline_ctrl_m1_q[p].excp_flow.itlbr &&
+          !csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.pif = pipeline_ctrl_m1_q[p].excp_flow.pif &&
+          !csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.ippi = pipeline_ctrl_m1_q[p].excp_flow.ippi &&
+          !csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
+        m1_excp_flow.ine = pipeline_ctrl_m1_q[p].excp_flow.ine &&
+          !csr_m1_int && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
 
         m1_excp_flow.ale = (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) && (
           (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& (|pipeline_ctrl_m1_q[p].vaddr[1:0])) ||

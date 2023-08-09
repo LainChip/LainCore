@@ -299,7 +299,7 @@ module core_npc (
 
   // valid_o 逻辑
   always_comb begin
-    valid_o = valid_q;
+    valid_o = valid_q & {!f_stall_i, !f_stall_i};
     if(inst_0_jmp) begin
       valid_o[1] = '0;
     end

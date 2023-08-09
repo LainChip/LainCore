@@ -125,10 +125,10 @@ typedef struct packed {
   logic tlbr;
   logic pif ;
   logic ppi ;
-  logic ipe ;
 } fetch_excp_t;
 typedef struct packed {
   logic m1int;
+  logic ipe  ;
   logic pil  ;
   logic pis  ;
   logic pme  ;

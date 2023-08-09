@@ -19,7 +19,7 @@ module core_ifetch#(
   input  logic [31:0] ppc_i,
   input  logic [ATTACHED_INFO_WIDTH - 1 : 0] attached_i,
 
-  input  logic paddr_valid_i,
+  input  logic paddr_valid_i, // 这个值必须始终为 1，不然目前的 cache 无法处理。
   input  logic uncached_i,
 
   output logic [31:0]vpc_o,
@@ -97,6 +97,7 @@ logic[1:0][31:0] refill_data_q;
 logic skid_q;
 
 i_tag_t tram_rdata,tram_wdata;
+i_tag_t f1_tag;
 logic[7:0] tram_raddr;
 logic tram_we;
 logic[7:0] tram_waddr;

@@ -64,7 +64,7 @@ else begin
   always_ff@(posedge clk) begin
     if(!f_stall_i) begin
       paddr_q[28:0]     <= vaddr_i[28:0];
-      paddr_q[31:29]    <= da_mode?vaddr_i[31:29] : (dmw0_hit ? dmw0_pseg : dmw1_pseg);
+      paddr_q[31:29]    <= da_mode ? vaddr_i[31:29] : (dmw0_hit ? dmw0_pseg : dmw1_pseg);
       fetch_excp_o.adef <= (|vaddr_i[1:0]) || (!da_mode && !dmw0_hit && !dmw1_hit)/* || (da_mode && plv3 && vaddr_i[31])*/;
       uncached_o        <= uncached;
     end

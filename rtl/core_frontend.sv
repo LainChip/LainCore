@@ -73,14 +73,15 @@ module core_frontend (
   end
 
   // NPC 模块
+  logic paddr_ready;
   logic[31:0] pc_vaddr;
   logic[31:0] f_pc;
   logic[1:0] f_valid;
-  bpu_predict_t [1:0] f_predict;
-  logic         f_stall     ;
-  logic         icache_ready,icache_stall;
-  logic         mimo_ready  ;
-  assign f_stall      = !icache_ready | !mimo_ready | idle_lock;
+  bpu_predict_t [1:0] f_predict   ;
+  logic               f_stall     ;
+  logic               icache_ready,icache_stall;
+  logic               mimo_ready  ;
+  assign f_stall      = !icache_ready | !mimo_ready | idle_lock | !paddr_ready;
   assign icache_stall = !icache_ready | !mimo_ready;
   assign f_pc         = pc_vaddr;
   core_npc npc_inst (
@@ -90,6 +91,7 @@ module core_frontend (
     .rst_target(frontend_resp_i.rst_jmp_target),
     .f_stall_i (f_stall                       ),
     .pc_o      (pc_vaddr                      ),
+    .npc_o     (npc_vaddr                     ),
     .valid_o   (f_valid                       ),
     .predict_o (f_predict                     ),
     .correct_i (frontend_resp_i.bpu_correct   )
@@ -118,37 +120,40 @@ module core_frontend (
   logic[31:0] m_pc;
   logic[1:0] m_valid;
   bpu_predict_t[1:0] m_predict;
-  fetch_excp_t  m_excp   ;
   logic[1:0][31:0] m_inst;
 
-  logic paddr_ready;
-  logic[31:0] f_ppc;
-
-  logic [19:0] tlb_req_vppn; // TODO: CONNECT ME
-  logic        tlb_req_valid,tlb_req_ready; // TODO: CONNECT ME
-  tlb_s_resp_t tlb_resp     ;
-
-  logic uncached;
-  core_iaddr_trans #(.ENABLE_TLB(1'b0)) iaddr_trans_inst (
-    .clk            (clk                    ),
-    .rst_n          (rst_n                  ),
-    .valid_i        (|f_valid               ),
-    .vaddr_i        (f_pc                   ),
-    .f_stall_i      (!icache_ready          ),
-    .ready_o        (paddr_ready            ),
-    .paddr_o        (f_ppc                  ),
-    .fetch_excp_o   (m_excp                 ),
-    .csr_i          (frontend_resp_i.csr_reg),
-    .flush_i        ('0 /*TODO: CONNECT ME*/),
-    .uncached_o     (uncached               ),
-    .tlb_req_vppn   (tlb_req_vppn           ),
-    .tlb_req_valid_o(tlb_req_valid          ),
-    .tlb_req_ready_i(tlb_req_ready          ), // TODO: CONNECT ME
-    .tlb_resp_i     (tlb_resp               )
+  tlb_s_resp_t trans_result;
+  fetch_excp_t m_excp      ; // TODO: check me
+  logic[31:0] f_ppc;   // TODO: check me
+  logic uncached; // TODO: check me
+  assign f_ppc    = {trans_result.value.ppn, f_pc[11:0]};
+  assign uncached = trans_result.value.mat != 2'b01;
+  always_comb begin
+    m_excp.adef = (|f_ppc[1:0]) || (trans_result.dmw ? '0 :
+      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f_pc[31]));
+    m_excp.tlbr = (!m_excp) && !trans_result.found;
+    m_excp.pif  = (!m_excp) && trans_result.value.v;
+    m_excp.ppi  = (!m_excp) && (trans_result.value.plv == 2'd0 &&
+      frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
+    // m_excp.ipe = (!m_excp) && (trans_result.value.plv == 2'd0 &&
+    // frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
+  end
+  core_addr_trans #(
+    .ENABLE_TLB('1), // TODO: PARAMETERIZE ME
+    .FETCH_ADDR('1)
+  ) core_iaddr_trans_inst (
+    .clk             (clk                    ),
+    .rst_n           (rst_n                  ),
+    .valid_i         (|f_valid               ),
+    .vaddr_i         (npc_vaddr              ),
+    .m1_stall_i      (f_stall                ),
+    .ready_o         (paddr_ready            ),
+    .csr_i           (frontend_resp_i.csr_reg),
+    .tlb_update_req_i(tlb_update_req_i       ),
+    .trans_result_o  (trans_result           )
   );
-
   logic[31:0] ppc_nc;
-  core_ifetch #(.ATTACHED_INFO_WIDTH(2 * $bits(bpu_predict_t))) ifetch_inst (
+  core_ifetch #(.ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t))) ifetch_inst (
     .clk            (clk                     ),
     .rst_n          (rst_n                   ),
     .cacheop_i      (icacheop                ),
@@ -159,7 +164,7 @@ module core_frontend (
     .vpc_i          (f_pc                    ),
     .attached_i     (f_predict               ),
     .ppc_i          (f_ppc                   ),
-    .paddr_valid_i  (paddr_ready             ),
+    .paddr_valid_i  (/**/    1'b1            ),
     .uncached_i     (uncached                ),
     .vpc_o          (m_pc                    ),
     .ppc_o          (ppc_nc                  ),
