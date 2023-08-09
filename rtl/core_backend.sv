@@ -237,9 +237,9 @@ module core_backend (
     // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
     logic[1:0] m1_lsu_busy,m2_lsu_busy;
     always_comb begin
-      ex_stall = |ex_stall_req | |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
-      m1_stall = |m1_stall_req | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
-      m2_stall = |m2_stall_req | |wb_stall_req | |m2_lsu_busy;
+      ex_stall = |ex_stall_req | |m1_stall_req         | !&m1_addr_trans_ready | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
+      m1_stall = |m1_stall_req | !&m1_addr_trans_ready | |m2_stall_req         | |wb_stall_req | |m1_lsu_busy  | |m2_lsu_busy;
+      m2_stall = |m2_stall_req | |wb_stall_req         | |m2_lsu_busy;
       wb_stall = |wb_stall_req;
     end
 
@@ -257,7 +257,7 @@ module core_backend (
     end
     assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
     assign frontend_resp_o.rst_jmp_target = m2_jump_target_q;
-    assign frontend_resp_o.bpu_correct = m2_bpu_feedback_q;
+    assign frontend_resp_o.bpu_correct    = m2_bpu_feedback_q;
 
 
     // INVALIDATE MANAGER
@@ -406,38 +406,38 @@ module core_backend (
     logic[31:0] mul_r0,mul_r1;
     logic[1:0][31:0] mul_result;
     always_comb begin
-      mul_op = mul_req[0] ? mul_op_req[0] : mul_op_req[1];
-      mul_r0 = mul_req[0] ? mul_r0_req[0] : mul_r0_req[1];
-      mul_r1 = mul_req[0] ? mul_r1_req[0] : mul_r1_req[1];
+      mul_op        = mul_req[0] ? mul_op_req[0] : mul_op_req[1];
+      mul_r0        = mul_req[0] ? mul_r0_req[0] : mul_r0_req[1];
+      mul_r1        = mul_req[0] ? mul_r1_req[0] : mul_r1_req[1];
       mul_result[1] = mul_result[0];
     end
-    muler_32x32 mul_i (
-        .clk       (clk       ),
-        .rst_n     (rst_n     ),
-        .op_i      (mul_op),
-        
-        .ex_stall_i(ex_stall  ),
-        .m1_stall_i(m1_stall  ),
-        .m2_stall_i(m2_stall  ),
-        
-        .r0_i      (mul_r0),
-        .r1_i      (mul_r1),
-        
-        .result_o  (mul_result[0])
-      );
+  muler_32x32 mul_i (
+    .clk       (clk          ),
+    .rst_n     (rst_n        ),
+    .op_i      (mul_op       ),
+    
+    .ex_stall_i(ex_stall     ),
+    .m1_stall_i(m1_stall     ),
+    .m2_stall_i(m2_stall     ),
+    
+    .r0_i      (mul_r0       ),
+    .r1_i      (mul_r1       ),
+    
+    .result_o  (mul_result[0])
+  );
     // for(genvar p = 0; p < 2 ; p++) begin
     //   muler_32x32 mul_i (
     //     .clk       (clk       ),
     //     .rst_n     (rst_n     ),
     //     .op_i      (mul_op_req[p]),
-        
+
     //     .ex_stall_i(ex_stall  ),
     //     .m1_stall_i(m1_stall  ),
     //     .m2_stall_i(m2_stall  ),
-        
+
     //     .r0_i      (mul_r0_req[p]),
     //     .r1_i      (mul_r1_req[p]),
-        
+
     //     .result_o  (mul_result[p])
     //   );
     // end
@@ -487,35 +487,32 @@ module core_backend (
 
     // CACHE | MMU opcode 接入
     logic[4:0] ctlb_opcode;
-    logic flush_trans;
-    assign flush_trans = '0; // TODO: FIXME
 
     // CSR output
     csr_t csr_value;
     assign frontend_resp_o.csr_reg = csr_value;
-    logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready;
+    logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready; // TODO: CONNECT ME
     logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CONNECT ME
     tlb_s_resp_t[1:0] addr_tlb_resp;
     tlb_s_resp_t[1:0] m1_addr_trans_result;
-    for(genvar p = 0 ; p < 2 ; p++) begin : DADDR_TRANS
 
-      core_daddr_trans # (
-        .ENABLE_TLB('0),
-        .SUPPORT_32_PADDR('1)
-      )
-      core_daddr_trans_inst (
-        .clk(clk),
-        .rst_n(rst_n),
-        .valid_i(ex_addr_trans_valid[p]),
-        .vaddr_i(ex_mem_vaddr[p]),
-        .m1_stall_i(m1_stall),
-        .ready_o(m1_addr_trans_ready[p]),
-        .csr_i(csr_value),
-        .flush_trans_i(flush_trans),
-        .tlb_req_valid_o(addr_tlb_req_valid[p]),
-        .tlb_req_ready_i(addr_tlb_req_ready[p]),
-        .tlb_resp_i(addr_tlb_resp[p]),
-        .tlb_raw_result_o(m1_addr_trans_result[p])
+    // tlb 更新信号
+    tlb_update_req_t tlb_update_req;
+
+    for(genvar p = 0 ; p < 2 ; p++) begin : DADDR_TRANS
+      core_addr_trans #(
+        .ENABLE_TLB('1), // TODO: PARAMETERIZE ME
+        .FETCH_ADDR('0)
+      ) core_daddr_trans_inst (
+        .clk             (clk                    ),
+        .rst_n           (rst_n                  ),
+        .valid_i         (ex_addr_trans_valid[p] ),
+        .vaddr_i         (ex_mem_vaddr[p]        ),
+        .m1_stall_i      (m1_stall               ),
+        .ready_o         (m1_addr_trans_ready[p] ),
+        .csr_i           (csr_value              ),
+        .tlb_update_req_i(tlb_update_req         ),
+        .trans_result_o  (m1_addr_trans_result[p])
       );
     end
 
@@ -550,38 +547,41 @@ module core_backend (
       csr_pc     = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
     end
 
+    core_csr #(.ENABLE_TLB(ENABLE_TLB)//TODO:PARAMETERPASS) core_csr_inst (
+      .clk             (clk                ),
+      .rst_n           (rst_n              ),
+      .int_i           (int_i              ),
+      .excp_i          (csr_excp           ),
+      .ertn_i          (csr_ertn           ),
+      .valid_i         (csr_valid          ),
+      .commit_i        (csr_commit         ),
+      .m2_stall_i      (m2_stall           ),
+      .csr_r_addr_i    (csr_r_addr         ),
+      .rdcnt_i         (csr_rdcnt          ),
+      .csr_we_i        (csr_we             ),
+      .csr_w_addr_i    (csr_w_addr         ),
+      .csr_w_mask_i    (csr_w_mask         ),
+      .csr_w_data_i    (csr_w_data         ),
+      .badv_i          (csr_badv           ),
+      .tlb_op_i        (tlb_op             ),
+      .tlb_op_vaddr_i  (/**/               ),
+      .tlb_op_asid_i   (/**/               ),
+      .tlb_op_i        (tlb_op             ),
+      .tlb_inv_op_i    (/**/               ),
+      .tlb_update_req_o(tlb_update_req     ),
 
-  core_csr core_csr_inst (
-    .clk         (clk                ),
-    .rst_n       (rst_n              ),
-    .int_i       (int_i              ),
-    .excp_i      (csr_excp           ),
-    .ertn_i      (csr_ertn           ),
-    .valid_i     (csr_valid          ),
-    .commit_i    (csr_commit         ),
-    .m2_stall_i  (m2_stall           ),
-    .csr_r_addr_i(csr_r_addr         ),
-    .rdcnt_i     (csr_rdcnt          ),
-    .csr_we_i    (csr_we             ),
-    .csr_w_addr_i(csr_w_addr         ),
-    .csr_w_mask_i(csr_w_mask         ),
-    .csr_w_data_i(csr_w_data         ),
-    .badv_i      (csr_badv           ),
-    .tlb_op_i    (tlb_op             ),
-    .tlb_srch_i  (/*TODO*/'0         ),
-    .tlb_entry_i (/*TODO*/'0         ),
-    .llbit_set_i (/*TODO*/'0         ),
-    .llbit_i     (/*TODO*/'0         ),
-    
-    .pc_i        (csr_pc             ),
-    .vaddr_i     (csr_badv           ),
-    
-    .m1_commit_i (csr_m1_commit_valid),
-    .m1_int_o    (csr_m1_int         ),
-    
-    .csr_r_data_o(csr_r_data         ),
-    .csr_o       (csr_value          )
-  );
+      .llbit_set_i     (/*TODO*/'0         ),
+      .llbit_i         (/*TODO*/'0         ),
+
+      .pc_i            (csr_pc             ),
+      .vaddr_i         (csr_badv           ),
+
+      .m1_commit_i     (csr_m1_commit_valid),
+      .m1_int_o        (csr_m1_int         ),
+
+      .csr_r_data_o    (csr_r_data         ),
+      .csr_o           (csr_value          )
+    );
     assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
@@ -863,56 +863,56 @@ module core_backend (
 
       // M1 的额外部分
       // 跳转的处理：TODO 完成相关模块
-      logic         m1_branch_jmp_req  ;
-      logic   [1:0] target_type; // TODO: CONNECT ME
-      logic  [31:0] true_bpu_target;
+      logic        m1_branch_jmp_req;
+      logic [ 1:0] target_type      ; // TODO: CONNECT ME
+      logic [31:0] true_bpu_target  ;
     core_jmp m1_cmp (
-      .clk          (clk                                                           ),
-      .rst_n        (rst_n                                                         ),
-      .valid_i      (!m1_stall && exc_m1_q[p].need_commit                          ),
-      .target_type_i(target_type                                                   ),
-      .cmp_type_i   (decode_info.cmp_type                                          ),
-      .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict                             ),
-      .bpu_correct_o(m1_bpu_feedback_req[p]                                        ),
-      .pc_i         (pipeline_ctrl_m1_q[p].pc                                      ),
-      .target_i     (pipeline_ctrl_m1_q[p].jump_target                             ),
-      .target_o     (true_bpu_target                                               ),
-      .r0_i         (pipeline_data_m1_q[p].r_data[0]                               ),
-      .r1_i         (pipeline_data_m1_q[p].r_data[1]                               ),
-      .jmp_o        (m1_branch_jmp_req                                             )
+      .clk          (clk                                 ),
+      .rst_n        (rst_n                               ),
+      .valid_i      (!m1_stall && exc_m1_q[p].need_commit),
+      .target_type_i(target_type                         ),
+      .cmp_type_i   (decode_info.cmp_type                ),
+      .bpu_predict_i(pipeline_ctrl_m1_q[p].bpu_predict   ),
+      .bpu_correct_o(m1_bpu_feedback_req[p]              ),
+      .pc_i         (pipeline_ctrl_m1_q[p].pc            ),
+      .target_i     (pipeline_ctrl_m1_q[p].jump_target   ),
+      .target_o     (true_bpu_target                     ),
+      .r0_i         (pipeline_data_m1_q[p].r_data[0]     ),
+      .r1_i         (pipeline_data_m1_q[p].r_data[1]     ),
+      .jmp_o        (m1_branch_jmp_req                   )
     );
 
-    always_comb begin
-      target_type = '0;
-      if(decode_info.need_bpu && pipeline_wdata_m1[p].w_flow.w_addr == 5'd1) begin // 1 -> CALL JIRL BL
-        target_type = 2'd1;
-      end else if(decode_info.need_bpu && pipeline_data_m1_q[p].r_flow.r_addr[1] == 5'd1) begin // 2 -> RETURN
-        target_type = 2'd2;
-      end else if(decode_info.need_bpu) begin  // 3 -> IMM
-        target_type = 2'd3;
+      always_comb begin
+        target_type = '0;
+        if(decode_info.need_bpu && pipeline_wdata_m1[p].w_flow.w_addr == 5'd1) begin // 1 -> CALL JIRL BL
+          target_type = 2'd1;
+        end else if(decode_info.need_bpu && pipeline_data_m1_q[p].r_flow.r_addr[1] == 5'd1) begin // 2 -> RETURN
+          target_type = 2'd2;
+        end else if(decode_info.need_bpu) begin  // 3 -> IMM
+          target_type = 2'd3;
+        end
       end
-    end
 
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
       // assign m1_mem_uncached[p] = 1'b1; // TODO: FIXME
       // assign m1_mem_uncached[p] = 1'b0; // TODO: FIXME
-      assign m1_mem_vaddr[p]  = pipeline_ctrl_m1_q[p].vaddr;
-      assign m1_mem_paddr[p]  = paddr;
-      assign m1_mem_strobe[p] = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
+      assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
+      assign m1_mem_paddr[p]    = paddr;
+      assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
       // 异常的处理：完成相关模块
       logic local_excp_detect;
-    core_excp_handler m1_excp (
-      .clk        (clk                  ),
-      .rst_n      (rst_n                ),
-      .csr_i      (csr_value            ),
-      .valid_i    (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit
-                   && (p == 0 ? 1'b1 : !m1_invalidate_req[0])), 
-      .ertn_inst_i(decode_info.ertn_inst),
-      .excp_flow_i(m1_excp_flow         ),
-      .target_o   (excp_target          ),
-      .trigger_o  (local_excp_detect    )
-    );
+      core_excp_handler m1_excp (
+        .clk        (clk                  ),
+        .rst_n      (rst_n                ),
+        .csr_i      (csr_value            ),
+        .valid_i    (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit
+          && (p == 0 ? 1'b1 : !m1_invalidate_req[0])),
+        .ertn_inst_i(decode_info.ertn_inst),
+        .excp_flow_i(m1_excp_flow         ),
+        .target_o   (excp_target          ),
+        .trigger_o  (local_excp_detect    )
+      );
       // assign m1_excp_detect[p] = p == 0 ? local_excp_detect :
       // (local_excp_detect && !m1_invalidate_req[0]);/
       assign m1_excp_detect[p] = local_excp_detect;

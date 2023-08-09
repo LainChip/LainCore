@@ -54,8 +54,8 @@ end
 
 // FOR TLB INST
 logic[4:0] tlb_srch_idx_q;
-tlb_entry_t tlb_r_entry_q   ;
 logic       tlb_srch_valid_q;
+tlb_entry_t tlb_r_entry_q   ;
 
 if(ENABLE_TLB) begin
   tlb_entry_t [TLB_ENTRY_NUM-1:0] tlb_entrys;
@@ -280,8 +280,8 @@ logic tlbrd_valid_wr_en, tlbrd_invalid_wr_en;
 
 logic va_error;
 assign va_error            = excp_tlbr | excp_adef | excp_adem | excp_ale | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi;
-assign tlbrd_valid_wr_en   = tlb_op_i.tlbrd && tlb_entry_i.key.e;
-assign tlbrd_invalid_wr_en = tlb_op_i.tlbrd && !tlb_entry_i.key.e;
+assign tlbrd_valid_wr_en   = tlb_op_i.tlbrd && tlb_r_entry_q.key.e;
+assign tlbrd_invalid_wr_en = tlb_op_i.tlbrd && !tlb_r_entry_q.key.e;
 // csr register
 logic [31:0] crmd_q     ;
 logic [31:0] prmd_q     ;
@@ -540,8 +540,8 @@ always_ff @(posedge clk) begin
       tlbidx_q[`_TLBIDX_NE]    <= csr_w_data[`_TLBIDX_NE];
     end
     else if (tlb_op_i.tlbsrch) begin
-      if (tlb_srch_i.found) begin
-        tlbidx_q[`_TLBIDX_INDEX] <= tlb_srch_i.index;
+      if (tlb_srch_valid_q) begin
+        tlbidx_q[`_TLBIDX_INDEX] <= tlb_srch_idx_q;
         tlbidx_q[`_TLBIDX_NE]    <= 1'b0;
       end
       else begin
@@ -549,12 +549,12 @@ always_ff @(posedge clk) begin
       end
     end
     else if (tlbrd_valid_wr_en) begin
-      tlbidx_q[`_TLBIDX_PS] <= tlb_entry_i.key.ps;
-      tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.key.e;
+      tlbidx_q[`_TLBIDX_PS] <= tlb_r_entry_q.key.ps;
+      tlbidx_q[`_TLBIDX_NE] <= ~tlb_r_entry_q.key.e;
     end
     else if (tlbrd_invalid_wr_en) begin
       tlbidx_q[`_TLBIDX_PS] <= 6'b0;
-      tlbidx_q[`_TLBIDX_NE] <= ~tlb_entry_i.key.e;
+      tlbidx_q[`_TLBIDX_NE] <= ~tlb_r_entry_q.key.e;
     end
   end
 end
@@ -572,7 +572,7 @@ always_ff @(posedge clk) begin
       tlbehi_q[`_TLBEHI_VPPN] <= csr_w_data[`_TLBEHI_VPPN];
     end
     else if (tlbrd_valid_wr_en) begin
-      tlbehi_q[`_TLBEHI_VPPN] <= tlb_entry_i.key.vppn;
+      tlbehi_q[`_TLBEHI_VPPN] <= tlb_r_entry_q.key.vppn;
     end
     else if (tlbrd_invalid_wr_en) begin
       tlbehi_q[`_TLBEHI_VPPN] <= '0;
@@ -602,12 +602,12 @@ always_ff @(posedge clk) begin
       tlbelo0_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
     end
     else if (tlbrd_valid_wr_en) begin
-      tlbelo0_q[`_TLBELO_TLB_V]   <= tlb_entry_i.value[0].v;
-      tlbelo0_q[`_TLBELO_TLB_D]   <= tlb_entry_i.value[0].d;
-      tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.value[0].plv;
-      tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.value[0].mat;
-      tlbelo0_q[`_TLBELO_TLB_G]   <= tlb_entry_i.key.g;
-      tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.value[0].ppn;
+      tlbelo0_q[`_TLBELO_TLB_V]   <= tlb_r_entry_q.value[0].v;
+      tlbelo0_q[`_TLBELO_TLB_D]   <= tlb_r_entry_q.value[0].d;
+      tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_r_entry_q.value[0].plv;
+      tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_r_entry_q.value[0].mat;
+      tlbelo0_q[`_TLBELO_TLB_G]   <= tlb_r_entry_q.key.g;
+      tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_r_entry_q.value[0].ppn;
     end
     else if (tlbrd_invalid_wr_en) begin
       tlbelo0_q[`_TLBELO_TLB_V]   <= '0;
@@ -639,12 +639,12 @@ always_ff @(posedge clk) begin
       tlbelo1_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
     end
     else if (tlbrd_valid_wr_en) begin
-      tlbelo1_q[`_TLBELO_TLB_V]   <= tlb_entry_i.value[1].v;
-      tlbelo1_q[`_TLBELO_TLB_D]   <= tlb_entry_i.value[1].d;
-      tlbelo1_q[`_TLBELO_TLB_PLV] <= tlb_entry_i.value[1].plv;
-      tlbelo1_q[`_TLBELO_TLB_MAT] <= tlb_entry_i.value[1].mat;
-      tlbelo1_q[`_TLBELO_TLB_G]   <= tlb_entry_i.key.g;
-      tlbelo1_q[`_TLBELO_TLB_PPN] <= tlb_entry_i.value[1].ppn;
+      tlbelo1_q[`_TLBELO_TLB_V]   <= tlb_r_entry_q.value[1].v;
+      tlbelo1_q[`_TLBELO_TLB_D]   <= tlb_r_entry_q.value[1].d;
+      tlbelo1_q[`_TLBELO_TLB_PLV] <= tlb_r_entry_q.value[1].plv;
+      tlbelo1_q[`_TLBELO_TLB_MAT] <= tlb_r_entry_q.value[1].mat;
+      tlbelo1_q[`_TLBELO_TLB_G]   <= tlb_r_entry_q.key.g;
+      tlbelo1_q[`_TLBELO_TLB_PPN] <= tlb_r_entry_q.value[1].ppn;
     end
     else if (tlbrd_invalid_wr_en) begin
       tlbelo1_q[`_TLBELO_TLB_V]   <= '0;
@@ -670,7 +670,7 @@ always_ff @(posedge clk) begin
       asid_q[`_ASID] <= csr_w_data[`_ASID];
     end
     else if (tlbrd_valid_wr_en) begin
-      asid_q[`_ASID] <= tlb_entry_i.key.asid;
+      asid_q[`_ASID] <= tlb_r_entry_q.key.asid;
     end
     else if (tlbrd_invalid_wr_en) begin
       asid_q[`_ASID] <= 10'b0;
