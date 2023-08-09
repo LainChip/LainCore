@@ -59,7 +59,6 @@ module core_frontend (
 
   // IDLE WAIT逻辑
   // 当出现idle指令的时候，刷新整条流水线到idle + 4的位置，并在前端停住整条流水线，以降低执行功耗。
-  logic wait_i,int_i;
   logic idle_lock;
   always @(posedge clk) begin
     if (~rst_n) begin
@@ -164,7 +163,7 @@ module core_frontend (
     .uncached_i     (uncached                ),
     .vpc_o          (m_pc                    ),
     .ppc_o          (ppc_nc                  ),
-    .ready_i        (mimo_ready              ),
+    .ready_i        (mimo_ready && !idle_lock),
     .valid_o        (m_valid                 ),
     .attached_o     (m_predict               ),
     .inst_o         (m_inst                  ),
