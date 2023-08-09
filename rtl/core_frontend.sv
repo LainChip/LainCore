@@ -123,19 +123,19 @@ module core_frontend (
   logic[1:0][31:0] m_inst;
 
   tlb_s_resp_t trans_result;
-  fetch_excp_t m_excp      ; // TODO: check me
+  fetch_excp_t f_excp, m_excp      ; // TODO: check me
   logic[31:0] f_ppc;   // TODO: check me
   logic uncached; // TODO: check me
   assign f_ppc    = {trans_result.value.ppn, f_pc[11:0]};
   assign uncached = trans_result.value.mat != 2'b01;
   always_comb begin
-    m_excp      = '0;
-    m_excp.adef = (|f_ppc[1:0]) || (trans_result.dmw ? '0 :
+    f_excp      = '0;
+    f_excp.adef = (|f_ppc[1:0]) || (trans_result.dmw ? '0 :
       ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f_pc[31]));
-    m_excp.tlbr = (!m_excp) && !trans_result.found;
-    m_excp.pif  = (!m_excp) && !trans_result.value.v;
-    m_excp.ppi  = (!m_excp) && (trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
-    // m_excp.ipe = (!m_excp) && (trans_result.value.plv == 2'd0 &&
+    f_excp.tlbr = (!f_excp) && !trans_result.found;
+    f_excp.pif  = (!f_excp) && !trans_result.value.v;
+    f_excp.ppi  = (!f_excp) && (trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
+    // f_excp.ipe = (!f_excp) && (trans_result.value.plv == 2'd0 &&
     // frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
   end
   core_addr_trans #(
@@ -153,7 +153,7 @@ module core_frontend (
     .trans_result_o  (trans_result                      )
   );
   logic[31:0] ppc_nc;
-  core_ifetch #(.ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t))) ifetch_inst (
+  core_ifetch #(.ATTACHED_INFO_WIDTH(2 * $bits(bpu_predict_t) + $bits(fetch_excp_t))) ifetch_inst (
     .clk            (clk                     ),
     .rst_n          (rst_n                   ),
     .cacheop_i      (icacheop                ),
@@ -162,7 +162,7 @@ module core_frontend (
     .valid_i        (f_valid                 ),
     .ready_o        (icache_ready            ),
     .vpc_i          (f_pc                    ),
-    .attached_i     (f_predict               ),
+    .attached_i     ({f_predict, f_excp}     ),
     .ppc_i          (f_ppc                   ),
     .paddr_valid_i  (/**/    1'b1            ),
     .uncached_i     (uncached                ),
@@ -170,7 +170,7 @@ module core_frontend (
     .ppc_o          (ppc_nc                  ),
     .ready_i        (mimo_ready && !idle_lock),
     .valid_o        (m_valid                 ),
-    .attached_o     (m_predict               ),
+    .attached_o     ({m_predict, m_excp}     ),
     .inst_o         (m_inst                  ),
     .clr_i          (frontend_resp_i.rst_jmp ),
     .bus_busy_i     (frontend_resp_i.bus_busy),

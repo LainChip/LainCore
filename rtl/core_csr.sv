@@ -39,9 +39,16 @@ module core_csr #(
   input logic m1_commit_i,
   output logic m1_int_o,
 
+  input logic m2_commit_i,
+
   output logic[31:0] csr_r_data_o,
   output csr_t csr_o
 );
+
+logic m1_commit_i_q;
+always_ff @(posedge clk) begin
+  m1_commit_i_q <= m1_commit_i && m1_int_o;
+end
 
 // TLB 控制模块，执行 TLB 相关指令，产生 tlb_update_req_o 信号控制外部 ADDR_TRANS 模块。
 // 注意，TLB 指令在 M2 级执行，同级会发出 REFETCH 信号。
@@ -188,7 +195,7 @@ assign excp_pif = excp_i.pif;
 logic excp_pme;
 assign excp_pme = excp_i.pme;
 logic excp_ppi;
-assign excp_ppi = excp_i.ppi;
+assign excp_ppi = excp_i.ppi || excp_i.ippi;
 logic excp_adem;
 assign excp_adem = excp_i.adem;
 logic excp_ale;
@@ -200,7 +207,7 @@ assign excp_brk = excp_i.brk;
 logic excp_ine;
 assign excp_ine = excp_i.ine;
 logic excp_ipe;
-assign excp_ipe = excp_i.ippi;
+assign excp_ipe = excp_i.ipe;
 logic excp_tlbr; // TODO: FIXME
 assign excp_tlbr = excp_i.itlbr || excp_i.tlbr;
 logic excp_adef;
@@ -447,13 +454,13 @@ always_ff @(posedge clk) begin
       timer_en <= csr_w_data[`_TCFG_EN];
     end
     // else if (timer_en && (tval_q == 32'b0)) begin
-    else if (timer_intr_q && m1_commit_i) begin
+    else if (timer_intr_q && m1_commit_i_q) begin
       estat_q[11] <= 1'b1;
       timer_en    <= tcfg_q[`_TCFG_PERIODIC];
     end
 
     // estat_q[9:2] <= int_i;
-    if(m1_commit_i) begin
+    if(m1_commit_i_q) begin
       estat_q[9:2] <= int_q;
     end
     if (excp_valid) begin
@@ -470,7 +477,7 @@ assign csr_o.estat = estat_q;
 assign m1_int_o    = ({
     (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
     (timer_intr_q ? 1'b1 : estat_q[11]) ,
-    int_q,
+    (|int_q),
     estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
   & {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
 // era
@@ -824,7 +831,7 @@ always_ff @(posedge clk) begin
       if (tval_q != 32'b0) begin
         tval_q <= tval_q - 32'b1;
       end
-      else if (/*tval_q == 32'b0 &&*/ m1_commit_i) begin
+      else if (/*tval_q == 32'b0 &&*/ m1_commit_i_q) begin
         tval_q <= tcfg_q[`_TCFG_PERIODIC] ? {tcfg_q[`_TCFG_INITVAL], 2'b0} : 32'hffffffff;
       end
     end

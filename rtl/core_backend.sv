@@ -523,6 +523,7 @@ module core_backend (
     logic[1:0]  csr_rdcnt          ;
     logic csr_m1_int         ;
     logic csr_m1_commit_valid;
+    logic csr_m2_commit_valid;
 
     // CSR 接入 (M2)
     logic[1:0] csr_excp_req;
@@ -578,10 +579,13 @@ module core_backend (
     .m1_commit_i     (csr_m1_commit_valid            ),
     .m1_int_o        (csr_m1_int                     ),
     
+    .m2_commit_i     (csr_m2_commit_valid            ),
+  
     .csr_r_data_o    (csr_r_data                     ),
     .csr_o           (csr_value                      )
   );
     assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
+    assign csr_m2_commit_valid = exc_m2_q[0].need_commit;
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
 
@@ -740,17 +744,17 @@ module core_backend (
         ex_excp_flow.tlbr  = '0;
 
         // TODO: CACOP IN HIT IS NOT A PRIVILIGE INST
-        ex_excp_flow.ipe = csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.adef  = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.adef && exc_ex_q[p].need_commit;
+        ex_excp_flow.itlbr = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.tlbr && exc_ex_q[p].need_commit;
+        ex_excp_flow.pif   = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.pif && exc_ex_q[p].need_commit;
+        ex_excp_flow.ippi  = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.ppi && exc_ex_q[p].need_commit;
 
-        ex_excp_flow.adef  = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.adef && exc_ex_q[p].need_commit;
-        ex_excp_flow.itlbr = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.tlbr && exc_ex_q[p].need_commit;
-        ex_excp_flow.pif   = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.pif && exc_ex_q[p].need_commit;
-        ex_excp_flow.ippi  = (~(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.ppi && exc_ex_q[p].need_commit;
+        ex_excp_flow.ipe = (!(|ex_excp_flow)) && csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
 
         // TODO: INVALID TLBINV
-        ex_excp_flow.ine = (~(|ex_excp_flow)) && decode_info.invalid_inst && exc_ex_q[p].need_commit;
-        ex_excp_flow.sys = (~(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
-        ex_excp_flow.brk =( ~(|ex_excp_flow)) && decode_info.break_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.ine = (!(|ex_excp_flow)) && decode_info.invalid_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.sys = (!(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.brk = (!(|ex_excp_flow)) && decode_info.break_inst && exc_ex_q[p].need_commit;
 
       end
       // EX 的额外部分
@@ -1260,7 +1264,15 @@ module core_backend (
       csr_skid    <= wb_stall;
       csr_value_q <= csr_skid ? skid_csr_value_q : csr_value;
     end
+    logic [4:0] m2_rand_index, wb_rand_index;
     logic [4:0] debug_rand_index; // TODO: CONNECT ME
+    assign m2_rand_index = core_csr_inst.tlbfill_rnd_idx_q;
+    always_ff @(posedge clk) begin
+      if(!wb_stall) begin
+        wb_rand_index <= m2_rand_index;
+      end
+      debug_rand_index <= wb_rand_index;
+    end
     // WB 的信号，全部打一拍，以等待写操作完成。
     // 注意，csr_value 跟着打一拍
     for(genvar p = 0 ; p < 2 ; p++) begin : DIFFTEST
