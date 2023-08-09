@@ -47,40 +47,78 @@ module core_csr #(
 // 注意，TLB 指令在 M2 级执行，同级会发出 REFETCH 信号。
 // REFETCH 后，需要在前端进行阻塞， addr trans 模块中应有相应 flag 标识当前地址翻译结果是否有效。
 // 当地址翻译结果无效时，新的输入不会被响应，直到 flag 被置为高。
-
+logic[4:0] tlbfill_rnd_idx_q;
+always_ff @(posedge clk) begin
+  tlbfill_rnd_idx_q <= tlbfill_rnd_idx_q + 1;
+end
 if(ENABLE_TLB) begin
   tlb_entry_t [TLB_ENTRY_NUM-1:0] tlb_entrys;
-  logic[TLB_ENTRY_NUM-1:0] tlb_inv_addr_match_q, tlb_inv_asid_match_q, tlb_need_inv;
+  logic[TLB_ENTRY_NUM-1:0] tlb_need_inv, tlb_we;
+  // tlb_entrys 更新逻辑
+  // 只需要响应三条指令：invtlb, tlbfill, tlbwr
+  // 注：不进行硬件复位
+  tlb_entry_t      tlb_w_entry   ;
+  tlb_update_req_t tlb_update_req;
+  assign tlb_update_req_o = tlb_update_req;
+  always_comb begin
+    tlb_update_req.tlb_we = tlb_need_inv;
+    tlb_update_req.tlb_w_entry = tlb_w_entry;
+    if(tlb_op_i.tlbfill) begin
+      tlb_update_req.tlb_we[tlbfill_rnd_idx_q[$clog2(TLB_ENTRY_NUM) - 1 : 0]] = '1;
+    end
+    if(tlb_op_i.tlbwr) begin
+      tlb_update_req.tlb_we[csr_o.tlbidx[$clog2(TLB_ENTRY_NUM) - 1 : 0]] = '1;
+    end
+  end
+  always_comb begin
+    tlb_w_entry.key.vppn = csr_o.tlbehi[31:13];
+    tlb_w_entry.key.ps   = csr_o.tlbidx[29:24]; // P72
+    tlb_w_entry.key.g    = csr_o.tlbelo0[6] && csr_o.tlbelo1[6];
+    tlb_w_entry.key.asid = csr_o.asid[9:0];
+    tlb_w_entry.key.e    = tlb_op_i.invtlb ? '0 :
+      (!csr_o.tlbidx[31] || csr_o.estat[21]); // P73
+
+    tlb_w_entry.value[0].ppn = csr_o.tlbelo0[27:8]; // P74
+    tlb_w_entry.value[0].v   = csr_o.tlbelo0[0];
+    tlb_w_entry.value[0].d   = csr_o.tlbelo0[1];
+    tlb_w_entry.value[0].plv = csr_o.tlbelo0[3:2];
+    tlb_w_entry.value[0].mat = csr_o.tlbelo0[5:4];
+
+    tlb_w_entry.value[1].ppn = csr_o.tlbelo1[27:8]; // P74
+    tlb_w_entry.value[1].v   = csr_o.tlbelo1[0];
+    tlb_w_entry.value[1].d   = csr_o.tlbelo1[1];
+    tlb_w_entry.value[1].plv = csr_o.tlbelo1[3:2];
+    tlb_w_entry.value[1].mat = csr_o.tlbelo1[5:4];
+  end
   for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
-    // tlb_entrys 更新逻辑
-    // 只需要响应三条指令：invtlb, tlbfill, tlbwr
-    // 注：不进行硬件复位
     always_ff @(posedge clk) begin
       if(!m2_stall_i) begin
-        tlb_inv_addr_match_q[i] <= (tlb_entrys[i].key.vppn[18:10] == tlb_op_vaddr_i[31:23]) &&
+        tlb_inv_addr_match_q <= (tlb_entrys[i].key.vppn[18:10] == tlb_op_vaddr_i[31:23]) &&
           ((tlb_entrys[i].key.vppn[9:0] == tlb_op_vaddr_i[22:13]) || (tlb_entrys[i].key.ps == 6'd22));
-        tlb_inv_asid_match_q[i] <= tlb_entrys[i].key.asid == tlb_op_asid_i;
+        tlb_inv_asid_match_q <= tlb_entrys[i].key.asid == tlb_op_asid_i;
       end
     end
     always_comb begin
       tlb_need_inv[i] = '0;
-      if(tlb_inv_op_i == 0 || tlb_inv_op_i == 1) begin
-        tlb_need_inv[i] = '1;
-      end
-      if(tlb_inv_op_i == 2) begin
-        tlb_need_inv[i] = tlb_entrys[i].key.g;
-      end
-      if(tlb_inv_op_i == 3) begin
-        tlb_need_inv[i] = !tlb_entrys[i].key.g;
-      end
-      if(tlb_inv_op_i == 4) begin
-        tlb_need_inv[i] = !tlb_entrys[i].key.g && tlb_inv_asid_match_q[i];
-      end
-      if(tlb_inv_op_i == 5) begin
-        tlb_need_inv[i] = !tlb_entrys[i].key.g && tlb_inv_asid_match_q[i] && tlb_inv_addr_match_q[i];
-      end
-      if(tlb_inv_op_i == 6) begin
-        tlb_need_inv[i] = (tlb_entrys[i].key.g || tlb_inv_asid_match_q[i]) && tlb_inv_addr_match_q[i];
+      if(tlb_op_i.invtlb) begin
+        if(tlb_inv_op_i == 0 || tlb_inv_op_i == 1) begin
+          tlb_need_inv[i] = '1;
+        end
+        if(tlb_inv_op_i == 2) begin
+          tlb_need_inv[i] = tlb_entrys[i].key.g;
+        end
+        if(tlb_inv_op_i == 3) begin
+          tlb_need_inv[i] = !tlb_entrys[i].key.g;
+        end
+        if(tlb_inv_op_i == 4) begin
+          tlb_need_inv[i] = !tlb_entrys[i].key.g && tlb_inv_asid_match_q;
+        end
+        if(tlb_inv_op_i == 5) begin
+          tlb_need_inv[i] = !tlb_entrys[i].key.g && tlb_inv_asid_match_q && tlb_inv_addr_match_q;
+        end
+        if(tlb_inv_op_i == 6) begin
+          tlb_need_inv[i] = (tlb_entrys[i].key.g || tlb_inv_asid_match_q) && tlb_inv_addr_match_q;
+        end
       end
     end
   end
