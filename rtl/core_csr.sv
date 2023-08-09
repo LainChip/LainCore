@@ -51,6 +51,12 @@ logic[4:0] tlbfill_rnd_idx_q;
 always_ff @(posedge clk) begin
   tlbfill_rnd_idx_q <= tlbfill_rnd_idx_q + 1;
 end
+
+// FOR TLB INST
+logic[4:0] tlb_srch_idx_q;
+tlb_entry_t tlb_r_entry_q   ;
+logic       tlb_srch_valid_q;
+
 if(ENABLE_TLB) begin
   tlb_entry_t [TLB_ENTRY_NUM-1:0] tlb_entrys;
   logic[TLB_ENTRY_NUM-1:0] tlb_need_inv, tlb_we;
@@ -60,14 +66,39 @@ if(ENABLE_TLB) begin
   tlb_entry_t      tlb_w_entry   ;
   tlb_update_req_t tlb_update_req;
   assign tlb_update_req_o = tlb_update_req;
+
+  logic tlb_srch_valid;
+  logic[4:0] tlb_srch_idx;
+  always_ff @(posedge clk) begin
+    tlb_srch_valid_q <= tlb_srch_valid;
+    tlb_srch_idx_q   <= tlb_srch_idx;
+  end
   always_comb begin
-    tlb_update_req.tlb_we = tlb_need_inv;
+    tlb_srch_valid = '0;
+    tlb_srch_idx   = '0;
+    tlb_srch_entry = tlb_srch_entry_q;
+    for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
+      if(tlb_entrys[i].key.e &&
+        tlb_entrys[i].key.vppn[18:10] = = csr_o.tlbehi[31:23] &&
+        (tlb_entrys[i].key.vppn[9:0]  == csr_o.tlbehi[22:13] || tlb_entrys[i].key.ps == 6'd22) &&
+        (tlb_entrys[i].key.asid == csr_o.asid[9:0] || tlb_entrys[i].key.g)) begin
+        tlb_srch_valid                = '1;
+        tlb_srch_idx                  = i;
+      end
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    tlb_r_entry_q <= tlb_entrys[csr_o.tlbidx[$clog2(TLB_ENTRY_NUM) - 1 : 0]];
+  end
+  always_comb begin
+    tlb_update_req.tlb_we      = tlb_need_inv;
     tlb_update_req.tlb_w_entry = tlb_w_entry;
     if(tlb_op_i.tlbfill) begin
-      tlb_update_req.tlb_we[tlbfill_rnd_idx_q[$clog2(TLB_ENTRY_NUM) - 1 : 0]] = '1;
+      tlb_update_req.tlb_we[tlbfill_rnd_idx_q[$clog2(TLB_ENTRY_NUM)-1:0]] = '1;
     end
     if(tlb_op_i.tlbwr) begin
-      tlb_update_req.tlb_we[csr_o.tlbidx[$clog2(TLB_ENTRY_NUM) - 1 : 0]] = '1;
+      tlb_update_req.tlb_we[csr_o.tlbidx[$clog2(TLB_ENTRY_NUM)-1:0]] = '1;
     end
   end
   always_comb begin
@@ -91,6 +122,11 @@ if(ENABLE_TLB) begin
     tlb_w_entry.value[1].mat = csr_o.tlbelo1[5:4];
   end
   for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
+    always_ff @(posedge clk) begin
+      if(tlb_update_req.tlb_we[i]) begin
+        tlb_entrys[i] <= tlb_update_req.tlb_w_entry;
+      end
+    end
     always_ff @(posedge clk) begin
       if(!m2_stall_i) begin
         tlb_inv_addr_match_q <= (tlb_entrys[i].key.vppn[18:10] == tlb_op_vaddr_i[31:23]) &&
