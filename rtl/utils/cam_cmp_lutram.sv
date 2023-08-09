@@ -18,7 +18,7 @@ module cam_cmp_lutram #(parameter int PACKS_OF_5_BITS = 4) (
   logic refill_v_q, refill_q;
   always_ff @(posedge clk) begin
     if(update_i) begin
-      w_addr_q <= set_ket_i;
+      w_addr_q <= set_key_i;
       refill_q <= set_key_valid_i;
       refill_v_q <= '1;
     end else begin

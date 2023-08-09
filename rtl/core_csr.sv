@@ -76,14 +76,13 @@ if(ENABLE_TLB) begin
   always_comb begin
     tlb_srch_valid = '0;
     tlb_srch_idx   = '0;
-    tlb_srch_entry = tlb_srch_entry_q;
-    for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
+    for(integer i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
       if(tlb_entrys[i].key.e &&
-        tlb_entrys[i].key.vppn[18:10] = = csr_o.tlbehi[31:23] &&
+        (tlb_entrys[i].key.vppn[18:10] == csr_o.tlbehi[31:23]) &&
         (tlb_entrys[i].key.vppn[9:0]  == csr_o.tlbehi[22:13] || tlb_entrys[i].key.ps == 6'd22) &&
         (tlb_entrys[i].key.asid == csr_o.asid[9:0] || tlb_entrys[i].key.g)) begin
-        tlb_srch_valid                = '1;
-        tlb_srch_idx                  = i;
+        tlb_srch_valid = '1;
+        tlb_srch_idx   = i;
       end
     end
   end
@@ -122,6 +121,7 @@ if(ENABLE_TLB) begin
     tlb_w_entry.value[1].mat = csr_o.tlbelo1[5:4];
   end
   for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
+    logic tlb_inv_addr_match_q, tlb_inv_asid_match_q;
     always_ff @(posedge clk) begin
       if(tlb_update_req.tlb_we[i]) begin
         tlb_entrys[i] <= tlb_update_req.tlb_w_entry;

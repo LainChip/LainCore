@@ -16,7 +16,7 @@ module tlb_match_single #(
 );
 
   logic match_high10,match_low10,match_asid;
-  reg tlb_key_t key_q;
+  tlb_key_t key_q;
   logic is_4m_page_q;
   always_ff @(posedge clk) begin
     if(ENABLE_RST && !rst_n) begin
@@ -73,19 +73,5 @@ module tlb_match_single #(
       match_o = '0;
     end
   end
-
-endmodule
-
-// 纯组合逻辑，输入 key，输出 匹配情况
-module tlb_match #(parameter bit ENABLE_OPT = 1'b0) (
-  input  logic                   clk         ,
-  input  logic                   rst_n       ,
-  input  logic [           18:0] vppn_i      ,
-  input  logic [            9:0] asid_i      ,
-  output logic [`_TLB_ENTRY_NUM] match_o     , // 纯组合逻辑输出
-  input  logic [`_TLB_ENTRY_NUM] update_i    ,
-  input  tlb_key_t               update_key_i
-);
-
 
 endmodule

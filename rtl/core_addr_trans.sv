@@ -40,13 +40,13 @@ module core_addr_trans #(
   end
 
 // TLB 表项值
-  tlb_value_q_t [TLB_ENTRY_NUM-1:0][1:0] tlb_value_q ;
+  tlb_value_t   [TLB_ENTRY_NUM-1:0][1:0] tlb_value_q ;
   logic         [TLB_ENTRY_NUM-1:0]      is_4M_page_q;
   for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
     always_ff @(posedge clk) begin
       if(tlb_update_req_i.tlb_we[i]) begin
         tlb_value_q[i] <= tlb_update_req_i.tlb_w_entry.value;
-        is_4M_page_q   <= tlb_update_req_i.tlb_w_entry.ps == 6'd22;
+        is_4M_page_q   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22;
       end
     end
   end

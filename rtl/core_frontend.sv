@@ -133,8 +133,7 @@ module core_frontend (
       ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f_pc[31]));
     m_excp.tlbr = (!m_excp) && !trans_result.found;
     m_excp.pif  = (!m_excp) && trans_result.value.v;
-    m_excp.ppi  = (!m_excp) && (trans_result.value.plv == 2'd0 &&
-      frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
+    m_excp.ppi  = (!m_excp) && (trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
     // m_excp.ipe = (!m_excp) && (trans_result.value.plv == 2'd0 &&
     // frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
   end

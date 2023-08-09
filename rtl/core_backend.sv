@@ -547,41 +547,40 @@ module core_backend (
       csr_pc     = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
     end
 
-    core_csr #(.ENABLE_TLB(ENABLE_TLB)//TODO:PARAMETERPASS) core_csr_inst (
-      .clk             (clk                ),
-      .rst_n           (rst_n              ),
-      .int_i           (int_i              ),
-      .excp_i          (csr_excp           ),
-      .ertn_i          (csr_ertn           ),
-      .valid_i         (csr_valid          ),
-      .commit_i        (csr_commit         ),
-      .m2_stall_i      (m2_stall           ),
-      .csr_r_addr_i    (csr_r_addr         ),
-      .rdcnt_i         (csr_rdcnt          ),
-      .csr_we_i        (csr_we             ),
-      .csr_w_addr_i    (csr_w_addr         ),
-      .csr_w_mask_i    (csr_w_mask         ),
-      .csr_w_data_i    (csr_w_data         ),
-      .badv_i          (csr_badv           ),
-      .tlb_op_i        (tlb_op             ),
-      .tlb_op_vaddr_i  (/**/               ),
-      .tlb_op_asid_i   (/**/               ),
-      .tlb_op_i        (tlb_op             ),
-      .tlb_inv_op_i    (/**/               ),
-      .tlb_update_req_o(tlb_update_req     ),
-
-      .llbit_set_i     (/*TODO*/'0         ),
-      .llbit_i         (/*TODO*/'0         ),
-
-      .pc_i            (csr_pc             ),
-      .vaddr_i         (csr_badv           ),
-
-      .m1_commit_i     (csr_m1_commit_valid),
-      .m1_int_o        (csr_m1_int         ),
-
-      .csr_r_data_o    (csr_r_data         ),
-      .csr_o           (csr_value          )
-    );
+  core_csr #(.ENABLE_TLB('1)/*TODO:PARAMETERPASS*/) core_csr_inst (
+    .clk             (clk                            ),
+    .rst_n           (rst_n                          ),
+    .int_i           (int_i                          ),
+    .excp_i          (csr_excp                       ),
+    .ertn_i          (csr_ertn                       ),
+    .valid_i         (csr_valid                      ),
+    .commit_i        (csr_commit                     ),
+    .m2_stall_i      (m2_stall                       ),
+    .csr_r_addr_i    (csr_r_addr                     ),
+    .rdcnt_i         (csr_rdcnt                      ),
+    .csr_we_i        (csr_we                         ),
+    .csr_w_addr_i    (csr_w_addr                     ),
+    .csr_w_mask_i    (csr_w_mask                     ),
+    .csr_w_data_i    (csr_w_data                     ),
+    .badv_i          (csr_badv                       ),
+    .tlb_op_vaddr_i  (pipeline_data_m1_q[0].r_data[0]),
+    .tlb_op_asid_i   (pipeline_data_m1_q[0].r_data[1]),
+    .tlb_op_i        (tlb_op                         ),
+    .tlb_inv_op_i    (ctlb_opcode                    ),
+    .tlb_update_req_o(tlb_update_req                 ),
+    
+    .llbit_set_i     (/*TODO*/'0                     ),
+    .llbit_i         (/*TODO*/'0                     ),
+    
+    .pc_i            (csr_pc                         ),
+    .vaddr_i         (csr_badv                       ),
+    
+    .m1_commit_i     (csr_m1_commit_valid            ),
+    .m1_int_o        (csr_m1_int                     ),
+    
+    .csr_r_data_o    (csr_r_data                     ),
+    .csr_o           (csr_value                      )
+  );
     assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
@@ -741,7 +740,7 @@ module core_backend (
         ex_excp_flow.tlbr  = '0;
 
         // TODO: CACOP IN HIT IS NOT A PRIVILIGE INST
-        ex_excp_flow.ipe   = csr_value.crmd[`PLV] = = 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.ipe = csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
 
         ex_excp_flow.adef  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.adef & exc_ex_q[p].need_commit;
         ex_excp_flow.itlbr = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.tlbr & exc_ex_q[p].need_commit;
@@ -749,9 +748,9 @@ module core_backend (
         ex_excp_flow.ippi  = ~(|ex_excp_flow) & pipeline_ctrl_ex_q[p].fetch_excp.ppi & exc_ex_q[p].need_commit;
 
         // TODO: INVALID TLBINV
-        ex_excp_flow.ine   = ~(|ex_excp_flow) & decode_info.invalid_inst & exc_ex_q[p].need_commit;
-        ex_excp_flow.sys   = ~(|ex_excp_flow) & decode_info.syscall_inst & exc_ex_q[p].need_commit;
-        ex_excp_flow.brk   = ~(|ex_excp_flow) & decode_info.break_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.ine = ~(|ex_excp_flow) & decode_info.invalid_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.sys = ~(|ex_excp_flow) & decode_info.syscall_inst & exc_ex_q[p].need_commit;
+        ex_excp_flow.brk = ~(|ex_excp_flow) & decode_info.break_inst & exc_ex_q[p].need_commit;
 
       end
       // EX 的额外部分
