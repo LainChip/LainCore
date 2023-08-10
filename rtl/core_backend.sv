@@ -524,7 +524,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
     for(genvar p = 0 ; p < 2 ; p++) begin : DADDR_TRANS
       core_addr_trans #(
-        .ENABLE_TLB('1), // TODO: PARAMETERIZE ME
+        .ENABLE_TLB(ENABLE_TLB), // TODO: PARAMETERIZE ME
         .FETCH_ADDR('0)
       ) core_daddr_trans_inst (
         .clk             (clk                    ),
@@ -571,43 +571,45 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       csr_pc     = csr_excp_req[0] ? m2_csr_pc_req[0] : m2_csr_pc_req[1];
     end
 
-  core_csr #(.ENABLE_TLB('1)/*TODO:PARAMETERPASS*/) core_csr_inst (
-    .clk             (clk                            ),
-    .rst_n           (rst_n                          ),
-    .int_i           (int_i                          ),
-    .excp_i          (csr_excp                       ),
-    .ertn_i          (csr_ertn                       ),
-    .valid_i         (csr_valid                      ),
-    .commit_i        (csr_commit                     ),
-    .m1_stall_i      (m1_stall                       ),
-    .m2_stall_i      (m2_stall                       ),
-    .csr_r_addr_i    (csr_r_addr                     ),
-    .rdcnt_i         (csr_rdcnt                      ),
-    .csr_we_i        (csr_we                         ),
-    .csr_w_addr_i    (csr_w_addr                     ),
-    .csr_w_mask_i    (csr_w_mask                     ),
-    .csr_w_data_i    (csr_w_data                     ),
-    .badv_i          (csr_badv                       ),
-    .tlb_op_vaddr_i  (pipeline_data_m1_q[0].r_data[0]),
-    .tlb_op_asid_i   (pipeline_data_m1_q[0].r_data[1]),
-    .tlb_op_i        (tlb_op                         ),
-    .tlb_inv_op_i    (ctlb_opcode                    ),
-    .tlb_update_req_o(tlb_update_req                 ),
-    
-    .llbit_set_i     (/*TODO*/'0                     ),
-    .llbit_i         (/*TODO*/'0                     ),
-    
-    .pc_i            (csr_pc                         ),
-    .vaddr_i         (csr_badv                       ),
-    
-    .m1_commit_i     (csr_m1_commit_valid            ),
-    .m1_int_o        (csr_m1_int                     ),
-    
-    .m2_commit_i     (csr_m2_commit_valid            ),
-    
-    .csr_r_data_o    (csr_r_data                     ),
-    .csr_o           (csr_value                      )
-  );
+    logic llbit_set  ; // TODO: CHECK ME
+    logic llbit_value;
+    core_csr #(.ENABLE_TLB(ENABLE_TLB)/*TODO:PARAMETERPASS*/) core_csr_inst (
+      .clk             (clk                            ),
+      .rst_n           (rst_n                          ),
+      .int_i           (int_i                          ),
+      .excp_i          (csr_excp                       ),
+      .ertn_i          (csr_ertn                       ),
+      .valid_i         (csr_valid                      ),
+      .commit_i        (csr_commit                     ),
+      .m1_stall_i      (m1_stall                       ),
+      .m2_stall_i      (m2_stall                       ),
+      .csr_r_addr_i    (csr_r_addr                     ),
+      .rdcnt_i         (csr_rdcnt                      ),
+      .csr_we_i        (csr_we                         ),
+      .csr_w_addr_i    (csr_w_addr                     ),
+      .csr_w_mask_i    (csr_w_mask                     ),
+      .csr_w_data_i    (csr_w_data                     ),
+      .badv_i          (csr_badv                       ),
+      .tlb_op_vaddr_i  (pipeline_data_m1_q[0].r_data[0]),
+      .tlb_op_asid_i   (pipeline_data_m1_q[0].r_data[1]),
+      .tlb_op_i        (tlb_op                         ),
+      .tlb_inv_op_i    (ctlb_opcode                    ),
+      .tlb_update_req_o(tlb_update_req                 ),
+
+      .llbit_set_i     (llbit_set                     ),
+      .llbit_i         (llbit_value                   ),
+
+      .pc_i            (csr_pc                         ),
+      .vaddr_i         (csr_badv                       ),
+
+      .m1_commit_i     (csr_m1_commit_valid            ),
+      .m1_int_o        (csr_m1_int                     ),
+
+      .m2_commit_i     (csr_m2_commit_valid            ),
+
+      .csr_r_data_o    (csr_r_data                     ),
+      .csr_o           (csr_value                      )
+    );
     assign csr_m1_commit_valid = exc_m1_q[0].need_commit;
     assign csr_m2_commit_valid = exc_m2_q[0].need_commit;
 
@@ -1153,7 +1155,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           m2_mem_op[p]    = `_DCAHE_OP_WRITE;
         end
         // TODO: CHECK CACOP
-        if(p == 0 && decode_info.mem_cacop) begin
+        if(p == 0 && ENABLE_TLB && decode_info.mem_cacop) begin
           m2_mem_valid[p] = /**/ctlb_opcode[2:0] == 3'd1 && exc_m2_q[p].need_commit;
           case(ctlb_opcode[4:3])
             default/*2'd0*/: begin
@@ -1167,9 +1169,34 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
             end
           endcase
         end
+        // TODO: CHECK LLSC
+        if(p == 0) begin
+          if(ENABLE_TLB && decode_info.llsc_inst) begin
+            if( decode_info.mem_write) begin
+              if(csr_value.llbit == 1'b0) begin
+                m2_mem_valid[0] = '0;
+              end
+            end
+          end
+        end
       end
       if(p == 0) begin
         // assign frontend_resp_o.icache_op_valid = '0;
+        always_comb begin
+          llbit_set   = '0;
+          llbit_value = '0;
+          if(ENABLE_TLB && decode_info.llsc_inst && exc_m2_q[0].need_commit && !m2_stall) begin
+            if(decode_info.mem_write) begin
+              // SC
+              llbit_set   = '1;
+              llbit_value = '0;
+            end else begin
+              // LL
+              llbit_set   = '1;
+              llbit_value = '1;
+            end
+          end
+        end
         always_comb begin
           frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[0].need_commit;
           frontend_resp_o.icache_op       = ctlb_opcode[4:3];
@@ -1195,8 +1222,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
               pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && (&pipeline_data_m2_q[p].r_flow.r_ready);
             end
             `_FUSEL_M2_MEM : begin
-              pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && m2_mem_rvalid[p];
+              pipeline_wdata_m2[p].w_data = (decode_info.mem_write && ENABLE_TLB) ?
+                {31'd0, csr_value.llbit} : lsu_result;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst &&
+                (m2_mem_rvalid[p] || (decode_info.mem_write && ENABLE_TLB));
             end
             `_FUSEL_M2_CSR : begin
               pipeline_wdata_m2[p].w_data = csr_r_data;
@@ -1344,6 +1373,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       logic wb_valid,cm_valid;
       logic wb_excp,cm_excp;
       logic wb_ertn,cm_ertn;
+      logic m2_llbit,wb_llbit,cm_llbit;
       logic[31:0] wb_pc,cm_pc;
       logic[31:0] wb_instr,cm_instr;
       logic[31:0] wb_wdata,cm_wdata;
@@ -1353,6 +1383,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       assign m2_mdata = lsu_pm_block[p].lsu_inst.rstate_o.wdata;
       assign m2_vaddr = pipeline_ctrl_m2_q[p].vaddr;
       assign m2_paddr = pipeline_ctrl_m2_q[p].paddr;
+      assign m2_llbit = csr_value.llbit;
 
       assign wb_wen   = pipeline_wdata_wb[p].w_flow.w_valid && exc_wb_q[p].need_commit;
       assign wb_waddr = pipeline_wdata_wb[p].w_flow.w_addr;
@@ -1367,6 +1398,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           wb_paddr <= m2_paddr;
           wb_excp  <= |m2_excp_req[p] && exc_m2_q[p].valid_inst && !m2_stall;
           wb_ertn  <= p == 0 ? csr_ertn : '0;
+          wb_llbit <= m2_llbit;
         end
       end
       always_ff @(posedge clk) begin
@@ -1381,6 +1413,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         cm_paddr <= wb_paddr;
         cm_ertn  <= wb_stall ? '0 : wb_ertn;
         cm_excp  <= wb_stall ? '0 : wb_excp;
+        cm_llbit <= wb_stall ? '0 : wb_llbit;
       end
       decoder  decoder_inst_p (
         .inst_i(cm_instr),
@@ -1411,7 +1444,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .clock     (clk),
         .coreid    (0  ),
         .index     (p  ),
-        .valid     (cm_valid && cm_inst_info.mem_write),
+        .valid     (cm_valid && cm_inst_info.mem_write && 
+        (!cm_inst_info.llsc_inst || cm_llbit)),
         .storePAddr(cm_paddr),
         .storeVAddr(cm_vaddr),
         .storeData (cm_mdata)

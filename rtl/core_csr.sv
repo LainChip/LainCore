@@ -1088,7 +1088,7 @@ always_ff @(posedge clk) begin
       csr_r_data_o <= ticlr_q;
     end
     if(llbctl_re) begin
-      csr_r_data_o <= llbctl_q;
+      csr_r_data_o <= {llbctl_q, 1'b0, llbit_q};
     end
     if(tlbrentry_re) begin
       csr_r_data_o <= tlbrentry_q;
