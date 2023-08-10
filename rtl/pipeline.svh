@@ -3,6 +3,9 @@
 
 `include "decoder.svh"
 
+`define _GLOBAL_FRONT_STALL_P (10)
+`define _GLOBAL_BACK_STALL_P (8)
+
 `define _TLB_ENTRY_NUM (32)
 `define _TLB_PORT (2)
 
@@ -269,7 +272,7 @@ typedef struct packed {
   bpu_correct_t    bpu_correct    ; // c
 
   // WAIT INSTRUCTION
-  logic            wait_inst      ; // nc
+  logic            wait_inst      ; // c
   logic            int_detect     ; // nc
 
   // ICACHE INSTRUCTION

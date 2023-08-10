@@ -310,7 +310,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
         data_rdata_q <= wstate_i.rdata;
       end
     end
-    else begin
+    else if(fsm_q != S_WAIT_STALL) begin
       data_rdata_q <= '0;
     end
   end

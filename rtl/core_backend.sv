@@ -236,12 +236,34 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     // 后续级可以阻塞前级
     // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
     logic[1:0] m1_lsu_busy,m2_lsu_busy;
+    logic rstall_1, rstall_2, rstall_3, rstall_4;
     always_comb begin
-      ex_stall = |ex_stall_req | |m1_stall_req         | !&m1_addr_trans_ready | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy;
-      m1_stall = |m1_stall_req | !&m1_addr_trans_ready | |m2_stall_req         | |wb_stall_req | |m1_lsu_busy  | |m2_lsu_busy;
-      m2_stall = |m2_stall_req | |wb_stall_req         | |m2_lsu_busy;
-      wb_stall = |wb_stall_req;
+      ex_stall = |ex_stall_req | |m1_stall_req         | !&m1_addr_trans_ready | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy | rstall_1 | rstall_2 | rstall_3 | rstall_4;
+      m1_stall = |m1_stall_req | !&m1_addr_trans_ready | |m2_stall_req         | |wb_stall_req | |m1_lsu_busy  | |m2_lsu_busy | rstall_2 | rstall_3 | rstall_4;
+      m2_stall = |m2_stall_req | |wb_stall_req         | |m2_lsu_busy          | rstall_3 | rstall_4;
+      wb_stall = |wb_stall_req | rstall_4;
     end
+
+  tests_random_stall #(.PERCETAGE(`_GLOBAL_BACK_STALL_P)) tests_random_stall_ex (
+    .clk    (clk     ),
+    .rst_n  (rst_n   ),
+    .stall_o(rstall_1)
+  );
+  tests_random_stall #(.PERCETAGE(`_GLOBAL_BACK_STALL_P)) tests_random_stall_m1 (
+    .clk    (clk     ),
+    .rst_n  (rst_n   ),
+    .stall_o(rstall_2)
+  );
+  tests_random_stall #(.PERCETAGE(`_GLOBAL_BACK_STALL_P)) tests_random_stall_n2 (
+    .clk    (clk     ),
+    .rst_n  (rst_n   ),
+    .stall_o(rstall_3)
+  );
+  tests_random_stall #(.PERCETAGE(`_GLOBAL_BACK_STALL_P)) tests_random_stall_wb (
+    .clk    (clk     ),
+    .rst_n  (rst_n   ),
+    .stall_o(rstall_4)
+  );
 
     // M2 级的跳转寄存器设计位
 
@@ -1159,7 +1181,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       assign m2_mem_strobe[p] = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m2_q[p].vaddr);
       assign m2_mem_type[p]   = decode_info.mem_type;
       assign m2_mem_wdata[p]  = pipeline_data_m2_q[p].r_data[0];
-
       // M2 的数据选择
       if(p == 0) begin
         always_comb begin
@@ -1225,6 +1246,12 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         // pipeline_ctrl_wb[p].vaddr = pipeline_ctrl_m2[p].vaddr;
         // pipeline_ctrl_wb[p].paddr = pipeline_ctrl_m2[p].paddr;
         pipeline_ctrl_wb[p].pc = pipeline_ctrl_m2_q[p].pc;
+      end
+
+      // WAIT 指令接入
+      if(p == 0) begin
+        assign frontend_resp_o.wait_inst  = decode_info.wait_inst && exc_m2_q[p].need_commit;
+        assign frontend_resp_o.int_detect = csr_m1_int;
       end
     end
     // CSR 控制接线，一定在流水线级1

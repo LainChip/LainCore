@@ -33,13 +33,11 @@
         "_CSR_DMW1": "14'h181",
         "_CSR_BRK": "14'h100",
         "_CSR_DISABLE_CACHE": "14'h101",
-
         "_INV_TLB_ALL": "4'b1111",
         "_INV_TLB_MASK_G": "4'b1000",
         "_INV_TLB_MASK_NG": "4'b0100",
         "_INV_TLB_MASK_ASID": "4'b0010",
         "_INV_TLB_MASK_VA": "4'b0001",
-
         "_RDCNT_NONE": "2'd0",
         "_RDCNT_ID_VLOW": "2'd1",
         "_RDCNT_VHIGH": "2'd2",
@@ -63,7 +61,7 @@
         },
         "wait_inst": {
             "length": 1,
-            "stage": "m1",
+            "stage": "m2",
             "default_value": 0
         },
         "invalid_inst": {
@@ -244,6 +242,7 @@
             "opcode": "00000110010010001",
             "wait_inst": 1,
             "priv_inst": 1,
+            "refetch": 1,
             "addr_imm_type": "`_ADDR_IMM_S26",
             "need_csr": 1
         }
