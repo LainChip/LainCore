@@ -3,6 +3,8 @@
 
 module core_ifetch#(
   parameter int ATTACHED_INFO_WIDTH = 32,     // 用于捆绑bpu输出的信息，跟随指令流水
+  parameter bit ENABLE_TLB = 1'b1,
+
   parameter int WAY_CNT = `_IWAY_CNT                  // 指示cache的组相联度
 )(
   input clk,    // Clock
@@ -10,6 +12,7 @@ module core_ifetch#(
 
   input  logic [1:0] cacheop_i, // 输入两位的cache控制信号
   input  logic cacheop_valid_i, // 输入的cache控制信号有效
+  input  logic [31:0] cacheop_paddr_i,
   output logic cacheop_ready_o,
   input  logic [1: 0] valid_i,
   output logic ready_o, // TO NPC/BPU
@@ -71,6 +74,8 @@ endfunction
 
 logic[31:0] f1_vpc_q,f1_ppc_q;
 logic[1:0] f1_valid_q;
+logic[1:0] f1_inv_op_q;
+logic f1_inv_q;
 // logic[511:0][1:0][31:0] data_ram;
 // i_tag_t[255:0] tag_ram;
 logic[8:0] dram_raddr;
@@ -80,10 +85,12 @@ logic[1:0][31:0] dram_wdata;
 always_ff @(posedge clk) begin
   if(~rst_n || clr_i) begin
     f1_valid_q <= '0;
-  end else if(ready_o) begin
-    f1_vpc_q   <= vpc_i;
-    f1_ppc_q   <= ppc_i;
-    f1_valid_q <= valid_i;
+  end else if(cacheop_ready_o) begin
+    f1_vpc_q   <= cacheop_valid_i ? cacheop_paddr_i : vpc_i;
+    f1_ppc_q   <= cacheop_valid_i ? cacheop_paddr_i : ppc_i;
+    f1_valid_q <= cacheop_valid_i ? 2'b00 : valid_i;
+    f1_inv_op_q <= cacheop_i;
+    f1_inv_q <= cacheop_valid_i;
     attached_o <= attached_i;
   end
 end
@@ -136,6 +143,16 @@ always_comb begin
   tram_we          = fsm_q == FSM_RECVER || fsm_q == FSM_RFADDR;
   tram_wdata.valid = 1'b1;
   tram_wdata.tag   = itagaddr(f1_ppc_q);
+  if(f1_inv_q) begin
+    case(f1_inv_op_q)
+    default: begin
+      tram_wdata.valid = 1'b0;
+    end
+    2: begin
+      tram_wdata.valid = !hit_q;
+    end
+    endcase
+  end
 end
 for(genvar w = 0 ; w < WAY_CNT ; w++) begin
   simpleDualPortRam #(
@@ -203,7 +220,7 @@ always_comb begin
       fsm = FSM_NORMAL;
     end
     FSM_NORMAL : begin
-      if(cacheop_valid_i) begin
+      if(f1_inv_q) begin
         fsm = FSM_RECVER;
       end
       else if(paddr_valid_i && !uncached_i && !hit_q && |f1_valid_q) begin
@@ -282,7 +299,8 @@ always_ff @(posedge clk) begin
   end
 end
 always_ff @(posedge clk) begin
-  if(!ready_o) begin
+  if(!cacheop_ready_o) begin
+    // 这个信号可以视为 stall_q 信号
     skid_q <= 1'b1;
   end
   else begin
@@ -313,9 +331,11 @@ end
 assign inst_o = skid_q ? i_remember_data : inst;
 
 // READY LOGIC
-assign cacheop_ready_o = fsm_q == FSM_NORMAL;
+// 这个信号可以视为一个 stall 信号
+assign cacheop_ready_o = ready_i && fsm_q == FSM_NORMAL &&
+((hit_q & !uncached_i) | (~|f1_valid_q) | uncached_finished_q);
 assign ready_o         = ready_i && fsm_q == FSM_NORMAL &&
-  ((hit_q & !uncached_i) | (~|f1_valid_q) | uncached_finished_q);
+  ((hit_q & !uncached_i) | (~|f1_valid_q) | uncached_finished_q) && !cacheop_valid_i;
 
 // 产生总线赋值
 always_comb begin

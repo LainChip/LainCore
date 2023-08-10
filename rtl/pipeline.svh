@@ -273,9 +273,11 @@ typedef struct packed {
   logic            int_detect     ; // nc
 
   // ICACHE INSTRUCTION
-  logic            icache_op_valid; // nc
-  logic[1:0]       icache_op      ; // nc
-  logic[31:0]      icacheop_addr  ; // nc
+  logic            icache_op_valid; // c
+  // 注意 op，为 0,1 表示 direct inv
+  // 为 2 表示 hit inv
+  logic[1:0]       icache_op      ; // c
+  logic[31:0]      icacheop_addr  ; // c
 
   // BUS CONTROLLING
   logic            bus_busy       ;

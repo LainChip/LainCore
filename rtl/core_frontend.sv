@@ -48,7 +48,7 @@ function reg_info_t get_register_info(
   return ret;
 endfunction
 
-module core_frontend (
+module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   input  logic            clk            ,
   input  logic            rst_n          ,
   output frontend_req_t   frontend_req_o ,
@@ -123,7 +123,7 @@ module core_frontend (
   logic[1:0][31:0] m_inst;
 
   tlb_s_resp_t trans_result;
-  fetch_excp_t f_excp, m_excp      ; // TODO: check me
+  fetch_excp_t f_excp, m_excp; // TODO: check me
   logic[31:0] f_ppc;   // TODO: check me
   logic uncached; // TODO: check me
   assign f_ppc    = {trans_result.value.ppn, f_pc[11:0]};
@@ -139,25 +139,29 @@ module core_frontend (
     // frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
   end
   core_addr_trans #(
-    .ENABLE_TLB('1), // TODO: PARAMETERIZE ME
-    .FETCH_ADDR('1)
+    .ENABLE_TLB(ENABLE_TLB), // TODO: PARAMETERIZE ME
+    .FETCH_ADDR('1        )
   ) core_iaddr_trans_inst (
-    .clk             (clk                               ),
-    .rst_n           (rst_n                             ),
-    .valid_i         (|f_valid                          ),
-    .vaddr_i         (npc_vaddr                         ),
+    .clk             (clk                                ),
+    .rst_n           (rst_n                              ),
+    .valid_i         (|f_valid                           ),
+    .vaddr_i         (npc_vaddr                          ),
     .m1_stall_i      (f_stall && !frontend_resp_i.rst_jmp),
-    .ready_o         (paddr_ready                       ),
-    .csr_i           (frontend_resp_i.csr_reg           ),
-    .tlb_update_req_i(frontend_resp_i.tlb_update_req    ),
-    .trans_result_o  (trans_result                      )
+    .ready_o         (paddr_ready                        ),
+    .csr_i           (frontend_resp_i.csr_reg            ),
+    .tlb_update_req_i(frontend_resp_i.tlb_update_req     ),
+    .trans_result_o  (trans_result                       )
   );
   logic[31:0] ppc_nc;
-  core_ifetch #(.ATTACHED_INFO_WIDTH(2 * $bits(bpu_predict_t) + $bits(fetch_excp_t))) ifetch_inst (
+  core_ifetch #(
+    .ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t)+$bits(fetch_excp_t)),
+    .ENABLE_TLB         (ENABLE_TLB                                )
+  ) ifetch_inst (
     .clk            (clk                     ),
     .rst_n          (rst_n                   ),
     .cacheop_i      (icacheop                ),
     .cacheop_valid_i(icacheop_valid          ),
+    .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
     .cacheop_ready_o(icacheop_ready          ),
     .valid_i        (f_valid                 ),
     .ready_o        (icache_ready            ),

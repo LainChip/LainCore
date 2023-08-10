@@ -52,9 +52,7 @@ endfunction
     endcase
   endfunction
 
-module core_backend #(
-  parameter bit ENABLE_TLB = 1'b1
-)(
+module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
   input  logic            clk            ,
   input  logic            rst_n          ,
   input  logic [7:0]      int_i          , // 中断输入
@@ -493,8 +491,8 @@ module core_backend #(
     // CSR output
     csr_t csr_value;
     assign frontend_resp_o.csr_reg = csr_value;
-    logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready; // TODO: CONNECT ME
-    logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CONNECT ME
+    logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready; // TODO: CHECK ME
+    logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CHECK ME
     tlb_s_resp_t[1:0] addr_tlb_resp;
     tlb_s_resp_t[1:0] m1_addr_trans_result;
 
@@ -747,15 +745,18 @@ module core_backend #(
         ex_excp_flow.ale   = '0;
         ex_excp_flow.tlbr  = '0;
 
-        // TODO: CACOP IN HIT IS NOT A PRIVILIGE INST
+
         ex_excp_flow.adef  = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.adef && exc_ex_q[p].need_commit;
         ex_excp_flow.itlbr = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.tlbr && exc_ex_q[p].need_commit;
         ex_excp_flow.pif   = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.pif && exc_ex_q[p].need_commit;
         ex_excp_flow.ippi  = (!(|ex_excp_flow)) && pipeline_ctrl_ex_q[p].fetch_excp.ppi && exc_ex_q[p].need_commit;
 
-        ex_excp_flow.ipe = (!(|ex_excp_flow)) && csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
+        // TODO: CACOP IN HIT IS NOT A PRIVILIGE INST
+        // BUT WE JUST TAKE ALL CACHE OP AS NOT PRIVILIGE INST.
+        // THIS MAY ALLOW APPLICATION USE OP==0 TO HARM OUR OPERATING SYSTEM.
+        ex_excp_flow.ipe = (!(|ex_excp_flow)) && exc_ex_q[p].need_commit &&
+          (csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst);
 
-        // TODO: INVALID TLBINV
         ex_excp_flow.ine = (!(|ex_excp_flow)) && exc_ex_q[p].need_commit &&
           (decode_info.invalid_inst || (ENABLE_TLB && decode_info.invtlb_en && (pipeline_ctrl_ex_q[p].op_code > 5'd6)));
         ex_excp_flow.sys = (!(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
@@ -774,7 +775,6 @@ module core_backend #(
           pipeline_ctrl_ex_q[p].addr_imm};
       end
       always_comb begin
-        // TODO
         jump_target = decode_info.target_type == `_TARGET_ABS ?
           vaddr : rel_target;
       end
@@ -782,7 +782,7 @@ module core_backend #(
       // EX 的结果选择部分
       always_comb begin
         pipeline_wdata_ex[p].w_data = alu_result;
-        pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id; // TODO: FIXME
+        pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id;
         pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
         pipeline_wdata_ex[p].w_flow.w_valid = exc_ex_q[p].valid_inst && (decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
             (&pipeline_data_ex_q[p].r_flow.r_ready)) :
@@ -881,7 +881,7 @@ module core_backend #(
       // M1 的额外部分
       // 跳转的处理：TODO 完成相关模块
       logic        m1_branch_jmp_req;
-      logic [ 1:0] target_type      ; // TODO: CONNECT ME
+      logic [ 1:0] target_type      ;
       logic [31:0] true_bpu_target  ;
     core_jmp m1_cmp (
       .clk          (clk                                 ),
@@ -911,12 +911,11 @@ module core_backend #(
       end
 
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
-      assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1; // TODO: FIXME
-      // assign m1_mem_uncached[p] = 1'b1; // TODO: FIXME
-      // assign m1_mem_uncached[p] = 1'b0; // TODO: FIXME
-      assign m1_mem_vaddr[p]    = pipeline_ctrl_m1_q[p].vaddr;
-      assign m1_mem_paddr[p]    = paddr;
-      assign m1_mem_strobe[p]   = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
+      assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1 &&
+        !decode_info.mem_cacop; // TODO: CHECKME
+      assign m1_mem_vaddr[p]  = pipeline_ctrl_m1_q[p].vaddr;
+      assign m1_mem_paddr[p]  = paddr;
+      assign m1_mem_strobe[p] = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
       // 异常的处理：完成相关模块
       logic local_excp_detect;
       core_excp_handler m1_excp (
@@ -1013,7 +1012,8 @@ module core_backend #(
         );
         m1_excp_flow.tlbr = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].found && decode_info.need_lsu)
+          (!m1_addr_trans_result[p].found && decode_info.need_lsu &&
+            (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop || pipeline_ctrl_m1_q[p].op_code == 2))
         ); // TODO: CHECK
         m1_excp_flow.pis = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
@@ -1021,12 +1021,14 @@ module core_backend #(
         ); // TODO: CHECK
         m1_excp_flow.pil = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu)
+          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu &&
+            (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop || pipeline_ctrl_m1_q[p].op_code == 2))
         ); // TODO: CHECK
         m1_excp_flow.ppi = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (m1_addr_trans_result[p].value.plv == 2'b00 && csr_value.crmd[`PLV] == 2'd3
-            && decode_info.need_lsu)
+            && decode_info.need_lsu &&
+            (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop)) // MAY LEAD TO SOME SECURITY BUG.
         ); // TODO: CHECK
         m1_excp_flow.pme = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
@@ -1117,17 +1119,34 @@ module core_backend #(
         m2_mem_valid[p]    = '0;
         m2_mem_uncached[p] = pipeline_ctrl_m2_q[p].mem_uncached; // TODO: FIXME
         if(decode_info.mem_read) begin
-          m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
+          m2_mem_valid[p] = exc_m2_q[p].need_commit;
           m2_mem_op[p]    = `_DCAHE_OP_READ ;
         end
         if(decode_info.mem_write) begin
-          m2_mem_valid[p] = exc_m2_q[p].valid_inst && exc_m2_q[p].need_commit;
+          m2_mem_valid[p] = exc_m2_q[p].need_commit;
           m2_mem_op[p]    = `_DCAHE_OP_WRITE;
         end
-        // TODO: SUPPORT CACOP
+        // TODO: CHECK CACOP
+        if(p == 0 && decode_info.mem_cacop) begin
+          m2_mem_valid[p] = /**/ctlb_opcode[2:0] == 3'd1 && exc_m2_q[p].need_commit;
+          case(ctlb_opcode[4:3])
+          default/*2'd0*/: begin
+            m2_mem_op[p] = `_DCAHE_OP_DIRECT_INV;
+          end
+          2'd1: begin
+            m2_mem_op[p] = `_DCAHE_OP_DIRECT_INVWB;
+          end
+          2'd2: begin
+            m2_mem_op[p] = `_DCAHE_OP_HIT_INV;
+          end
+          endcase
+        end
       end
       if(p == 0) begin
-        assign frontend_resp_o.icache_op_valid = '0;
+        // assign frontend_resp_o.icache_op_valid = '0;
+        always_comb begin
+          
+        end
       end
       assign m2_mem_size[p]   = mkmemsize(decode_info.mem_type);
       assign m2_mem_vaddr[p]  = pipeline_ctrl_m2_q[p].vaddr;
@@ -1204,7 +1223,7 @@ module core_backend #(
       end
     end
     // CSR 控制接线，一定在流水线级1
-    assign ctlb_opcode = pipeline_ctrl_m2[p].op_code;
+    assign ctlb_opcode = pipeline_ctrl_m2_q[0].op_code;
     assign csr_w_addr  = pipeline_ctrl_m2_q[0].csr_id;
     assign csr_w_data  = pipeline_data_m2_q[0].r_data[0];
     assign csr_w_mask  = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
