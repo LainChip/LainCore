@@ -755,7 +755,7 @@ module core_backend #(
 
         // TODO: INVALID TLBINV
         ex_excp_flow.ine = (!(|ex_excp_flow)) && exc_ex_q[p].need_commit &&
-          (decode_info.invalid_inst || (ENABLE_TLB && decode_info.invtlb_en && pipeline_ctrl_ex_q[p].addr_imm[6:2] > 5'd6));
+          (decode_info.invalid_inst || (ENABLE_TLB && decode_info.invtlb_en && (pipeline_ctrl_ex_q[p].addr_imm[22:18] > 5'd6)));
         ex_excp_flow.sys = (!(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
         ex_excp_flow.brk = (!(|ex_excp_flow)) && decode_info.break_inst && exc_ex_q[p].need_commit;
 
@@ -833,6 +833,8 @@ module core_backend #(
         pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
         pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
         pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
+        // 注意，这里 inst[9:0] -> addr_imm[27:18]
+        // inst[25:10] -> addr_imm[17:2]
         pipeline_ctrl_m1[p].csr_id = (decode_info.csr_rdcnt == 0) ?
           pipeline_ctrl_ex_q[p].addr_imm[15:2] :
             {pipeline_ctrl_ex_q[p].addr_imm[15:7],pipeline_ctrl_ex_q[p].addr_imm[22:18]};
