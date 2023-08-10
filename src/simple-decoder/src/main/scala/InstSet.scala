@@ -4,6 +4,9 @@
 // @File    : 
 // @Software: IntelliJ IDEA 
 // @Comment :
+import java.io.BufferedWriter
 trait InstSet {
-  def loadInstructions(): Unit
+  def loadInstructs(): Unit
+  // 生成宏
+  def genMacro(bw: BufferedWriter): Unit
 }

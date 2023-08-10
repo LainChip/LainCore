@@ -1,0 +1,218 @@
+{
+    "signal_values": {
+        "csr_rdcnt": [
+            "_RDCNT_NONE",
+            "_RDCNT_ID_VLOW",
+            "_RDCNT_VHIGH",
+            "_RDCNT_VLOW"
+        ],
+        "ertn_inst": [false, true],
+        "priv_inst": [false, true],
+        "refetch": [false, true],
+        "wait_inst": [false, true],
+        "syscall_inst": [false, true],
+        "break_inst": [false, true],
+        "csr_op_en": [false, true],
+        "tlbsrch_en": [false, true],
+        "tlbrd_en": [false, true],
+        "tlbwr_en": [false, true],
+        "tlbfill_en": [false, true],
+        "invtlb_en": [false, true]
+    },
+    "signals": {
+        "ertn_inst": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        },
+        "priv_inst": {
+            "length": 1,
+            "stage": "m1",
+            "default": false
+        },
+        "refetch": {
+            "length": 1,
+            "stage": "m1",
+            "default": false
+        },
+        "wait_inst": {
+            "length": 1,
+            "stage": "m1",
+            "default": false
+        },
+        "syscall_inst": {
+            "length": 1,
+            "stage": "m1",
+            "default": false
+        },
+        "break_inst": {
+            "length": 1,
+            "stage": "m1",
+            "default": false
+        },
+        "csr_op_en": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        },
+        "csr_rdcnt": {
+            "length": 2,
+            "stage": "m1",
+            "default": "_RDCNT_NONE"
+        },
+        "tlbsrch_en": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        },
+        "tlbrd_en": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        },
+        "tlbwr_en": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        },
+        "tlbfill_en": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        },
+        "invtlb_en": {
+            "length": 1,
+            "stage": "m2",
+            "default": false
+        }
+    },
+    "instructs": {
+        "syscall": {
+            "opcode": "00000000001010110",
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "syscall_inst": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "break": {
+            "opcode": "00000000001010100",
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "break_inst": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "ertn": {
+            "opcode": "0000011001001000001110",
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "ertn_inst": true,
+            "priv_inst": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "csrwrxchg": {
+            "opcode": "00000100",
+            "csr_op_en": true,
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "reg_type_w": "_REG_W_RD",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "addr_imm_sel": "_ADDR_IMM_S14",
+            "fu_sel_m2": "_FUSEL_M2_CSR",
+            "priv_inst": true,
+            "refetch": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "tlbsrch": {
+            "opcode": "0000011001001000001010",
+            "tlbsrch_en": true,
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "priv_inst": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "tlbrd": {
+            "opcode": "0000011001001000001011",
+            "tlbrd_en": true,
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "priv_inst": true,
+            "refetch": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "tlbwr": {
+            "opcode": "0000011001001000001100",
+            "tlbwr_en": true,
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "priv_inst": true,
+            "refetch": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "tlbfill": {
+            "opcode": "0000011001001000001101",
+            "tlbfill_en": true,
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "priv_inst": true,
+            "refetch": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "invtlb": {
+            "opcode": "00000110010010011",
+            "csr_rdcnt": "_RDCNT_ID_VLOW",
+            "invtlb_en": true,
+            "reg_type_r0": "_REG_R0_RK",
+            "reg_type_r1": "_REG_R1_RJ",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m2": true,
+            "latest_r1_m2": true,
+            "priv_inst": true,
+            "refetch": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "rdcnt.w": {
+            "opcode": "0000000000000000011000",
+            "csr_rdcnt": "_RDCNT_ID_VLOW",
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_RJD",
+            "fu_sel_m2": "_FUSEL_M2_CSR",
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "rdcnth.w": {
+            "opcode": "0000000000000000011001",
+            "csr_rdcnt": "_RDCNT_VHIGH",
+            "reg_type_r0": "_REG_R0_NONE",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_RJD",
+            "fu_sel_m2": "_FUSEL_M2_CSR",
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        },
+        "idle": {
+            "opcode": "00000110010010001",
+            "wait_inst": true,
+            "priv_inst": true,
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "need_csr": true
+        }
+    }
+}

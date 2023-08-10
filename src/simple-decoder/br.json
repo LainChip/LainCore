@@ -1,0 +1,156 @@
+{
+    "signal_values": {
+        "target_type": [
+            "_TARGET_REL",
+            "_TARGET_ABS"   
+        ],
+        
+        "cmp_type": {
+            "_CMP_NONE": 0,
+            "_CMP_NOCONDITION": 14,
+            "_CMP_E": 4,
+            "_CMP_NE": 10,
+            "_CMP_LE": 13,
+            "_CMP_GT": 3,
+            "_CMP_LT": 9,
+            "_CMP_GE": 7,
+            "_CMP_LTU": 8,
+            "_CMP_GEU": 6
+        },
+        "need_bpu": [false, true]
+    },
+    "signals": {
+        "target_type": {
+            "length": 1,
+            "stage": "ex",
+            "default": "_TARGET_REL"
+        },
+        "cmp_type": {
+            "length": 4,
+            "stage": "m1",
+            "default": "_CMP_NONE"
+        },
+        "need_bpu": {
+            "length": 1,
+            "stage": "m1",
+            "default": false
+        }
+    },
+    "instructs": {
+        "jirl": {
+            "opcode": "010011",
+            "alu_grand_op": "_ALU_GTYPE_LI",
+            "alu_op": "_ALU_STYPE_PCPLUS4",
+            "cmp_type": "_CMP_NOCONDITION",
+            "target_type": "_TARGET_ABS",
+            "reg_type_r0": "_REG_R0_NONE",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_r1": "_REG_R1_RJ",
+            "reg_type_w": "_REG_W_RD",
+            "latest_r0_ex": true,
+            "latest_r1_ex": true,
+            "fu_sel_ex": "_FUSEL_EX_ALU",
+            "need_bpu": true
+        },
+        "b": {
+            "opcode": "010100",
+            "cmp_type": "_CMP_NOCONDITION",
+            "target_type": "_TARGET_REL",
+            "reg_type_r0": "_REG_R0_NONE",
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_ex": true,
+            "latest_r1_ex": true,
+            "fu_sel_ex": "_FUSEL_EX_ALU",
+            "need_bpu": true
+        },
+        "bl": {
+            "opcode": "010101",
+            "alu_grand_op": "_ALU_GTYPE_LI",
+            "alu_op": "_ALU_STYPE_PCPLUS4",
+            "cmp_type": "_CMP_NOCONDITION",
+            "target_type": "_TARGET_REL",
+            "reg_type_r0": "_REG_R0_NONE",
+            "addr_imm_type": "_ADDR_IMM_S26",
+            "reg_type_r1": "_REG_R1_NONE",
+            "reg_type_w": "_REG_W_BL1",
+            "latest_r0_ex": true,
+            "latest_r1_ex": true,
+            "fu_sel_ex": "_FUSEL_EX_ALU",
+            "need_bpu": true
+        },
+        "beq": {
+            "opcode": "010110",
+            "target_type": "_TARGET_REL",
+            "cmp_type": "_CMP_E",
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "need_bpu": true
+        },
+        "bne": {
+            "opcode": "010111",
+            "target_type": "_TARGET_REL",
+            "cmp_type": "_CMP_NE",
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "need_bpu": true
+        },
+        "blt": {
+            "opcode": "011000",
+            "target_type": "_TARGET_REL",
+            "cmp_type": "_CMP_LT",
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "need_bpu": true
+        },
+        "bge": {
+            "opcode": "011001",
+            "target_type": "_TARGET_REL",
+            "cmp_type": "_CMP_GE",
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "need_bpu": true
+        },
+        "bltu": {
+            "opcode": "011010",
+            "target_type": "_TARGET_REL",
+            "cmp_type": "_CMP_LTU",
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "need_bpu": true
+        },
+        "bgeu": {
+            "opcode": "011011",
+            "target_type": "_TARGET_REL",
+            "cmp_type": "_CMP_GEU",
+            "reg_type_r0": "_REG_R0_RD",
+            "reg_type_r1": "_REG_R1_RJ",
+            "addr_imm_type": "_ADDR_IMM_S16",
+            "reg_type_w": "_REG_W_NONE",
+            "latest_r0_m1": true,
+            "latest_r1_m1": true,
+            "need_bpu": true
+        }
+    }
+}

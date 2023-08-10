@@ -7,7 +7,6 @@ lazy val root = (project in file("."))
     name := "simple-decoder"
   )
 
-scalaVersion := "2.11.12"
 
 libraryDependencies ++= Seq(
   "com.github.spinalhdl" % "spinalhdl-core_2.11" % "latest.release",

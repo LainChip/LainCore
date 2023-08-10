@@ -52,7 +52,6 @@ object Simplify {
     //table ==> [Vector[HashSet[Masked]]](careCount)(bitSetCount), table是一个二维数组
     val table = trueTermByCareCount.map(c => (0 to inputWidth).map(b => mutable.Set(c.filter(b == _.value.bitCount): _*)))
 
-    // 对
     for (i <- 0 to inputWidth) {
       //Expends explicit terms
       for (j <- 0 until inputWidth - i) {
