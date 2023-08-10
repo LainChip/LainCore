@@ -116,10 +116,10 @@ object JsonInstSetLoader {
         case other => println("Unknown data structure: " + other)
       }
     }
-    if (Config.checkInvalid) {
+    if (Config.checkInvalidInst) {
       signalValues ++= Map("invalid_inst" -> List(false, true))
       signals ++= Map("invalid_inst" -> Map("length" -> 1, "stage" -> Config.exceptionStage, "default" -> true))
-      // 每一条定义的指令的invalid_inst信号都为false
+      // 每一条定义的指令的valid_inst信号都为true
       instructs = instructs.mapValues(_ ++ Map("invalid_inst" -> false))
 
     }

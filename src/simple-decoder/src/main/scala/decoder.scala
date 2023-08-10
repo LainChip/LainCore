@@ -131,6 +131,7 @@ class decoder extends Component {
     for ((e, literal) <- values) {
       fixEncoding(e, literal)
       val offset = offsetOf(e)
+      decodedValue &= ~(BigInt(1) << offset) // 清除默认值
       decodedValue |= literal.head.source.asInstanceOf[Literal].getValue << offset
       decodedCare |= ((BigInt(1) << e.dataType.getBitsWidth) - 1) << offset
     }

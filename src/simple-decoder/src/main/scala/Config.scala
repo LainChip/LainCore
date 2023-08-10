@@ -53,7 +53,7 @@ object Config {
       |""".stripMargin
 
   val debug = true
-  val checkInvalid = true
+  val checkInvalidInst = true
   val exceptionStage = "m1"
   val bitWidth = 32
   val targetDirectory = "rtl" /*"/home/suyang/chiplab/IP/myCPU"*/
