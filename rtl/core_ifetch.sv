@@ -86,12 +86,12 @@ always_ff @(posedge clk) begin
   if(~rst_n || clr_i) begin
     f1_valid_q <= '0;
   end else if(cacheop_ready_o) begin
-    f1_vpc_q   <= cacheop_valid_i ? cacheop_paddr_i : vpc_i;
-    f1_ppc_q   <= cacheop_valid_i ? cacheop_paddr_i : ppc_i;
-    f1_valid_q <= cacheop_valid_i ? 2'b00 : valid_i;
+    f1_vpc_q    <= cacheop_valid_i ? cacheop_paddr_i : vpc_i;
+    f1_ppc_q    <= cacheop_valid_i ? cacheop_paddr_i : ppc_i;
+    f1_valid_q  <= cacheop_valid_i ? 2'b00 : valid_i;
     f1_inv_op_q <= cacheop_i;
-    f1_inv_q <= cacheop_valid_i;
-    attached_o <= attached_i;
+    f1_inv_q    <= cacheop_valid_i;
+    attached_o  <= attached_i;
   end
 end
 logic[9:0] refill_addr_q;// TODO
@@ -104,7 +104,7 @@ logic[1:0][31:0] refill_data_q;
 logic skid_q;
 
 i_tag_t tram_rdata,tram_wdata;
-i_tag_t f1_tag;
+i_tag_t f1_tag    ;
 logic[7:0] tram_raddr;
 logic tram_we;
 logic[7:0] tram_waddr;
@@ -145,12 +145,12 @@ always_comb begin
   tram_wdata.tag   = itagaddr(f1_ppc_q);
   if(f1_inv_q) begin
     case(f1_inv_op_q)
-    default: begin
-      tram_wdata.valid = 1'b0;
-    end
-    2: begin
-      tram_wdata.valid = !hit_q;
-    end
+      default : begin
+        tram_wdata.valid = 1'b0;
+      end
+      2 : begin
+        tram_wdata.valid = !hit_q;
+      end
     endcase
   end
 end
@@ -173,7 +173,7 @@ for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     .dataWidth($bits(i_tag_t)),
     .ramSize  (1 << 8        ),
     .latency  (0             ),
-    .readMuler(1)
+    .readMuler(1             )
   ) tram (
     .clk     (clk       ),
     .rst_n   (rst_n     ),
@@ -247,7 +247,8 @@ always_comb begin
       end
     end
     FSM_RECVER : begin
-      fsm = FSM_NORMAL;
+      fsm               = FSM_NORMAL;
+      uncached_finished = 1'b1;
     end
     FSM_RFADDR : begin
       if(bus_resp_i.ready) begin
@@ -333,9 +334,12 @@ assign inst_o = skid_q ? i_remember_data : inst;
 // READY LOGIC
 // 这个信号可以视为一个 stall 信号
 assign cacheop_ready_o = ready_i && fsm_q == FSM_NORMAL &&
-((hit_q & !uncached_i) | (~|f1_valid_q) | uncached_finished_q);
-assign ready_o         = ready_i && fsm_q == FSM_NORMAL &&
-  ((hit_q & !uncached_i) | (~|f1_valid_q) | uncached_finished_q) && !cacheop_valid_i;
+  ((!f1_inv_q && ((hit_q && !uncached_i) || (~|f1_valid_q) || uncached_finished_q)) ||
+    (f1_inv_q  && uncached_finished_q));
+assign ready_o = ready_i && fsm_q == FSM_NORMAL &&
+  ((!f1_inv_q && ((hit_q && !uncached_i) || (~|f1_valid_q) || uncached_finished_q)) ||
+    (f1_inv_q  && uncached_finished_q))
+  && !cacheop_valid_i;
 
 // 产生总线赋值
 always_comb begin

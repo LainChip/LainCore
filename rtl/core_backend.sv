@@ -1130,22 +1130,24 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         if(p == 0 && decode_info.mem_cacop) begin
           m2_mem_valid[p] = /**/ctlb_opcode[2:0] == 3'd1 && exc_m2_q[p].need_commit;
           case(ctlb_opcode[4:3])
-          default/*2'd0*/: begin
-            m2_mem_op[p] = `_DCAHE_OP_DIRECT_INV;
-          end
-          2'd1: begin
-            m2_mem_op[p] = `_DCAHE_OP_DIRECT_INVWB;
-          end
-          2'd2: begin
-            m2_mem_op[p] = `_DCAHE_OP_HIT_INV;
-          end
+            default/*2'd0*/: begin
+              m2_mem_op[p] = `_DCAHE_OP_DIRECT_INV;
+            end
+            2'd1 : begin
+              m2_mem_op[p] = `_DCAHE_OP_DIRECT_INVWB;
+            end
+            2'd2 : begin
+              m2_mem_op[p] = `_DCAHE_OP_HIT_INV;
+            end
           endcase
         end
       end
       if(p == 0) begin
         // assign frontend_resp_o.icache_op_valid = '0;
         always_comb begin
-
+          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[p].need_commit;
+          frontend_resp_o.icache_op = ctlb_opcode[4:3];
+          frontend_resp_o.icacheop_addr = m2_mem_paddr[p];
         end
       end
       assign m2_mem_size[p]   = mkmemsize(decode_info.mem_type);
