@@ -580,7 +580,7 @@ module core_backend (
     .m1_int_o        (csr_m1_int                     ),
     
     .m2_commit_i     (csr_m2_commit_valid            ),
-  
+    
     .csr_r_data_o    (csr_r_data                     ),
     .csr_o           (csr_value                      )
   );
@@ -1333,7 +1333,7 @@ module core_backend (
         .pc            (cm_pc           ),
         .instr         (cm_instr        ),
         .skip          ('0              ),
-        .is_TLBFILL    ('0              ), // TODO: FIXME
+        .is_TLBFILL    (cm_inst_info.tlbfill_en && cm_valid), // TODO: CHECK
         .TLBFILL_index (debug_rand_index),
         .is_CNTinst    (cm_inst_info.csr_rdcnt != '0),
         .timer_64_value(cb_timer_64     ),

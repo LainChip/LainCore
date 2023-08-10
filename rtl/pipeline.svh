@@ -250,7 +250,7 @@ typedef struct packed {
 }csr_t;
 
 typedef struct packed {
-  logic[$clog2(`_TLB_ENTRY_NUM) - 1 : 0] tlb_we;
+  logic[`_TLB_ENTRY_NUM - 1 : 0] tlb_we;
   tlb_entry_t tlb_w_entry;
 } tlb_update_req_t;
 
