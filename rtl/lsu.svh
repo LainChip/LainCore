@@ -14,6 +14,7 @@
 `define _DCAHE_OP_WRITE 2
 `define _DCAHE_OP_HIT_INV 3
 `define _DCAHE_OP_DIRECT_INV 4
+`define _DCAHE_OP_DIRECT_INVWB 5
 `define _IWAY_CNT 1
 `define _IIDX_LEN 12
 `define _ITAG_LEN 20
@@ -94,6 +95,7 @@ typedef struct packed {
           // 不可能同时出现的请求
           logic hit_write_req_valid; // 不需要暂停
           logic cache_op_inv;
+          logic cache_op_invwb;
           logic miss_write_req_valid;
           logic uncached_write_valid;
 

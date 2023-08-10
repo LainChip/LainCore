@@ -215,7 +215,9 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
               end
             end
             else begin
-              if(m2_op_i == `_DCAHE_OP_DIRECT_INV || m2_op_i == `_DCAHE_OP_HIT_INV) begin
+              if(m2_op_i == `_DCAHE_OP_DIRECT_INVWB ||
+                m2_op_i   = = `_DCAHE_OP_DIRECT_INV ||
+                m2_op_i   = = `_DCAHE_OP_HIT_INV) begin
                 fsm       = S_CACHE_INVOP; // 直接无效化对应行的每一路，以降低复杂度
                 m2_busy_o = '1;
               end
@@ -350,9 +352,18 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
 
     rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
     rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE) || (fsm_q == S_UNCACHE_WRITE);
-    rstate_o.cache_op_inv         = (fsm_q == S_CACHE_INVOP/* && m2_valid_i*/ /*TODO: CHECK HIT*/);
+    rstate_o.cache_op_inv         = (fsm_q == S_CACHE_INVOP && m2_op_i == `_DCAHE_OP_DIRECT_INV/* && m2_valid_i*/ /*TODO: CHECK ME*/);
+    rstate_o.cache_op_invwb       = (fsm_q == S_CACHE_INVOP && (m2_op_i == `_DCAHE_OP_DIRECT_INVWB || m2_op_i == `_DCAHE_OP_HIT_INV)/* && m2_valid_i*/ /*TODO: CHECK ME*/);
     rstate_o.miss_write_req_valid = (fsm_q == S_REFILL_WRITE /*&& m2_valid_i && !m2_uncached_i && miss_q && m2_op_i == `_DCAHE_OP_WRITE*/);
-    rstate_o.addr    = m2_paddr_i;
+    rstate_o.addr                 = m2_paddr_i;
+    if(m2_op_i == `_DCAHE_OP_HIT_INV) begin
+      rstate_o.addr[$clog2(WAY_CNT)-1:0] = '0;
+      for(integer i = 0 ; i < WAY_CNT ; i++) begin
+        if(hit_q[i]) begin
+          rstate_o.addr[$clog2(WAY_CNT)-1:0] = i[$clog2(WAY_CNT) - 1 : 0];
+        end
+      end
+    end
     rstate_o.rwsize  = m2_size_i;
     rstate_o.wsel    = (m2_valid_i && m2_op_i == `_DCAHE_OP_WRITE) ? hit_q : '0;
     rstate_o.wstrobe = m2_strobe_i;

@@ -164,6 +164,7 @@ typedef struct packed{
   bpu_predict_t bpu_predict;
   fetch_excp_t  fetch_excp ;
   logic[27:0] addr_imm;
+  logic[4:0] op_code;
   logic[31:0] pc;
 } pipeline_ctrl_ex_t;// 移位寄存器实现的部分
 
@@ -171,6 +172,7 @@ typedef struct packed{
   m1_t          decode_info; // 指令控制信息 ::: 不需要 rst clr | 跳转 clr
   bpu_predict_t bpu_predict;
   excp_flow_t   excp_flow  ;
+  logic[4:0] op_code;
   logic[13:0] csr_id;
   logic[31:0] jump_target;
   logic[31:0] vaddr;
@@ -182,6 +184,7 @@ typedef struct packed{
   logic       excp_valid  ;
   excp_flow_t excp_flow   ;
   logic       mem_uncached;
+  logic[4:0] op_code;
   logic[13:0] csr_id;
   logic[31:0] vaddr;
   logic[31:0] paddr;

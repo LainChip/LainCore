@@ -72,7 +72,7 @@ module core_lsu_wport #(
 
   logic[31:0] op_addr_q,op_addr;// 汇总后的处理地址
   logic[31:0] refill_addr_q,refill_addr;
-  logic[1:0] op_type_q,op_type;// 0读 refill, 1写 refill, 2读uncached, 3缓存inv请求
+  logic[4:0] op_type_q,op_type;// 0读 refill, 1写 refill, 2读uncached, 3缓存inv请求
   logic[1:0] op_size_q,op_size;// 对于 uncached 读，需要判断其读长度
   logic op_valid_q,op_valid; // 由汇总层负责的握手信号
   logic op_taken_q;
@@ -81,10 +81,12 @@ module core_lsu_wport #(
   dcache_tag_t oldtag_q,oldtag;
   logic        op_ready_q,op_ready; // 由状态机控制的握手信号 TODO: CHECK
   // TODO: CHECK US
-  localparam logic[1:0] O_READ_REFILL = 0;
-  localparam logic[1:0] O_WRITE_REFILL = 1;
-  localparam logic[1:0] O_READ_UNCACHE = 2;
-  localparam logic[1:0] O_CACHE_INV = 3;
+  // ONEHOT ENCODING
+  localparam logic[4:0] O_READ_REFILL = 1;
+  localparam logic[4:0] O_WRITE_REFILL = 2;
+  localparam logic[4:0] O_READ_UNCACHE = 4;
+  localparam logic[4:0] O_CACHE_INV = 8;  // 区别两类 INV 指令
+  localparam logic[4:0] O_CACHE_INVWB = 16;
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       op_valid_q <= '0;
@@ -162,6 +164,16 @@ module core_lsu_wport #(
           op_addr     = rstate_i[i].addr;
           refill_addr = {rstate_i[i].addr[31:4], 4'd0};
           op_type     = O_CACHE_INV;
+          refill_sel  = rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0];
+          p_sel[i]    = '1;
+          oldtag      = rstate_i[i].tag_rdata[refill_sel];
+        end
+        else if(rstate_i[i].cache_op_invwb) begin // TODO: COMMENT ME FOR PERF TEST
+          // cache 指令
+          op_valid    = '1;
+          op_addr     = rstate_i[i].addr;
+          refill_addr = {rstate_i[i].addr[31:4], 4'd0};
+          op_type     = O_CACHE_INVWB;
           refill_sel  = rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0];
           p_sel[i]    = '1;
           oldtag      = rstate_i[i].tag_rdata[refill_sel];
@@ -333,8 +345,24 @@ module core_lsu_wport #(
                 fsm = S_WAIT_BUS;
               end
               else begin
-                // todo: 明确不同类型的 op 在写回完成后的操作
+                // todo: CHECK ME
                 fsm = S_TAG_UPDATE;
+              end
+            end
+            O_CACHE_INVWB : begin
+              if(bus_busy_o) begin
+                fsm = S_WAIT_BUS;
+              end
+              else begin
+                // todo: CHECK ME
+                if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
+                  // 脏写回
+                  set_timer = '1;
+                  fsm       = S_WB_WADR;
+                end
+                else begin
+                  fsm = S_TAG_UPDATE;
+                end
               end
             end
           endcase
@@ -357,8 +385,19 @@ module core_lsu_wport #(
               fsm = S_PT_RADR;
             end
             O_CACHE_INV : begin
-              // todo: 明确不同类型的 op 在写回完成后的操作
+              // todo: CHECK ME
               fsm = S_TAG_UPDATE;
+            end
+            O_CACHE_INVWB : begin
+              // todo: CHECK ME
+              if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
+                // 脏写回
+                set_timer = '1;
+                fsm       = S_WB_WADR;
+              end
+              else begin
+                fsm = S_TAG_UPDATE;
+              end
             end
           endcase
         end
@@ -371,7 +410,7 @@ module core_lsu_wport #(
       S_WB_WDAT : begin
         if(bus_resp_i.data_ok && bus_req_o.data_last) begin
           // todo: 明确不同类型的 op 在写回完成后的操作
-          if(op_type_q == O_CACHE_INV) begin
+          if(op_type_q == O_CACHE_INVWB) begin
             fsm = S_TAG_UPDATE;
           end
           else begin
@@ -521,7 +560,7 @@ module core_lsu_wport #(
   always_comb begin
     wport_req.tag_waddr       = tramaddr(op_addr_q);
     wport_req.tag_wdata.valid = '1;
-    if(op_type_q == O_CACHE_INV) begin
+    if(op_type_q == O_CACHE_INV || op_type_q == O_CACHE_INVWB) begin
       wport_req.tag_wdata.valid = '0;
     end
     wport_req.tag_wdata.addr = tagaddr(op_addr_q);

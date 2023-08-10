@@ -691,6 +691,7 @@ module core_backend #(
         pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
         pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
         pipeline_ctrl_is[p].addr_imm = mkimm_addr(is_inst_pack[p].decode_info.addr_imm_type, is_inst_pack[p].imm_domain);
+        pipeline_ctrl_is[p].op_code = is_inst_pack[p].imm_domain[4:0];
         pipeline_ctrl_is[p].pc = is_inst_pack[p].pc;
         exc_is[p].valid_inst = issue[p];
         exc_is[p].need_commit = issue[p];
@@ -756,7 +757,7 @@ module core_backend #(
 
         // TODO: INVALID TLBINV
         ex_excp_flow.ine = (!(|ex_excp_flow)) && exc_ex_q[p].need_commit &&
-          (decode_info.invalid_inst || (ENABLE_TLB && decode_info.invtlb_en && (pipeline_ctrl_ex_q[p].addr_imm[22:18] > 5'd6)));
+          (decode_info.invalid_inst || (ENABLE_TLB && decode_info.invtlb_en && (pipeline_ctrl_ex_q[p].op_code > 5'd6)));
         ex_excp_flow.sys = (!(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
         ex_excp_flow.brk = (!(|ex_excp_flow)) && decode_info.break_inst && exc_ex_q[p].need_commit;
 
@@ -834,11 +835,13 @@ module core_backend #(
         pipeline_ctrl_m1[p].decode_info = get_m1_from_ex(pipeline_ctrl_ex_q[p].decode_info);
         pipeline_ctrl_m1[p].bpu_predict = pipeline_ctrl_ex_q[p].bpu_predict;
         pipeline_ctrl_m1[p].excp_flow = ex_excp_flow;
+        pipeline_ctrl_m1[p].op_code = pipeline_ctrl_ex_q[p].op_code;
         // 注意，这里 inst[9:0] -> addr_imm[27:18]
         // inst[25:10] -> addr_imm[17:2]
-        pipeline_ctrl_m1[p].csr_id = (decode_info.csr_rdcnt == 0) ?
-          pipeline_ctrl_ex_q[p].addr_imm[15:2] :
-            {pipeline_ctrl_ex_q[p].addr_imm[15:7],pipeline_ctrl_ex_q[p].addr_imm[22:18]};
+        // pipeline_ctrl_m1[p].csr_id = (decode_info.csr_rdcnt == 0) ?
+        //   pipeline_ctrl_ex_q[p].addr_imm[15:2] :
+        //     {pipeline_ctrl_ex_q[p].addr_imm[15:7],pipeline_ctrl_ex_q[p].addr_imm[22:18]};
+        pipeline_ctrl_m1[p].csr_id = pipeline_ctrl_ex_q[p].addr_imm[15:2];
         pipeline_ctrl_m1[p].jump_target = jump_target;
         pipeline_ctrl_m1[p].vaddr = vaddr;
         pipeline_ctrl_m1[p].pc = pipeline_ctrl_ex_q[p].pc;
@@ -1046,6 +1049,7 @@ module core_backend #(
         pipeline_ctrl_m2[p].excp_flow = m1_excp_flow;
         pipeline_ctrl_m2[p].excp_valid = m1_excp_detect[p];
         pipeline_ctrl_m2[p].mem_uncached = m1_mem_uncached[p];
+        pipeline_ctrl_m2[p].op_code = pipeline_ctrl_m1_q[p].op_code;
         pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
         pipeline_ctrl_m2[p].vaddr = pipeline_ctrl_m1_q[p].vaddr;
         pipeline_ctrl_m2[p].paddr = paddr;
@@ -1200,7 +1204,7 @@ module core_backend #(
       end
     end
     // CSR 控制接线，一定在流水线级1
-    assign ctlb_opcode = pipeline_ctrl_m2_q[0].csr_id[4:0];
+    assign ctlb_opcode = pipeline_ctrl_m2[p].op_code;
     assign csr_w_addr  = pipeline_ctrl_m2_q[0].csr_id;
     assign csr_w_data  = pipeline_data_m2_q[0].r_data[0];
     assign csr_w_mask  = pipeline_data_m2_q[0].r_flow.r_addr[1] == 5'd1 ?
