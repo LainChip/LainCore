@@ -118,7 +118,8 @@
             "addr_imm_type": "`_ADDR_IMM_S14",
             "reg_type_w": "`_REG_W_RD",
             "latest_r1_ex": 1,
-            "fu_sel_m2": "`_FUSEL_M2_MEM"
+            "fu_sel_m2": "`_FUSEL_M2_MEM",
+            "need_csr": 1
         },
         "st.w": {
             "opcode": "0010100110",
@@ -167,7 +168,8 @@
             "addr_imm_type": "`_ADDR_IMM_S14",
             "reg_type_w": "`_REG_W_RD",
             "latest_r0_m2": 1,
-            "latest_r1_ex": 1
+            "latest_r1_ex": 1,
+            "need_csr": 1
         },
         "cacop": {
             "opcode": "0000011000",
@@ -179,7 +181,8 @@
             "addr_imm_type": "`_ADDR_IMM_S12",
             "reg_type_w": "`_REG_W_NONE",
             "latest_r1_ex": 1,
-            "refetch": 1
+            "refetch": 1,
+            "need_csr": 1
         },
         "dbar": {
             "opcode": "00111000011100100",

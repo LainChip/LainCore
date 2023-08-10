@@ -3,8 +3,8 @@
 
 `include "decoder.svh"
 
-`define _GLOBAL_FRONT_STALL_P (10)
-`define _GLOBAL_BACK_STALL_P (8)
+`define _GLOBAL_FRONT_STALL_P (0)
+`define _GLOBAL_BACK_STALL_P (0)
 
 `define _TLB_ENTRY_NUM (32)
 `define _TLB_PORT (2)

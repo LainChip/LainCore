@@ -579,6 +579,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     .ertn_i          (csr_ertn                       ),
     .valid_i         (csr_valid                      ),
     .commit_i        (csr_commit                     ),
+    .m1_stall_i      (m1_stall                       ),
     .m2_stall_i      (m2_stall                       ),
     .csr_r_addr_i    (csr_r_addr                     ),
     .rdcnt_i         (csr_rdcnt                      ),
@@ -1170,7 +1171,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       if(p == 0) begin
         // assign frontend_resp_o.icache_op_valid = '0;
         always_comb begin
-          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[p].need_commit && !m2_stall;
+          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[0].need_commit;
           frontend_resp_o.icache_op       = ctlb_opcode[4:3];
           frontend_resp_o.icacheop_addr   = m2_mem_paddr[p];
         end

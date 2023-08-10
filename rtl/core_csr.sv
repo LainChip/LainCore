@@ -13,6 +13,7 @@ module core_csr #(
   input logic valid_i,
   input logic commit_i,
 
+  input logic m1_stall_i,
   input logic m2_stall_i,
 
   input logic[13:0] csr_r_addr_i, // M1 in
@@ -47,7 +48,9 @@ module core_csr #(
 
 logic m1_commit_i_q;
 always_ff @(posedge clk) begin
-  m1_commit_i_q <= m1_commit_i && m1_int_o;
+  if(!m2_stall_i) begin
+    m1_commit_i_q <= m1_commit_i && m1_int_o && !m1_stall_i;
+  end
 end
 
 // TLB 控制模块，执行 TLB 相关指令，产生 tlb_update_req_o 信号控制外部 ADDR_TRANS 模块。
@@ -454,13 +457,13 @@ always_ff @(posedge clk) begin
       timer_en <= csr_w_data[`_TCFG_EN];
     end
     // else if (timer_en && (tval_q == 32'b0)) begin
-    else if (timer_intr_q && m1_commit_i_q) begin
+    else if (timer_intr_q && m1_commit_i_q && !m2_stall_i) begin
       estat_q[11] <= 1'b1;
       timer_en    <= tcfg_q[`_TCFG_PERIODIC];
     end
 
     // estat_q[9:2] <= int_i;
-    if(m1_commit_i_q) begin
+    if(m1_commit_i_q && !m2_stall_i) begin
       estat_q[9:2] <= int_q;
     end
     if (excp_valid) begin
@@ -831,7 +834,7 @@ always_ff @(posedge clk) begin
       if (tval_q != 32'b0) begin
         tval_q <= tval_q - 32'b1;
       end
-      else if (/*tval_q == 32'b0 &&*/ m1_commit_i_q) begin
+      else if (/*tval_q == 32'b0 &&*/ m1_commit_i_q && !m2_stall_i) begin
         tval_q <= tcfg_q[`_TCFG_PERIODIC] ? {tcfg_q[`_TCFG_INITVAL], 2'b0} : 32'hffffffff;
       end
     end

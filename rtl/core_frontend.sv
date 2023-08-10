@@ -66,7 +66,7 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   assign mimo_stall = !mimo_ready;
   logic rstall_1, rstall_2; // 随机暂停源
   assign f1_stall = f2_stall | addr_trans_stall | idle_stall | icacheop_valid | rstall_1;
-  assign f2_stall = icache_stall | mimo_stall;
+  assign f2_stall = icache_stall | mimo_stall | rstall_2;
   tests_random_stall #(.PERCETAGE(`_GLOBAL_FRONT_STALL_P)) tests_random_stall_1 (
     .clk    (clk     ),
     .rst_n  (rst_n   ),
