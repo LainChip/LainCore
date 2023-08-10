@@ -100,10 +100,10 @@ if(ENABLE_TLB) begin
   always_comb begin
     tlb_update_req.tlb_we      = tlb_need_inv;
     tlb_update_req.tlb_w_entry = tlb_w_entry;
-    if(tlb_op_i.tlbfill) begin
+    if(!m2_stall_i && tlb_op_i.tlbfill) begin
       tlb_update_req.tlb_we[tlbfill_rnd_idx_q[$clog2(TLB_ENTRY_NUM)-1:0]] = '1;
     end
-    if(tlb_op_i.tlbwr) begin
+    if(!m2_stall_i && tlb_op_i.tlbwr) begin
       tlb_update_req.tlb_we[csr_o.tlbidx[$clog2(TLB_ENTRY_NUM)-1:0]] = '1;
     end
   end
@@ -143,7 +143,7 @@ if(ENABLE_TLB) begin
     end
     always_comb begin
       tlb_need_inv[i] = '0;
-      if(tlb_op_i.invtlb) begin
+      if(!m2_stall_i && tlb_op_i.invtlb) begin
         if(tlb_inv_op_i == 0 || tlb_inv_op_i == 1) begin
           tlb_need_inv[i] = '1;
         end
@@ -185,33 +185,33 @@ assign csr_w_data = (csr_r_data_o & ~csr_w_mask_i) | (csr_w_data_i & csr_w_mask_
 
 // EXCPTION JUDGE OH
 logic excp_int;
-assign excp_int = excp_i.m1int;
+assign excp_int = !m2_stall_i && excp_i.m1int;
 logic excp_pil;
-assign excp_pil = excp_i.pil;
+assign excp_pil = !m2_stall_i && excp_i.pil;
 logic excp_pis;
-assign excp_pis = excp_i.pis;
+assign excp_pis = !m2_stall_i && excp_i.pis;
 logic excp_pif;
-assign excp_pif = excp_i.pif;
+assign excp_pif = !m2_stall_i && excp_i.pif;
 logic excp_pme;
-assign excp_pme = excp_i.pme;
+assign excp_pme = !m2_stall_i && excp_i.pme;
 logic excp_ppi;
-assign excp_ppi = excp_i.ppi || excp_i.ippi;
+assign excp_ppi = !m2_stall_i && (excp_i.ppi || excp_i.ippi);
 logic excp_adem;
-assign excp_adem = excp_i.adem;
+assign excp_adem = !m2_stall_i && excp_i.adem;
 logic excp_ale;
-assign excp_ale = excp_i.ale;
+assign excp_ale = !m2_stall_i && excp_i.ale;
 logic excp_sys;
-assign excp_sys = excp_i.sys;
+assign excp_sys = !m2_stall_i && excp_i.sys;
 logic excp_brk;
-assign excp_brk = excp_i.brk;
+assign excp_brk = !m2_stall_i && excp_i.brk;
 logic excp_ine;
-assign excp_ine = excp_i.ine;
+assign excp_ine = !m2_stall_i && excp_i.ine;
 logic excp_ipe;
-assign excp_ipe = excp_i.ipe;
+assign excp_ipe = !m2_stall_i && excp_i.ipe;
 logic excp_tlbr; // TODO: FIXME
-assign excp_tlbr = excp_i.itlbr || excp_i.tlbr;
+assign excp_tlbr = !m2_stall_i && (excp_i.itlbr || excp_i.tlbr);
 logic excp_adef;
-assign excp_adef = excp_i.adef;
+assign excp_adef = !m2_stall_i && excp_i.adef;
 
 logic excp_tlb;
 assign excp_tlb = excp_tlbr | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi;
@@ -221,7 +221,7 @@ assign excp_valid = excp_int | excp_tlbr | excp_pil | excp_pis | excp_pif | excp
   excp_adem | excp_ale | excp_sys | excp_brk | excp_ine | excp_ipe | excp_adef;
 
 logic ertn_valid;
-assign ertn_valid = ertn_i;
+assign ertn_valid = !m2_stall_i && ertn_i;
 logic ertn_tlbr_valid;
 assign ertn_tlbr_valid = ertn_valid && /*(csr_o.estat_q[21:16] == 6'h3f)*//*简化一下逻辑*/ csr_o.estat[21];
 
@@ -281,14 +281,14 @@ assign era   = pc_i;
 assign badva = (excp_adef || excp_pif || excp_i.ippi || excp_i.itlbr/* TODO: ADD SITUATION WHICH VA IS PC*/) ? pc_i : vaddr_i;
 
 logic tlbsrch_en; // TODO
-assign tlbsrch_en = tlb_op_i.tlbsrch;
+assign tlbsrch_en = !m2_stall_i && tlb_op_i.tlbsrch;
 
 logic tlbrd_valid_wr_en, tlbrd_invalid_wr_en;
 
 logic va_error;
 assign va_error            = excp_tlbr | excp_adef | excp_adem | excp_ale | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi;
-assign tlbrd_valid_wr_en   = tlb_op_i.tlbrd && tlb_r_entry_q.key.e;
-assign tlbrd_invalid_wr_en = tlb_op_i.tlbrd && !tlb_r_entry_q.key.e;
+assign tlbrd_valid_wr_en   = !m2_stall_i && tlb_op_i.tlbrd && tlb_r_entry_q.key.e;
+assign tlbrd_invalid_wr_en = !m2_stall_i && tlb_op_i.tlbrd && !tlb_r_entry_q.key.e;
 // csr register
 logic [31:0] crmd_q     ;
 logic [31:0] prmd_q     ;
@@ -546,7 +546,7 @@ always_ff @(posedge clk) begin
       tlbidx_q[`_TLBIDX_PS]    <= csr_w_data[`_TLBIDX_PS];
       tlbidx_q[`_TLBIDX_NE]    <= csr_w_data[`_TLBIDX_NE];
     end
-    else if (tlb_op_i.tlbsrch) begin
+    else if (!m2_stall_i && tlb_op_i.tlbsrch) begin
       if (tlb_srch_valid_q) begin
         tlbidx_q[`_TLBIDX_INDEX] <= tlb_srch_idx_q;
         tlbidx_q[`_TLBIDX_NE]    <= 1'b0;

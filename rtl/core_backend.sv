@@ -1170,7 +1170,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       if(p == 0) begin
         // assign frontend_resp_o.icache_op_valid = '0;
         always_comb begin
-          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[p].need_commit;
+          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[p].need_commit && !m2_stall;
           frontend_resp_o.icache_op       = ctlb_opcode[4:3];
           frontend_resp_o.icacheop_addr   = m2_mem_paddr[p];
         end
@@ -1250,7 +1250,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       // WAIT 指令接入
       if(p == 0) begin
-        assign frontend_resp_o.wait_inst  = decode_info.wait_inst && exc_m2_q[p].need_commit;
+        assign frontend_resp_o.wait_inst  = decode_info.wait_inst && exc_m2_q[p].need_commit && !m2_stall;
         assign frontend_resp_o.int_detect = csr_m1_int;
       end
     end
