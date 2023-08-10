@@ -52,7 +52,9 @@ endfunction
     endcase
   endfunction
 
-module core_backend (
+module core_backend #(
+  parameter bit ENABLE_TLB = 1'b1
+)(
   input  logic            clk            ,
   input  logic            rst_n          ,
   input  logic [7:0]      int_i          , // 中断输入
@@ -752,7 +754,8 @@ module core_backend (
         ex_excp_flow.ipe = (!(|ex_excp_flow)) && csr_value.crmd[`PLV] == 2'd3 && decode_info.priv_inst && exc_ex_q[p].need_commit;
 
         // TODO: INVALID TLBINV
-        ex_excp_flow.ine = (!(|ex_excp_flow)) && decode_info.invalid_inst && exc_ex_q[p].need_commit;
+        ex_excp_flow.ine = (!(|ex_excp_flow)) && exc_ex_q[p].need_commit &&
+          (decode_info.invalid_inst || (ENABLE_TLB && decode_info.invtlb_en && pipeline_ctrl_ex_q[p].addr_imm[6:2] > 5'd6));
         ex_excp_flow.sys = (!(|ex_excp_flow)) && decode_info.syscall_inst && exc_ex_q[p].need_commit;
         ex_excp_flow.brk = (!(|ex_excp_flow)) && decode_info.break_inst && exc_ex_q[p].need_commit;
 
