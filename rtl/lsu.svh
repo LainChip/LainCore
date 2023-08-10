@@ -12,7 +12,8 @@
 `define _DTAG_LEN 20
 `define _DCAHE_OP_READ 1
 `define _DCAHE_OP_WRITE 2
-`define _DCAHE_OP_INV 3
+`define _DCAHE_OP_HIT_INV 3
+`define _DCAHE_OP_DIRECT_INV 4
 `define _IWAY_CNT 1
 `define _IIDX_LEN 12
 `define _ITAG_LEN 20

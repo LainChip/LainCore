@@ -35,7 +35,7 @@ module core_addr_trans #(
       .asid_i(csr_i.asid[9:0]),
       .match_o(tlb_match[i]),
       .update_i(tlb_update_req_i.tlb_we[i]),
-      .update_key_i(tlb_update_req_i.tlb_w_entry)
+      .update_key_i(tlb_update_req_i.tlb_w_entry.key)
     );
   end
 

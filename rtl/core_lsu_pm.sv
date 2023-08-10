@@ -227,7 +227,7 @@ always_comb begin
         m2_fsm    = M2_FSM_WRITE_WAIT;
         m2_busy_o = 1'b1;
       end
-      else if(m2_valid_i && m2_op_i != `_DCAHE_OP_WRITE && m2_op_i != `_DCAHE_OP_READ) begin
+      else if(m2_valid_i && ((m2_op_i == `_DCAHE_OP_HIT_INV && !m2_miss_q) || m2_op_i != `_DCAHE_DIRECT_INV)) begin
         m2_fsm    = M2_FSM_CACHE_OP;
         m2_busy_o = 1'b1;
       end

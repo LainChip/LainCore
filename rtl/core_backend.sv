@@ -500,6 +500,7 @@ module core_backend #(
 
     // tlb 更新信号
     tlb_update_req_t tlb_update_req;
+    assign frontend_resp_o.tlb_update_req = tlb_update_req;
 
     for(genvar p = 0 ; p < 2 ; p++) begin : DADDR_TRANS
       core_addr_trans #(
@@ -1005,7 +1006,7 @@ module core_backend #(
           (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]));
         m1_excp_flow.adem = m1_addr_trans_result[p].dmw ? '0 : (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31])
+          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && decode_info.need_lsu)
         );
         m1_excp_flow.tlbr = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&

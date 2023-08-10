@@ -217,7 +217,7 @@ logic excp_tlb;
 assign excp_tlb = excp_tlbr | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi;
 
 logic excp_valid;
-assign excp_valid = excp_int | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi |
+assign excp_valid = excp_int | excp_tlbr | excp_pil | excp_pis | excp_pif | excp_pme | excp_ppi |
   excp_adem | excp_ale | excp_sys | excp_brk | excp_ine | excp_ipe | excp_adef;
 
 logic ertn_valid;
@@ -585,7 +585,7 @@ always_ff @(posedge clk) begin
       tlbehi_q[`_TLBEHI_VPPN] <= '0;
     end
     else if (excp_tlb) begin
-      tlbehi_q[`_TLBEHI_VPPN] <= badv_i[`_TLBEHI_VPPN];
+      tlbehi_q[`_TLBEHI_VPPN] <= badva[`_TLBEHI_VPPN];
     end
   end
 end

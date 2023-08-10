@@ -149,7 +149,7 @@ module core_frontend (
     .m1_stall_i      (f_stall && !frontend_resp_i.rst_jmp),
     .ready_o         (paddr_ready                       ),
     .csr_i           (frontend_resp_i.csr_reg           ),
-    .tlb_update_req_i(tlb_update_req_i                  ),
+    .tlb_update_req_i(frontend_resp_i.tlb_update_req    ),
     .trans_result_o  (trans_result                      )
   );
   logic[31:0] ppc_nc;

@@ -255,24 +255,24 @@ typedef struct packed {
 } tlb_update_req_t;
 
 typedef struct packed {
-  logic[1:0] issue;
+  logic[1:0] issue; //c
 
   // TLB RELATED
-  tlb_update_req_t tlb_update_req ;
+  tlb_update_req_t tlb_update_req ; // c
 
   // BRANCH RELATED
-  logic            rst_jmp        ;
-  logic[31:0] rst_jmp_target;
-  bpu_correct_t    bpu_correct    ;
+  logic            rst_jmp        ; // c
+  logic[31:0] rst_jmp_target      ; // c
+  bpu_correct_t    bpu_correct    ; // c
 
   // WAIT INSTRUCTION
-  logic            wait_inst      ;
-  logic            int_detect     ;
+  logic            wait_inst      ; // nc
+  logic            int_detect     ; // nc
 
   // ICACHE INSTRUCTION
-  logic            icache_op_valid;
-  logic[1:0] icache_op;
-  logic[31:0] icacheop_addr;
+  logic            icache_op_valid; // nc
+  logic[1:0]       icache_op      ; // nc
+  logic[31:0]      icacheop_addr  ; // nc
 
   // BUS CONTROLLING
   logic            bus_busy       ;
