@@ -54,7 +54,7 @@ module core_ifetch #(
   logic[1:0] fetch_v_q;// 指示 F2 级别需要读的指令位置
   logic uncached_q; // 指示 F2 级别的取值需要是 uncached 类型的
   logic[1:0] cacheop_q;  // 指示 F2 级别的 cacheop 类型
-  logic[31:0] ppc_q;// 指示 F2 级别的物理 PC 地址
+  logic[31:0] ppc_q,vpc_q;// 指示 F2 级别的 PC 地址
 
   always_ff @(posedge clk) begin
     if(!rst_n || flush_i) begin
@@ -76,6 +76,7 @@ module core_ifetch #(
           fetch_v_q       <= valid_i;
           uncached_q      <= uncached_i;
           ppc_q           <= ppc_i;
+          vpc_q           <= vpc_i;
         end
       end
     end
@@ -254,6 +255,7 @@ module core_ifetch #(
         if(cacheop_i == 2) begin
           way_sel = hit;
         end else begin
+          way_sel                                       = '0;
           way_sel[cacheop_paddr_i[$clog2(WAY_CNT)-1:0]] = '1;
         end
       end else begin
@@ -276,7 +278,11 @@ module core_ifetch #(
     tram_waddr = itramaddr(ppc_q);
     tram_we    = '0;
     if(fsm_q == FSM_RECVER || fsm_q == FSM_RFADDR) begin
-      tram_we |= way_sel_q;
+      if(cacheop_valid_q && (cacheop_q == 2'd2)) begin
+        tram_we |= hit_q;
+      end else begin
+        tram_we |= way_sel_q;
+      end
     end
     tram_wdata.valid = 1'b1;
     tram_wdata.tag   = itagaddr(ppc_q);
@@ -414,7 +420,7 @@ module core_ifetch #(
   assign inst_o         = f2_stall_q ? skid_data_buf_q : f2_sel_data;
   assign valid_o        = fetch_v_q & {!f2_stall_i, !f2_stall_i};
   assign f2_stall_req_o = fsm_q != FSM_NORMAL || fsm != FSM_NORMAL;
-  assign pc_o           = ppc_q;
+  assign pc_o           = vpc_q;
   always_ff @(posedge clk) begin
     if(!f2_stall_i) begin
       attached_o <= attached_i;

@@ -60,10 +60,11 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   logic f1_stall, f2_stall;
   logic addr_trans_stall, idle_stall, icache_stall, mimo_stall;
   logic addr_trans_ready; // F1 级别的模块
+  logic icacheop_valid;
   assign addr_trans_stall = !addr_trans_ready;
   logic mimo_ready; // F2 级别的模块
   assign mimo_stall = !mimo_ready;
-  assign f1_stall   = f2_stall | addr_trans_stall | idle_stall;
+  assign f1_stall   = f2_stall | addr_trans_stall | idle_stall | icacheop_valid;
   assign f2_stall   = icache_stall | mimo_stall;
 
   // NPC 模块
@@ -86,7 +87,6 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   );
 
   // ICACHE 指令
-  logic icacheop_valid;
   logic[1:0] icacheop;
   logic[31:0] icacheop_addr;
   logic icacheop_ready;
