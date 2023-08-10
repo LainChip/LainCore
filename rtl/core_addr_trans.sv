@@ -110,7 +110,7 @@ module core_addr_trans #(
     dmw1_fake_tlb.found     = dmw1_hit;
     dmw1_fake_tlb.index     = 5'd0;
     dmw1_fake_tlb.ps        = 6'd12;
-    dmw1_fake_tlb.value.ppn = {dmw0_kseg,vaddr_i[28:12]};
+    dmw1_fake_tlb.value.ppn = {dmw1_kseg,vaddr_i[28:12]};
     dmw1_fake_tlb.value.v   = '1;
     dmw1_fake_tlb.value.d   = '1;
     dmw1_fake_tlb.value.mat = csr_i.dmw1[`DMW_MAT];

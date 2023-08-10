@@ -125,7 +125,7 @@ module core_ifetch #(
   end else begin
     assign dram_raddr = vpc_i[11:3];
   end
-  assign tram_raddr = vpc_i[11:4];
+  assign tram_raddr = (cacheop_valid_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : vpc_i[11:4];
 
   logic[WAY_CNT - 1 : 0][1:0][31:0] f2_data_q;
   if(EARLY_BRAM) begin
@@ -278,11 +278,11 @@ module core_ifetch #(
     tram_waddr = itramaddr(ppc_q);
     tram_we    = '0;
     if(fsm_q == FSM_RECVER || fsm_q == FSM_RFADDR) begin
-      if(cacheop_valid_q && (cacheop_q == 2'd2)) begin
-        tram_we |= hit_q;
-      end else begin
-        tram_we |= way_sel_q;
-      end
+      //   if(cacheop_valid_q && (cacheop_q == 2'd2)) begin
+      // tram_we |= hit_q;
+      //   end else begin
+      tram_we |= way_sel_q;
+      //   end
     end
     tram_wdata.valid = 1'b1;
     tram_wdata.tag   = itagaddr(ppc_q);
