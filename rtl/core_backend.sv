@@ -1062,7 +1062,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     // CSR 相关指令接入，注意： 只会在第一条管线
     assign csr_r_addr = pipeline_ctrl_m1_q[0].csr_id;
     assign csr_rdcnt  = pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt |
-      (((|pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt) && pipeline_ctrl_m1_q[0].csr_id[4:0] != 0) ? 2'b10 : 2'b00);
+      (((|pipeline_ctrl_m1_q[0].decode_info.csr_rdcnt) && (pipeline_ctrl_m1_q[0].op_code != 0)) ? 2'b10 : 2'b00);
 
     /* ------ ------ ------ ------ ------ M2 级 ------ ------ ------ ------ ------ */
     for(genvar p = 0 ; p < 2 ; p++) begin : M2
@@ -1145,7 +1145,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       if(p == 0) begin
         // assign frontend_resp_o.icache_op_valid = '0;
         always_comb begin
-          
+
         end
       end
       assign m2_mem_size[p]   = mkmemsize(decode_info.mem_type);

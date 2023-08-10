@@ -216,8 +216,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
             end
             else begin
               if(m2_op_i == `_DCAHE_OP_DIRECT_INVWB ||
-                m2_op_i   = = `_DCAHE_OP_DIRECT_INV ||
-                m2_op_i   = = `_DCAHE_OP_HIT_INV) begin
+                (m2_op_i   == `_DCAHE_OP_DIRECT_INV) ||
+                (m2_op_i   == `_DCAHE_OP_HIT_INV)) begin
                 fsm       = S_CACHE_INVOP; // 直接无效化对应行的每一路，以降低复杂度
                 m2_busy_o = '1;
               end
