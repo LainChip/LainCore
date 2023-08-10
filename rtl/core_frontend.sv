@@ -57,47 +57,35 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   output cache_bus_req_t  bus_req_o
 );
 
-  // IDLE WAIT逻辑
-  // 当出现idle指令的时候，刷新整条流水线到idle + 4的位置，并在前端停住整条流水线，以降低执行功耗。
-  logic idle_lock;
-  always @(posedge clk) begin
-    if (~rst_n) begin
-      idle_lock <= 1'b0;
-    end
-    else if (frontend_resp_i.wait_inst && !frontend_resp_i.int_detect) begin
-      idle_lock <= 1'b1;
-    end
-    else if (frontend_resp_i.int_detect) begin
-      idle_lock <= 1'b0;
-    end
-  end
+  logic f1_stall, f2_stall;
+  logic addr_trans_stall, idle_stall, icache_stall, mimo_stall;
+  logic addr_trans_ready; // F1 级别的模块
+  assign addr_trans_stall = !addr_trans_ready;
+  logic mimo_ready; // F2 级别的模块
+  assign mimo_stall = !mimo_ready;
+  assign f1_stall   = f2_stall | addr_trans_stall | idle_stall;
+  assign f2_stall   = icache_stall | mimo_stall;
 
   // NPC 模块
-  logic paddr_ready;
   logic[31:0] pc_vaddr, npc_vaddr;
-  logic[31:0] f_pc;
-  logic[1:0] f_valid;
-  bpu_predict_t [1:0] f_predict   ;
-  logic               f_stall     ;
-  logic               icache_ready,icache_stall;
-  logic               mimo_ready  ;
-  assign f_stall      = !icache_ready | !mimo_ready | idle_lock | !paddr_ready;
-  assign icache_stall = !icache_ready | !mimo_ready;
-  assign f_pc         = pc_vaddr;
+  logic[31:0] f1_pc;
+  logic[1:0] f1_valid;
+  bpu_predict_t [1:0] f_predict;
+  assign f1_pc = pc_vaddr;
   core_npc npc_inst (
     .clk       (clk                           ),
     .rst_n     (rst_n                         ),
     .rst_jmp   (frontend_resp_i.rst_jmp       ),
     .rst_target(frontend_resp_i.rst_jmp_target),
-    .f_stall_i (f_stall                       ),
+    .f_stall_i (f1_stall                      ),
     .pc_o      (pc_vaddr                      ),
     .npc_o     (npc_vaddr                     ),
-    .valid_o   (f_valid                       ),
+    .valid_o   (f1_valid                      ),
     .predict_o (f_predict                     ),
     .correct_i (frontend_resp_i.bpu_correct   )
   );
 
-  // ICACHE 模块
+  // ICACHE 指令
   logic icacheop_valid;
   logic[1:0] icacheop;
   logic[31:0] icacheop_addr;
@@ -115,72 +103,74 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
       icacheop_valid <= '0;
     end
   end
-  assign frontend_req_o.icache_ready = icacheop_ready;
-  // I CACHE 模块
-  logic[31:0] m_pc;
-  logic[1:0] m_valid;
-  bpu_predict_t[1:0] m_predict;
-  logic[1:0][31:0] m_inst;
 
-  tlb_s_resp_t trans_result;
-  fetch_excp_t f_excp, m_excp; // TODO: check me
-  logic[31:0] f_ppc;   // TODO: check me
-  logic uncached; // TODO: check me
-  assign f_ppc    = {trans_result.value.ppn, f_pc[11:0]};
-  assign uncached = trans_result.value.mat != 2'b01;
+  assign frontend_req_o.icache_ready = icacheop_ready;
+  assign icacheop_ready              = !f2_stall;
+  // ICACHE 模块
+  logic[31:0] f2_pc;
+  logic[1:0] f2_valid;
+  bpu_predict_t[1:0] f2_predict;
+  logic[1:0][31:0] f2_inst;
+
+  tlb_s_resp_t f1_trans_result;
+  fetch_excp_t f1_excp, f2_excp;
+  logic[31:0] f1_ppc;
+  logic f1_uncached;
+  assign f1_ppc      = {f1_trans_result.value.ppn, f1_pc[11:0]};
+  assign f1_uncached = f1_trans_result.value.mat != 2'b01;
   always_comb begin
-    f_excp      = '0;
-    f_excp.adef = (|f_ppc[1:0]) || (trans_result.dmw ? '0 :
-      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f_pc[31]));
-    f_excp.tlbr = (!f_excp) && !trans_result.found;
-    f_excp.pif  = (!f_excp) && !trans_result.value.v;
-    f_excp.ppi  = (!f_excp) && (trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
-    // f_excp.ipe = (!f_excp) && (trans_result.value.plv == 2'd0 &&
-    // frontend_resp_i.csr_reg.crmd[`PLV] = = 2'd3);
+    f1_excp      = '0;
+    f1_excp.adef = (|f1_ppc[1:0]) || (f1_trans_result.dmw ? '0 :
+      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f1_pc[31]));
+    f1_excp.tlbr = (!f1_excp) && !f1_trans_result.found;
+    f1_excp.pif  = (!f1_excp) && !f1_trans_result.value.v;
+    f1_excp.ppi  = (!f1_excp) && (f1_trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
   end
   core_addr_trans #(
     .ENABLE_TLB(ENABLE_TLB), // TODO: PARAMETERIZE ME
     .FETCH_ADDR('1        )
   ) core_iaddr_trans_inst (
-    .clk             (clk                                ),
-    .rst_n           (rst_n                              ),
-    .valid_i         (|f_valid                           ),
-    .vaddr_i         (npc_vaddr                          ),
-    .m1_stall_i      (f_stall && !frontend_resp_i.rst_jmp),
-    .ready_o         (paddr_ready                        ),
-    .csr_i           (frontend_resp_i.csr_reg            ),
-    .tlb_update_req_i(frontend_resp_i.tlb_update_req     ),
-    .trans_result_o  (trans_result                       )
+    .clk             (clk                                 ),
+    .rst_n           (rst_n                               ),
+    .valid_i         (|f1_valid                           ),
+    .vaddr_i         (npc_vaddr                           ),
+    .m1_stall_i      (f1_stall && !frontend_resp_i.rst_jmp),
+    .ready_o         (addr_trans_ready                    ),
+    .csr_i           (frontend_resp_i.csr_reg             ),
+    .tlb_update_req_i(frontend_resp_i.tlb_update_req      ),
+    .trans_result_o  (f1_trans_result                     )
   );
   logic[31:0] ppc_nc;
+
   core_ifetch #(
     .ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t)+$bits(fetch_excp_t)),
-    .ENABLE_TLB         (ENABLE_TLB                                )
-  ) ifetch_inst (
+    .ENABLE_TLB         (ENABLE_TLB                                ),
+    .EARLY_BRAM         ('0                                        )
+  ) core_ifetch_inst (
     .clk            (clk                     ),
     .rst_n          (rst_n                   ),
     .cacheop_i      (icacheop                ),
     .cacheop_valid_i(icacheop_valid          ),
     .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
-    .cacheop_ready_o(icacheop_ready          ),
-    .valid_i        (f_valid                 ),
-    .ready_o        (icache_ready            ),
-    .vpc_i          (f_pc                    ),
-    .attached_i     ({f_predict, f_excp}     ),
-    .ppc_i          (f_ppc                   ),
-    .paddr_valid_i  (/**/    1'b1            ),
-    .uncached_i     (uncached                ),
-    .vpc_o          (m_pc                    ),
-    .ppc_o          (ppc_nc                  ),
-    .ready_i        (mimo_ready && !idle_lock),
-    .valid_o        (m_valid                 ),
-    .attached_o     ({m_predict, m_excp}     ),
-    .inst_o         (m_inst                  ),
-    .clr_i          (frontend_resp_i.rst_jmp ),
+    .valid_i        (f1_valid                ),
+    .npc_i          (npc_vaddr               ),
+    .vpc_i          (f1_pc                   ),
+    .ppc_i          (f1_ppc                  ),
+    .uncached_i     (f1_uncached             ),
+    .attached_i     ({f_predict, f1_excp}    ),
+    .f1_stall_i     (f1_stall                ),
+    .f2_stall_i     (f2_stall                ),
+    .f2_stall_req_o (icache_stall            ),
+    .valid_o        (f2_valid                ),
+    .attached_o     ({f2_predict, f2_excp}   ),
+    .inst_o         (f2_inst                 ),
+    .pc_o           (f2_pc                   ),
+    .flush_i        (frontend_resp_i.rst_jmp ),
     .bus_busy_i     (frontend_resp_i.bus_busy),
     .bus_req_o      (bus_req_o               ),
     .bus_resp_i     (bus_resp_i              )
   );
+
   // MIMO fifo
   typedef struct packed {
     logic [31:0]  pc         ;
@@ -188,18 +178,18 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
     fetch_excp_t  fetch_excp ;
     bpu_predict_t bpu_predict;
   } inst_package_t;
-  inst_package_t [1:0] m_inst_pack;
-  assign m_inst_pack[0].pc = {m_pc[31:3],!m_valid[0],m_pc[1:0]};
-  assign m_inst_pack[1].pc = {m_pc[31:3],1'b1,m_pc[1:0]};
-  assign m_inst_pack[0].inst = m_valid[0] ? m_inst[0] : m_inst[1];
-  assign m_inst_pack[1].inst = m_inst[1];
-  assign m_inst_pack[0].fetch_excp = m_excp;
-  assign m_inst_pack[1].fetch_excp = m_excp;
-  assign m_inst_pack[0].bpu_predict = m_valid[0] ? m_predict[0] : m_predict[1];
-  assign m_inst_pack[1].bpu_predict = m_predict[1];
-  logic[1:0] m_num,d_num;
+  inst_package_t [1:0] f2_inst_pack;
+  assign f2_inst_pack[0].pc = {f2_pc[31:3],!f2_valid[0],f2_pc[1:0]};
+  assign f2_inst_pack[1].pc = {f2_pc[31:3],1'b1,f2_pc[1:0]};
+  assign f2_inst_pack[0].inst = f2_valid[0] ? f2_inst[0] : f2_inst[1];
+  assign f2_inst_pack[1].inst = f2_inst[1];
+  assign f2_inst_pack[0].fetch_excp = f2_excp;
+  assign f2_inst_pack[1].fetch_excp = f2_excp;
+  assign f2_inst_pack[0].bpu_predict = f2_valid[0] ? f2_predict[0] : f2_predict[1];
+  assign f2_inst_pack[1].bpu_predict = f2_predict[1];
+  logic[1:0] f2_num,d_num;
   always_comb begin
-    m_num = m_valid[0] + m_valid[1];
+    f2_num = f2_valid[0] + f2_valid[1];
   end
   inst_package_t[1:0] d_inst_pack;
   logic[1:0] d_valid_fifo;
@@ -220,8 +210,8 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
     
     .write_valid_i(1'b1                   ),
     .write_ready_o(mimo_ready             ),
-    .write_num_i  (m_num                  ),
-    .write_data_i (m_inst_pack            ),
+    .write_num_i  (f2_num                 ),
+    .write_data_i (f2_inst_pack           ),
     
     .read_valid_o (d_valid_fifo           ),
     .read_ready_i (1'b1                   ),
@@ -241,8 +231,8 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
 
   //   .write_valid_i(1'b1                   ),
   //   .write_ready_o(mimo_ready             ),
-  //   .write_num_i  (m_num                  ),
-  //   .write_data_i (m_inst_pack            ),
+  //   .write_num_i  (f2_num                  ),
+  //   .write_data_i (f2_inst_pack            ),
 
   //   .read_valid_o (d_valid                ),
   //   .read_ready_i (1'b1                   ),
@@ -347,5 +337,19 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   end
   assign frontend_req_o.inst_valid = is_valid_q;
   assign frontend_req_o.inst       = is_inst_package_q;
+
+  // IDLE-WAIT 逻辑
+  // 当出现idle指令的时候，刷新整条流水线到idle + 4的位置，并在前端停住整条流水线，以降低执行功耗。
+  always @(posedge clk) begin
+    if (~rst_n) begin
+      idle_stall <= 1'b0;
+    end
+    else if (frontend_resp_i.wait_inst && !frontend_resp_i.int_detect) begin
+      idle_stall <= 1'b1;
+    end
+    else if (frontend_resp_i.int_detect) begin
+      idle_stall <= 1'b0;
+    end
+  end
 
 endmodule

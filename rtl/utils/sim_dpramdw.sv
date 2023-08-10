@@ -23,7 +23,7 @@ module sim_dpramdw
     input                          regceb
   );
 
-reg [WIDTH-1:0] ram[(DEPTH>>1)-1:0][1:0];
+reg [1:0][WIDTH-1:0] ram[(DEPTH>>1)-1:0];
 
 logic [$clog2(DEPTH)-2:0] rd_addr_buf;
 
