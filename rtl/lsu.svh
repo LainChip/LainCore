@@ -15,7 +15,7 @@
 `define _DCAHE_OP_HIT_INV 3
 `define _DCAHE_OP_DIRECT_INV 4
 `define _DCAHE_OP_DIRECT_INVWB 5
-`define _IWAY_CNT 1
+`define _IWAY_CNT 2
 `define _IIDX_LEN 12
 `define _ITAG_LEN 20
 

@@ -1,17 +1,20 @@
 {
-    "icache" :{
-        "module_ver" : "4"
+    "icache": {
+        "module_ver": "4"
     },
-    "lsu" :{
-        "module_ver" : "100"
+    "lsu": {
+        "module_ver": "100"
     },
-    "reg_file" :{
-        "module_ver" : "2"
+    "reg_file": {
+        "module_ver": "2"
     },
-    "mycpu_top" :{
-        "module_ver" : "6"
+    "mycpu_top": {
+        "module_ver": "6"
     },
-    "core_npc" :{
-        "module_ver" : "2"
+    "core_npc": {
+        "module_ver": "2"
+    },
+    "core_ifetch": {
+        "module_ver": "2"
     }
 }

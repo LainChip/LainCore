@@ -1,6 +1,6 @@
 `include "pipeline.svh"
 `include "lsu.svh"
-
+/*--JSON--{"module_name":"core_ifetch","module_ver":"1","module_type":"module"}--JSON--*/
 module core_ifetch#(
   parameter int ATTACHED_INFO_WIDTH = 32,     // 用于捆绑bpu输出的信息，跟随指令流水
   parameter bit ENABLE_TLB = 1'b1,

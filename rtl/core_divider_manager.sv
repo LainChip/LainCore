@@ -1,5 +1,7 @@
 `include "pipeline.svh"
 
+// TAG: 需要重构：简化逻辑
+
 module core_divider_manager(
     input logic clk,
     input logic rst_n,
