@@ -169,6 +169,7 @@
             "reg_type_r1": "`_REG_R1_NONE",
             "reg_type_w": "`_REG_W_NONE",
             "priv_inst": 1,
+            "refetch": 1,
             "addr_imm_type": "`_ADDR_IMM_S26",
             "need_csr": 1
         },
