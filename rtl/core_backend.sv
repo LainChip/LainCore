@@ -1280,7 +1280,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       // WAIT 指令接入
       if(p == 0) begin
-        assign frontend_resp_o.wait_inst  = decode_info.wait_inst && exc_m2_q[p].need_commit && !m2_stall;
+        assign frontend_resp_o.wait_inst  = decode_info.wait_inst && exc_m2_q[p].need_commit;
         assign frontend_resp_o.int_detect = csr_m1_int;
       end
     end

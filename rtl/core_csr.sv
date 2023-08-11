@@ -103,10 +103,11 @@ if(ENABLE_TLB) begin
   always_comb begin
     tlb_update_req.tlb_we      = tlb_need_inv;
     tlb_update_req.tlb_w_entry = tlb_w_entry;
-    if(!m2_stall_i && tlb_op_i.tlbfill) begin
+    // 写 tlb 的指令不能等
+    if(/*!m2_stall_i && */tlb_op_i.tlbfill) begin
       tlb_update_req.tlb_we[tlbfill_rnd_idx_q[$clog2(TLB_ENTRY_NUM)-1:0]] = '1;
     end
-    if(!m2_stall_i && tlb_op_i.tlbwr) begin
+    if(/*!m2_stall_i && */tlb_op_i.tlbwr) begin
       tlb_update_req.tlb_we[csr_o.tlbidx[$clog2(TLB_ENTRY_NUM)-1:0]] = '1;
     end
   end
@@ -133,7 +134,7 @@ if(ENABLE_TLB) begin
   for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i ++) begin
     logic tlb_inv_addr_match_q, tlb_inv_asid_match_q;
     always_ff @(posedge clk) begin
-      if(tlb_update_req.tlb_we[i]) begin
+      if(tlb_update_req.tlb_we[i] && !m2_stall_i) begin
         tlb_entrys[i] <= tlb_update_req.tlb_w_entry;
       end
     end
@@ -146,7 +147,7 @@ if(ENABLE_TLB) begin
     end
     always_comb begin
       tlb_need_inv[i] = '0;
-      if(!m2_stall_i && tlb_op_i.invtlb) begin
+      if(/*!m2_stall_i && */tlb_op_i.invtlb) begin
         if(tlb_inv_op_i == 0 || tlb_inv_op_i == 1) begin
           tlb_need_inv[i] = '1;
         end

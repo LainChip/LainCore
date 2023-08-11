@@ -137,13 +137,14 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     always_comb begin
       m1_data_rdata[w] = m1_stall_q ? m1_data_rdata_q[w] : raw_data_rdata[w];
       for(integer i = 0 ; i < 4 ; i++) begin
-        if(wreq_i.data_we[w][i] &&
-          wreq_i.data_waddr == dramaddr(m1_vaddr_i)) begin
-          m1_data_rdata[w][7+8*i-:8] = wreq_i.data_wdata[7+8*i-:8];
-        end
         if(wb_data_we[w][i] &&
           wb_data_waddr == dramaddr(m1_vaddr_i)) begin
           m1_data_rdata[w][7+8*i-:8] = wb_data_wdata[7+8*i-:8];
+        end
+        if(wreq_i.data_we[w][i] &&
+          wreq_i.data_waddr == dramaddr(m1_vaddr_i)) begin
+          // 这个优先级更高
+          m1_data_rdata[w][7+8*i-:8] = wreq_i.data_wdata[7+8*i-:8];
         end
       end
     end
@@ -310,7 +311,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
         data_rdata_q <= wstate_i.rdata;
       end
     end
-    else if(fsm_q != S_WAIT_STALL) begin
+    else if(fsm != S_WAIT_STALL) begin
       data_rdata_q <= '0;
     end
   end
@@ -350,8 +351,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     rstate_o.cache_refill_valid = fsm_q == S_REFILL_READ;
     rstate_o.uncached_read      = fsm_q == S_UNCACHE_READ;
 
-    rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
-    rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE) || (fsm_q == S_UNCACHE_WRITE);
+    rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_stall_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
+    rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && !m2_stall_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE) || (fsm_q == S_UNCACHE_WRITE);
     rstate_o.cache_op_inv         = (fsm_q == S_CACHE_INVOP && m2_op_i == `_DCAHE_OP_DIRECT_INV/* && m2_valid_i*/ /*TODO: CHECK ME*/);
     rstate_o.cache_op_invwb       = (fsm_q == S_CACHE_INVOP && (m2_op_i == `_DCAHE_OP_DIRECT_INVWB || m2_op_i == `_DCAHE_OP_HIT_INV)/* && m2_valid_i*/ /*TODO: CHECK ME*/);
     rstate_o.miss_write_req_valid = (fsm_q == S_REFILL_WRITE /*&& m2_valid_i && !m2_uncached_i && miss_q && m2_op_i == `_DCAHE_OP_WRITE*/);
