@@ -4,13 +4,15 @@
 // @File    :
 // @Software: IntelliJ IDEA
 // @Comment :
+import spinal.core.{SpinalError, SpinalInfo, SpinalWarning}
+
 import java.io.{BufferedWriter, File, FileWriter}
 import scala.io.Source
 import scala.util.parsing.json.JSON
 
 object JsonInstSetLoader {
   private var signalValues: Map[String, _] = Map()
-  private var instructs: Map[String, Map[String, _]] = Map()
+  var instructs: Map[String, Map[String, _]] = Map()
   var signals: Map[String, Map[String, _]] = Map()
 
   // 检查指令定义的合法性
@@ -18,7 +20,7 @@ object JsonInstSetLoader {
     // 检查是否存定义了信号但未定义信号取值的情况
     for ((k, _) <- signals) {
       if (!signalValues.contains(k)) {
-        println("Error: signal " + k + " is not defined in signal values")
+        SpinalError("Error: signal " + k + " is not defined in signal values")
         System.exit(1)
       }
     }
@@ -29,12 +31,12 @@ object JsonInstSetLoader {
         signalValues(k) match {
           case values: Map[Any, _] =>
             if (!values.keySet.contains(default)) {
-              println("Error: default value " + default + " of signal " + k + " is not in signal values")
+              SpinalError("Error: default value " + default + " of signal " + k + " is not in signal values")
               System.exit(1)
             }
           case values: List[_] =>
             if (!values.contains(default)) {
-              println("Error: default value " + default + " of signal " + k + " is not in signal values")
+              SpinalError("Error: default value " + default + " of signal " + k + " is not in signal values")
               System.exit(1)
             }
           case _ =>
@@ -46,8 +48,7 @@ object JsonInstSetLoader {
     for ((k, v) <- instructs) {
       for ((k1, _) <- v) {
         if (k1 != "opcode" && !signals.contains(k1)) {
-          println("Error: signal " + k1 + " in instruct " + k + " is not defined in signals")
-          println(signals)
+          SpinalError("Error: signal " + k1 + " in instruct " + k + " is not defined in signals")
           System.exit(1)
         }
       }
@@ -60,12 +61,12 @@ object JsonInstSetLoader {
           signalValues(k1) match {
             case values: Map[Any, _] =>
               if (!values.keySet.contains(v1)) {
-                println("Error: value " + v1 + " of signal " + k1 + " in instruct " + k + " is not in signal values")
+                SpinalError("Error: value " + v1 + " of signal " + k1 + " in instruct " + k + " is not in signal values")
                 System.exit(1)
               }
             case values: List[_] =>
               if (!values.contains(v1)) {
-                println("Error: value " + v1 + " of signal " + k1 + " in instruct " + k + " is not in signal values")
+                SpinalError("Error: value " + v1 + " of signal " + k1 + " in instruct " + k + " is not in signal values")
                 System.exit(1)
               }
             case _ =>
@@ -79,12 +80,23 @@ object JsonInstSetLoader {
       if (v.contains("stage")) {
         val stage = v("stage")
         if (!Config.stages.contains(stage)) {
-          println("Error: stage " + stage + " of signal " + k + " is not in stages")
+          SpinalError("Error: stage " + stage + " of signal " + k + " is not in stages")
           System.exit(1)
         }
       } else {
-        println("Error: stage of signal " + k + " is not defined")
+        SpinalError("Error: stage of signal " + k + " is not defined")
         System.exit(1)
+      }
+    }
+
+    // 一个信号在所有指令解码信息有定义 & 值全部相同 &与default不相同，那么警告
+    for ((k, v) <- signals) {
+      val values = instructs.values.map(_.getOrElse(k, v("default"))).toList
+      // 统计信号在解码信息定义中出现的次数
+      var count = 0
+      instructs.values.foreach{v => if (v.contains(k)) count += 1}
+      if (values.distinct.length == 2 && count == instructs.size) {
+        SpinalWarning("signal " + k + " is defined in instructs but all values are same and not equal to default")
       }
     }
   }
@@ -112,16 +124,9 @@ object JsonInstSetLoader {
           }
           instructs ++= instruct
           signals ++= signal
-        case None => println("Parsing failed")
-        case other => println("Unknown data structure: " + other)
+        case None => SpinalError("Parsing failed")
+        case other => SpinalError("Unknown data structure: " + other)
       }
-    }
-    if (Config.checkInvalidInst) {
-      signalValues ++= Map("invalid_inst" -> List(false, true))
-      signals ++= Map("invalid_inst" -> Map("length" -> 1, "stage" -> Config.exceptionStage, "default" -> true))
-      // 每一条定义的指令的invalid_inst信号都为false
-      instructs = instructs.mapValues(_ ++ Map("invalid_inst" -> false))
-
     }
     check()
   }
@@ -136,7 +141,7 @@ object JsonInstSetLoader {
   private def getJsonList: Array[String] = {
     val dir = new File(".")
     val jsonFiles = dir.listFiles.filter(_.getName.endsWith(".json")).map(_.getName)
-    println(Console.BLUE + "Load json files: " + jsonFiles.mkString(", ") + Console.RESET)
+    SpinalInfo(Console.BLUE + "Load json files: " + jsonFiles.mkString(", ") + Console.RESET)
     jsonFiles
   }
 

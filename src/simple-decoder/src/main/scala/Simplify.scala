@@ -22,10 +22,10 @@ object Simplify {
     def logicOf(input: Bits, terms: Seq[Masked]): Bool = terms.map(_ === input).asBits.orR
    */
   def logicOf(input: Bits, terms: Seq[Masked]): Bool = terms.map(t => getCache(input).getOrElseUpdate(t, t === input)).asBits.orR
-
+  def logicOfWithoutCache(input: Bits, terms: Seq[Masked]): Bool = terms.map(_ === input).asBits.orR
 
   // Return a new term with only one bit difference with 'term' and not included in falseTerms. above => 0 to 1 dif, else 1 to 0 diff
-  private def genImplicitDontCare(falseTerms: Seq[Masked], term: Masked, bits: Int, above: Boolean): Masked = {
+  private def genImplicantsDontCare(falseTerms: Seq[Masked], term: Masked, bits: Int, above: Boolean): Masked = {
     for (i <- 0 until bits; if term.care.testBit(i)) {
       var t: Masked = null
       if (above) {
@@ -43,7 +43,7 @@ object Simplify {
     null
   }
 
-  def getPrimeImplicitsByTrueAndFalse(trueTerms: Seq[Masked], falseTerms: Seq[Masked], inputWidth: Int): Seq[Masked] = {
+  def getPrimeImplicantsByTrueAndFalse(trueTerms: Seq[Masked], falseTerms: Seq[Masked], inputWidth: Int): Seq[Masked] = {
     val primes = mutable.LinkedHashSet[Masked]()
     trueTerms.foreach(_.isPrime = true)
     falseTerms.foreach(_.isPrime = true)
@@ -62,13 +62,13 @@ object Simplify {
       //Expends implicit don't care terms
       for (j <- 0 until inputWidth - i) {
         for (prime <- table(i)(j).withFilter(_.isPrime)) {
-          val dc = genImplicitDontCare(falseTerms, prime, inputWidth, above = true)
+          val dc = genImplicantsDontCare(falseTerms, prime, inputWidth, above = true)
           if (dc != null)
             table(i + 1)(j) += dc mergeOneBitDifSmaller prime
         }
 
         for (prime <- table(i)(j + 1).withFilter(_.isPrime)) {
-          val dc = genImplicitDontCare(falseTerms, prime, inputWidth, above = false)
+          val dc = genImplicantsDontCare(falseTerms, prime, inputWidth, above = false)
           if (dc != null)
             table(i + 1)(j) += prime mergeOneBitDifSmaller dc
         }
@@ -120,5 +120,58 @@ object Simplify {
   private def verifyTrueFalse(terms: Iterable[Masked], trueTerms: Seq[Masked], falseTerms: Seq[Masked]): Boolean = {
     trueTerms.forall(trueTerm => terms.exists(_ covers trueTerm)) && falseTerms.forall(falseTerm => !terms.exists(_ covers falseTerm))
   }
+
+  private def checkTrue(terms: Iterable[Masked], trueTerms: Seq[Masked]): Boolean = {
+    trueTerms.forall(trueTerm => terms.exists(_ covers trueTerm))
+  }
+
+  def getPrimeImplicantsByTrue(trueTerms: Seq[Masked], inputWidth: Int): Seq[Masked] = getPrimeImplicantsByTrueAndDontCare(trueTerms, Nil, inputWidth)
+
+  // Return primes implicants for the trueTerms, default value is False.
+  // You can insert don't care values by adding non-prime implicants in the trueTerms
+  // Will simplify the trueTerms from the most constrained ones to the least constrained ones
+  def getPrimeImplicantsByTrueAndDontCare(trueTerms: Seq[Masked], dontCareTerms: Seq[Masked], inputWidth: Int): Seq[Masked] = {
+    val primes = mutable.LinkedHashSet[Masked]()
+    trueTerms.foreach(_.isPrime = true)
+    dontCareTerms.foreach(_.isPrime = false)
+    val termsByCareCount = (inputWidth to 0 by -1).map(b => (trueTerms ++ dontCareTerms).filter(b == _.care.bitCount))
+    //table[Vector[HashSet[Masked]]](careCount)(bitSetCount)
+    val table = termsByCareCount.map(c => (0 to inputWidth).map(b => collection.mutable.Set(c.filter(m => b == m.value.bitCount): _*)))
+    for (i <- 0 to inputWidth) {
+      for (j <- 0 until inputWidth - i) {
+        for (term <- table(i)(j)) {
+          table(i + 1)(j) ++= table(i)(j + 1).withFilter(_.isSimilarOneBitDifSmaller(term)).map(_.mergeOneBitDifSmaller(term))
+        }
+      }
+      for (r <- table(i))
+        for (p <- r; if p.isPrime)
+          primes += p
+    }
+
+
+    @tailrec
+    def optimise(): Unit = {
+      val duplicates = primes.filter(prime => checkTrue(primes.filterNot(_ == prime), trueTerms))
+      if (duplicates.nonEmpty) {
+        primes -= duplicates.maxBy(_.care.bitCount)
+        optimise()
+      }
+    }
+
+    optimise()
+
+
+    var duplication = 0
+    for (prime <- primes) {
+      if (checkTrue(primes.filterNot(_ == prime), trueTerms)) {
+        duplication += 1
+      }
+    }
+    if (duplication != 0) {
+      PendingError(s"Duplicated primes : $duplication")
+    }
+    primes.toSeq
+  }
+
 
 }

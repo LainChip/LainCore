@@ -57,4 +57,5 @@ object Config {
   val exceptionStage = "m1"
   val bitWidth = 32
   val targetDirectory = "rtl" /*"/home/suyang/chiplab/IP/myCPU"*/
+  val defaultInstSet: InstSet = LoongArch32
 }

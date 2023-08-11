@@ -293,8 +293,6 @@ object JsonInstSet extends InstSet {
 
   private object MEM_READ extends Signal(Bool())
 
-  private object INVALID_INST extends Signal(Bool())
-
   private object LATEST_R1_M2 extends Signal(Bool())
 
   private object NEED_DIV extends Signal(Bool())
@@ -383,7 +381,6 @@ object JsonInstSet extends InstSet {
     decoder.addDefault(ALU_OP, AluOpEnum._ALU_STYPE_NOR)
     decoder.addDefault(LATEST_R0_EX, False)
     decoder.addDefault(MEM_READ, False)
-    decoder.addDefault(INVALID_INST, True)
     decoder.addDefault(LATEST_R1_M2, False)
     decoder.addDefault(NEED_DIV, False)
     decoder.addDefault(IBARRIER, False)
@@ -425,7 +422,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_WORD,
       MEM_READ -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -438,7 +434,6 @@ object JsonInstSet extends InstSet {
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       LATEST_R0_M2 -> True,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       CSR_RDCNT -> CsrRdcntEnum._RDCNT_ID_VLOW,
       INVTLB_EN -> True,
@@ -452,7 +447,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_UHALF,
       MEM_READ -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -466,7 +460,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_U5,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_SLL,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
@@ -477,7 +470,6 @@ object JsonInstSet extends InstSet {
       ALU_GRAND_OP -> AluGrandOpEnum._ALU_GTYPE_INT,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._ALU_STYPE_SUB,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -488,7 +480,6 @@ object JsonInstSet extends InstSet {
       ALU_GRAND_OP -> AluGrandOpEnum._ALU_GTYPE_INT,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._ALU_STYPE_ADD,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -498,7 +489,6 @@ object JsonInstSet extends InstSet {
     decoder.add(RDCNT_W, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RJD,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_CSR,
       CSR_RDCNT -> CsrRdcntEnum._RDCNT_ID_VLOW,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -508,7 +498,6 @@ object JsonInstSet extends InstSet {
     decoder.add(BREAK, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       BREAK_INST -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
@@ -518,7 +507,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._DIV_TYPE_MODU,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
@@ -527,7 +515,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(BGE, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       NEED_BPU -> True,
       LATEST_R1_M1 -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -542,7 +529,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_SRL,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
@@ -553,7 +539,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_WORD,
       LATEST_R0_M2 -> True,
-      INVALID_INST -> False,
       MEM_WRITE -> True,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
@@ -565,7 +550,6 @@ object JsonInstSet extends InstSet {
     decoder.add(ERTN, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       ERTN_INST -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
@@ -577,7 +561,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_SLL,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
@@ -586,7 +569,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(BLTU, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       NEED_BPU -> True,
       LATEST_R1_M1 -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -601,7 +583,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._ALU_STYPE_PCPLUS4,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       NEED_BPU -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_ABS,
@@ -614,7 +595,6 @@ object JsonInstSet extends InstSet {
     decoder.add(TLBFILL, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       TLBFILL_EN -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
@@ -624,7 +604,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(BGEU, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       NEED_BPU -> True,
       LATEST_R1_M1 -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -637,7 +616,6 @@ object JsonInstSet extends InstSet {
     decoder.add(RDCNTH_W, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RJD,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_CSR,
       CSR_RDCNT -> CsrRdcntEnum._RDCNT_VHIGH,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -650,7 +628,6 @@ object JsonInstSet extends InstSet {
       NEED_MUL -> True,
       ALU_OP -> AluOpEnum._MUL_TYPE_MULHU,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       LATEST_R1_EX -> True,
@@ -661,7 +638,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_NOR,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -675,7 +651,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_U12,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_AND,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -683,13 +658,10 @@ object JsonInstSet extends InstSet {
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
-    decoder.add(PRELD_NOP, List(
-      INVALID_INST -> False
-    ))
+    decoder.add(PRELD_NOP, List())
     decoder.add(TLBRD, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       TLBRD_EN -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
@@ -702,7 +674,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_OR,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -714,7 +685,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_HALF,
       LATEST_R0_M2 -> True,
-      INVALID_INST -> False,
       MEM_WRITE -> True,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
@@ -727,7 +697,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       IMM_TYPE -> ImmTypeEnum._IMM_S12,
       ALU_OP -> AluOpEnum._ALU_STYPE_SLT,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -740,7 +709,6 @@ object JsonInstSet extends InstSet {
       NEED_MUL -> True,
       ALU_OP -> AluOpEnum._MUL_TYPE_MULH,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       LATEST_R1_EX -> True,
@@ -748,7 +716,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(BLT, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       NEED_BPU -> True,
       LATEST_R1_M1 -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -762,7 +729,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_BYTE,
       LATEST_R0_M2 -> True,
-      INVALID_INST -> False,
       MEM_WRITE -> True,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
@@ -776,7 +742,6 @@ object JsonInstSet extends InstSet {
       NEED_MUL -> True,
       ALU_OP -> AluOpEnum._MUL_TYPE_MULL,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       LATEST_R1_EX -> True,
@@ -788,7 +753,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_U12,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_OR,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -802,7 +766,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_S20,
       ALU_OP -> AluOpEnum._ALU_STYPE_LUI,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
       LATEST_R1_EX -> True,
@@ -810,8 +773,7 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(IBAR, List(
       IBARRIER -> True,
-      REFETCH -> True,
-      INVALID_INST -> False
+      REFETCH -> True
     ))
     decoder.add(XORI, List(
       ALU_GRAND_OP -> AluGrandOpEnum._ALU_GTYPE_BW,
@@ -819,7 +781,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_U12,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_XOR,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -828,14 +789,12 @@ object JsonInstSet extends InstSet {
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
     decoder.add(DBAR, List(
-      DBARRIER -> True,
-      INVALID_INST -> False
+      DBARRIER -> True
     ))
     decoder.add(LD_H, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_HALF,
       MEM_READ -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -846,7 +805,6 @@ object JsonInstSet extends InstSet {
     decoder.add(B, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       NEED_BPU -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -860,7 +818,6 @@ object JsonInstSet extends InstSet {
       CSR_OP_EN -> True,
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_CSR,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
@@ -874,7 +831,6 @@ object JsonInstSet extends InstSet {
     decoder.add(TLBWR, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       TLBWR_EN -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
@@ -887,7 +843,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_XOR,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -899,7 +854,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._DIV_TYPE_DIV,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
@@ -910,7 +864,6 @@ object JsonInstSet extends InstSet {
       MEM_CACOP -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_BYTE,
-      INVALID_INST -> False,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       LATEST_R1_EX -> True,
@@ -925,7 +878,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_S20,
       ALU_OP -> AluOpEnum._ALU_STYPE_PCADDUI,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
       LATEST_R1_EX -> True,
@@ -936,7 +888,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_BL1,
       ALU_OP -> AluOpEnum._ALU_STYPE_PCPLUS4,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       NEED_BPU -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -950,7 +901,6 @@ object JsonInstSet extends InstSet {
       ALU_GRAND_OP -> AluGrandOpEnum._ALU_GTYPE_CMP,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._ALU_STYPE_SLT,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -962,7 +912,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       IMM_TYPE -> ImmTypeEnum._IMM_S12,
       ALU_OP -> AluOpEnum._ALU_STYPE_SLTU,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -975,7 +924,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_U5,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_SRA,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
@@ -987,7 +935,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_SRA,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
@@ -1000,7 +947,6 @@ object JsonInstSet extends InstSet {
       IMM_TYPE -> ImmTypeEnum._IMM_U5,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_SRL,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
@@ -1011,7 +957,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._DIV_TYPE_MOD,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
@@ -1021,7 +966,6 @@ object JsonInstSet extends InstSet {
     decoder.add(SYSCALL, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       SYSCALL_INST -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
@@ -1029,7 +973,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(IDLE, List(
       NEED_CSR -> True,
-      INVALID_INST -> False,
       WAIT_INST -> True,
       PRIV_INST -> True,
       ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S26
@@ -1038,7 +981,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_WORD,
       MEM_READ -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -1050,7 +992,6 @@ object JsonInstSet extends InstSet {
     decoder.add(TLBSRCH, List(
       NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
       PRIV_INST -> True,
@@ -1059,7 +1000,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(BEQ, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       NEED_BPU -> True,
       LATEST_R1_M1 -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -1073,7 +1013,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_WORD,
       LATEST_R0_M2 -> True,
-      INVALID_INST -> False,
       MEM_WRITE -> True,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
@@ -1086,7 +1025,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       IMM_TYPE -> ImmTypeEnum._IMM_S12,
       ALU_OP -> AluOpEnum._ALU_STYPE_ADD,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_IMM,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -1095,7 +1033,6 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(BNE, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
-      INVALID_INST -> False,
       NEED_BPU -> True,
       LATEST_R1_M1 -> True,
       TARGET_TYPE -> TargetTypeEnum._TARGET_REL,
@@ -1109,7 +1046,6 @@ object JsonInstSet extends InstSet {
       ALU_GRAND_OP -> AluGrandOpEnum._ALU_GTYPE_CMP,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._ALU_STYPE_SLTU,
-      INVALID_INST -> False,
       LATEST_R1_M1 -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
       FU_SEL_M1 -> FuSelM1Enum._FUSEL_M1_ALU,
@@ -1120,7 +1056,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_UBYTE,
       MEM_READ -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -1133,7 +1068,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._ALU_STYPE_AND,
-      INVALID_INST -> False,
       LATEST_R1_M2 -> True,
       FU_SEL_EX -> FuSelExEnum._FUSEL_EX_ALU,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_ALU,
@@ -1145,7 +1079,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_BYTE,
       MEM_READ -> True,
-      INVALID_INST -> False,
       FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
@@ -1157,7 +1090,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       ALU_OP -> AluOpEnum._DIV_TYPE_DIVU,
       LATEST_R0_EX -> True,
-      INVALID_INST -> False,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,

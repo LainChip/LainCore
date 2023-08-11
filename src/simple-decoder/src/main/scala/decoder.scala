@@ -5,6 +5,7 @@
 // @Software: IntelliJ IDEA
 // @Comment :
 
+import decoder.encodings
 import spinal.core._
 import spinal.core.internals.Literal
 import spinal.lib._
@@ -18,13 +19,16 @@ class decoder extends Component {
   val io = new Bundle {
     val inst_i = in Bits(Config.bitWidth bits)
     val fetch_err_i = in Bool()
-    val is_o = out Bits()
+    val decode_info_o = out Bits()
   }
 
+  val defualtInstSet = Config.defaultInstSet
+
+  // 加载指令集
   if (Config.useJson) {
     JsonInstSet.loadInstructs()
   } else {
-    LoongArch32.loadInstructs()
+    defualtInstSet.loadInstructs()
   }
   private val signals = (decoder.encodings.flatMap(_._2.map(_._1)) ++ decoder.defaults.keys).toList.distinct
 
@@ -32,6 +36,7 @@ class decoder extends Component {
   private def getSignalName(s: Signal[_ <: BaseType]): String = {
     s.getClass.getSimpleName.replace("$", "").toLowerCase
   }
+
   // 生成解码器的头文件
   private def genDecoderHeader(): Unit = {
     val file = new File(Config.targetDirectory + "/decoder.svh")
@@ -49,33 +54,47 @@ class decoder extends Component {
         bw.write(s"typedef logic ${getSignalName(s)}_t;\n")
       }
     })
-    bw.write(s"typedef logic [${Config.bitWidth - 1}:0] debug_inst_t;\n\n")
+    if (Config.debug) bw.write(s"typedef logic [${Config.bitWidth - 1}:0] debug_inst_t;\n\n")
+    if (Config.checkInvalidInst) bw.write(s"typedef logic invalid_inst_t;\n\n")
 
+    // 生成常量宏定义
     if (Config.useJson) {
       JsonInstSet.genMacro(bw)
+    } else {
+      defualtInstSet.genMacro(bw)
+    }
+
+    // 生成解码信号结构体
+    if (Config.useJson) {
+      // 为json指令集生成分阶段信号结构体
       JsonInstSetLoader.loadInfo()
       Config.stages.foreach(stage => {
-            bw.write("typedef struct packed {\n")
-            if (Config.debug) bw.write(s"    debug_inst_t debug_inst;\n")
-            signals.reverse.foreach(s => {
-              // 判断信号使用阶段是否在这个阶段之后
-              if (Config.stages.indexOf(JsonInstSetLoader.signals(getSignalName(s))("stage")) >= Config.stages.indexOf(stage)) {
-                bw.write(s"    ${getSignalName(s)}_t ${getSignalName(s)};\n")
-              }
-            })
-            bw.write(s"} ${stage}_t;\n\n")
+        bw.write("typedef struct packed {\n")
+        if (Config.debug) bw.write(s"    debug_inst_t debug_inst;\n")
+        signals.reverse.foreach(s => {
+          // 判断信号使用阶段是否在这个阶段之后
+          if (Config.stages.indexOf(JsonInstSetLoader.signals(getSignalName(s))("stage")) >= Config.stages.indexOf(stage)) {
+            bw.write(s"    ${getSignalName(s)}_t ${getSignalName(s)};\n")
+          }
+        })
+        if (Config.checkInvalidInst && Config.stages.indexOf(Config.exceptionStage) >= Config.stages.indexOf(stage)) {
+          bw.write(s"    invalid_inst_t invalid_inst;\n")
+        }
+        bw.write(s"} ${stage}_t;\n\n")
       })
     } else {
-      LoongArch32.genMacro(bw)
+      // TODO: 为直接定义的指令集生成分阶段信号结构体
     }
 
     bw.write("typedef struct packed {\n")
     if (Config.debug) bw.write(s"    debug_inst_t debug_inst;\n")
     signals.reverse.foreach(s => bw.write(s"    ${getSignalName(s)}_t ${getSignalName(s)};\n"))
+    bw.write(s"    invalid_inst_t invalid_inst;\n")
     bw.write("} decoder_info_t;\n\n")
 
     // 生成接线函数
     if (Config.useJson) {
+      // 为json指令集生成分阶段接线函数
       var preStage = "decoder_info"
       Config.stages.foreach(stage => {
         bw.write(s"function ${stage}_t get_${stage}_from_$preStage(${preStage}_t $preStage);\n")
@@ -85,13 +104,18 @@ class decoder extends Component {
         }
         signals.foreach(s => {
           if (Config.stages.indexOf(JsonInstSetLoader.signals(getSignalName(s))("stage")) > Config.stages.indexOf(preStage)) {
-            bw.write(s"    ret.${getSignalName(s)} = ${preStage}.${getSignalName(s)};\n")
+            bw.write(s"    ret.${getSignalName(s)} = $preStage.${getSignalName(s)};\n")
           }
         })
+        if (Config.checkInvalidInst && Config.stages.indexOf(Config.exceptionStage) > Config.stages.indexOf(preStage)) {
+          bw.write(s"    ret.invalid_inst = $preStage.invalid_inst;\n")
+        }
         bw.write("    return ret;\n")
         bw.write("endfunction\n\n")
         preStage = stage
       })
+    } else {
+      // TODO: 为直接定义的指令集生成分阶段信号的接线函数
     }
 
     bw.write("`endif\n")
@@ -138,29 +162,60 @@ class decoder extends Component {
     (Masked(key.value, key.careAbout), Masked(decodedValue, decodedCare))
   }
 
-  spec.foreach(e => println(e._1.toString(32) + "    " + e._2.toString(66)))
+  SpinalInfo("解码表")
+  private val instructs = JsonInstSetLoader.instructs.keys.toList
+  for ((decode, index) <- spec.zipWithIndex) {
+    print(f"$index%4s  ${instructs(index)}%-15s ->  ")
+    println(decode._1.toString(Config.bitWidth) + "\t" + decode._2.toString(offset))
+  }
+
 
   private val decodedBitsWidth = signals.foldLeft(0)(_ + _.dataType.getBitsWidth)
   private def simplify(): Seq[Seq[Masked]] = {
     for (bitId <- 0 until decodedBitsWidth) yield {
       val trueTerm = spec.filter { case (_, t) => t.care.testBit(bitId) && t.value.testBit(bitId) }.keys
       val falseTerm = spec.filter { case (_, t) => t.care.testBit(bitId) && !t.value.testBit(bitId) }.keys
-      Simplify.getPrimeImplicitsByTrueAndFalse(trueTerm.toSeq, falseTerm.toSeq, Config.bitWidth)
+      Simplify.getPrimeImplicantsByTrueAndFalse(trueTerm.toSeq, falseTerm.toSeq, Config.bitWidth)
     }
   }
 
   private val simplifiedSpec = simplify()
 
-  simplifiedSpec.foreach(e => println(e.map(_.toString(32)).mkString(" ")))
-
-  if (Config.debug) {
-    io.is_o := io.inst_i ## simplifiedSpec.map(_.map(_ === io.inst_i).asBits.orR).asBits
-  } else {
-    io.is_o := simplifiedSpec.map(_.map(_ === io.inst_i).asBits.orR).asBits
+  SpinalInfo("简化解码表")
+  for ((primeImplicants, bitId) <- simplifiedSpec.zipWithIndex) {
+    print(f"bit $bitId%4s:\t")
+    primeImplicants.foreach(e => print(e.toString(Config.bitWidth) + "\t"))
+    println()
   }
+  // 生成解码器
+  private val ctrl = Bits()
+  ctrl := simplifiedSpec.map(_.map(_ === io.inst_i).asBits.orR).asBits
+
+  io.decode_info_o.setName("is_o")
+
+  private val fixDebug, fixInvalidInst = Bits()
+  if (Config.debug) {
+    fixDebug := io.inst_i ## ctrl
+  } else {
+    fixDebug := ctrl
+  }
+
+  if (Config.checkInvalidInst) {
+    val validInst = Bool()
+    val validInstSpec = Simplify.getPrimeImplicantsByTrue(spec.keys.toSeq, Config.bitWidth)
+    SpinalInfo(s"简化有效指令表，共${validInstSpec.length}条")
+    validInstSpec.foreach(e => println(e.toString(Config.bitWidth) + "\t"))
+    validInst := Simplify.logicOf(io.inst_i, validInstSpec)
+    fixInvalidInst := fixDebug ## ~validInst
+  } else {
+    fixInvalidInst := fixDebug
+  }
+
+  io.decode_info_o := fixInvalidInst
   // 接口不输出io前缀
   noIoPrefix()
 }
+
 
 object decoder {
   private val defaults = mutable.LinkedHashMap[Signal[_ <: BaseType], BaseType]()
