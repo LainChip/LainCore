@@ -89,13 +89,13 @@ object JsonInstSetLoader {
       }
     }
 
-    // 一个信号在所有指令解码信息有定义 & 值全部相同 &与default不相同，那么警告
+    // 一个信号在所有指令解码信息有定义 & 值全部相同 & 与default不相同，那么警告
     for ((k, v) <- signals) {
       val values = instructs.values.map(_.getOrElse(k, v("default"))).toList
       // 统计信号在解码信息定义中出现的次数
       var count = 0
       instructs.values.foreach{v => if (v.contains(k)) count += 1}
-      if (values.distinct.length == 2 && count == instructs.size) {
+      if (values.distinct.length == 1 && values.head != v("default") && count == instructs.size) {
         SpinalWarning("signal " + k + " is defined in instructs but all values are same and not equal to default")
       }
     }
