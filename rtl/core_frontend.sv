@@ -49,34 +49,35 @@ function reg_info_t get_register_info(
 endfunction
 
 module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
-  input  logic            clk            ,
-  input  logic            rst_n          ,
-  output frontend_req_t   frontend_req_o ,
-  input  frontend_resp_t  frontend_resp_i,
-  input  cache_bus_resp_t bus_resp_i     ,
-  output cache_bus_req_t  bus_req_o
-);
+    input  logic            clk            ,
+    input  logic            rst_n          ,
+    output frontend_req_t   frontend_req_o ,
+    input  frontend_resp_t  frontend_resp_i,
+    input  cache_bus_resp_t bus_resp_i     ,
+    output cache_bus_req_t  bus_req_o
+  );
 
   logic f1_stall, f2_stall;
   logic addr_trans_stall, idle_stall, icache_stall, mimo_stall;
   logic addr_trans_ready; // F1 级别的模块
   logic icacheop_valid  ;
-  assign addr_trans_stall = !addr_trans_ready;
+  // assign addr_trans_stall = !addr_trans_ready;
+  assign addr_trans_stall = frontend_resp_i.addr_trans_stall;
   logic mimo_ready; // F2 级别的模块
   assign mimo_stall = !mimo_ready;
   logic rstall_1, rstall_2; // 随机暂停源
   assign f1_stall = f2_stall | addr_trans_stall | idle_stall | icacheop_valid | rstall_1;
   assign f2_stall = icache_stall | mimo_stall | rstall_2;
   tests_random_stall #(.PERCETAGE(`_GLOBAL_FRONT_STALL_P)) tests_random_stall_1 (
-    .clk    (clk     ),
-    .rst_n  (rst_n   ),
-    .stall_o(rstall_1)
-  );
+                       .clk    (clk     ),
+                       .rst_n  (rst_n   ),
+                       .stall_o(rstall_1)
+                     );
   tests_random_stall #(.PERCETAGE(`_GLOBAL_FRONT_STALL_P)) tests_random_stall_2 (
-    .clk    (clk     ),
-    .rst_n  (rst_n   ),
-    .stall_o(rstall_2)
-  );
+                       .clk    (clk     ),
+                       .rst_n  (rst_n   ),
+                       .stall_o(rstall_2)
+                     );
 
   // NPC 模块
   logic[31:0] pc_vaddr, npc_vaddr;
@@ -85,17 +86,17 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   bpu_predict_t [1:0] f_predict;
   assign f1_pc = pc_vaddr;
   core_npc npc_inst (
-    .clk       (clk                           ),
-    .rst_n     (rst_n                         ),
-    .rst_jmp   (frontend_resp_i.rst_jmp       ),
-    .rst_target(frontend_resp_i.rst_jmp_target),
-    .f_stall_i (f1_stall                      ),
-    .pc_o      (pc_vaddr                      ),
-    .npc_o     (npc_vaddr                     ),
-    .valid_o   (f1_valid                      ),
-    .predict_o (f_predict                     ),
-    .correct_i (frontend_resp_i.bpu_correct   )
-  );
+             .clk       (clk                           ),
+             .rst_n     (rst_n                         ),
+             .rst_jmp   (frontend_resp_i.rst_jmp       ),
+             .rst_target(frontend_resp_i.rst_jmp_target),
+             .f_stall_i (f1_stall                      ),
+             .pc_o      (pc_vaddr                      ),
+             .npc_o     (npc_vaddr                     ),
+             .valid_o   (f1_valid                      ),
+             .predict_o (f_predict                     ),
+             .correct_i (frontend_resp_i.bpu_correct   )
+           );
 
   // ICACHE 指令
   logic[1:0] icacheop;
@@ -132,63 +133,65 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   always_comb begin
     f1_excp      = '0;
     f1_excp.adef = (|f1_ppc[1:0]) || (f1_trans_result.dmw ? '0 :
-      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f1_pc[31]));
+                                      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f1_pc[31]));
     f1_excp.tlbr = (!f1_excp) && !f1_trans_result.found;
     f1_excp.pif  = (!f1_excp) && !f1_trans_result.value.v;
     f1_excp.ppi  = (!f1_excp) && (f1_trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
   end
   core_addr_trans #(
-    .ENABLE_TLB(ENABLE_TLB), // TODO: PARAMETERIZE ME
-    .FETCH_ADDR('1        )
-  ) core_iaddr_trans_inst (
-    .clk             (clk                                 ),
-    .rst_n           (rst_n                               ),
-    .valid_i         (|f1_valid                           ),
-    .vaddr_i         (npc_vaddr                           ),
-    .m1_stall_i      (f1_stall && !frontend_resp_i.rst_jmp),
-    .ready_o         (addr_trans_ready                    ),
-    .csr_i           (frontend_resp_i.csr_reg             ),
-    .tlb_update_req_i(frontend_resp_i.tlb_update_req      ),
-    .trans_result_o  (f1_trans_result                     )
-  );
+                    .ENABLE_TLB(ENABLE_TLB), // TODO: PARAMETERIZE ME
+                    .FETCH_ADDR('1        )
+                  ) core_iaddr_trans_inst (
+                    .clk             (clk                                 ),
+                    .rst_n           (rst_n                               ),
+                    .valid_i         (|f1_valid                           ),
+                    .vaddr_i         (npc_vaddr                           ),
+                    .m1_stall_i      (f1_stall                            ),
+                    .flush_i         (addr_trans_stall                    ),
+                    .jmp_i           (frontend_resp_i.rst_jmp             ),
+                    .ready_o         (addr_trans_ready                    ),
+                    .csr_i           (frontend_resp_i.csr_reg             ),
+                    .tlb_update_req_i(frontend_resp_i.tlb_update_req      ),
+                    .trans_result_o  (f1_trans_result                     )
+                  );
   logic[31:0] ppc_nc;
 
   core_ifetch #(
-    .ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t)+$bits(fetch_excp_t)),
-    .ENABLE_TLB         (ENABLE_TLB                                ),
-    .EARLY_BRAM         ('0                                        )
-  ) core_ifetch_inst (
-    .clk            (clk                     ),
-    .rst_n          (rst_n                   ),
-    .cacheop_i      (icacheop                ),
-    .cacheop_valid_i(icacheop_valid          ),
-    .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
-    .valid_i        (f1_valid                ),
-    .npc_i          (npc_vaddr               ),
-    .vpc_i          (f1_pc                   ),
-    .ppc_i          (f1_ppc                  ),
-    .uncached_i     (f1_uncached             ),
-    .attached_i     ({f_predict, f1_excp}    ),
-    .f1_stall_i     (f1_stall                ),
-    .f2_stall_i     (f2_stall                ),
-    .f2_stall_req_o (icache_stall            ),
-    .valid_o        (f2_valid                ),
-    .attached_o     ({f2_predict, f2_excp}   ),
-    .inst_o         (f2_inst                 ),
-    .pc_o           (f2_pc                   ),
-    .flush_i        (frontend_resp_i.rst_jmp ),
-    .bus_busy_i     (frontend_resp_i.bus_busy),
-    .bus_req_o      (bus_req_o               ),
-    .bus_resp_i     (bus_resp_i              )
-  );
+                .ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t)+$bits(fetch_excp_t)),
+                .ENABLE_TLB         (ENABLE_TLB                                ),
+                .EARLY_BRAM         ('0                                        )
+              ) core_ifetch_inst (
+                .clk            (clk                     ),
+                .rst_n          (rst_n                   ),
+                .cacheop_i      (icacheop                ),
+                .cacheop_valid_i(icacheop_valid          ),
+                .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
+                .valid_i        (f1_valid                ),
+                .npc_i          (npc_vaddr               ),
+                .vpc_i          (f1_pc                   ),
+                .ppc_i          (f1_ppc                  ),
+                .uncached_i     (f1_uncached             ),
+                .attached_i     ({f_predict, f1_excp}    ),
+                .f1_stall_i     (f1_stall                ),
+                .f2_stall_i     (f2_stall                ),
+                .f2_stall_req_o (icache_stall            ),
+                .valid_o        (f2_valid                ),
+                .attached_o     ({f2_predict, f2_excp}   ),
+                .inst_o         (f2_inst                 ),
+                .pc_o           (f2_pc                   ),
+                .flush_i        (frontend_resp_i.rst_jmp ),
+                .bus_busy_i     (frontend_resp_i.bus_busy),
+                .bus_req_o      (bus_req_o               ),
+                .bus_resp_i     (bus_resp_i              )
+              );
 
   // MIMO fifo
   typedef struct packed {
-    logic [31:0]  pc         ;
-    logic [31:0]  inst       ;
-    fetch_excp_t  fetch_excp ;
-    bpu_predict_t bpu_predict;
-  } inst_package_t;
+            logic [31:0]  pc         ;
+            logic [31:0]  inst       ;
+            fetch_excp_t  fetch_excp ;
+            bpu_predict_t bpu_predict;
+          } inst_package_t;
   inst_package_t [1:0] f2_inst_pack;
   assign f2_inst_pack[0].pc = {f2_pc[31:3],!f2_valid[0],f2_pc[1:0]};
   assign f2_inst_pack[1].pc = {f2_pc[31:3],1'b1,f2_pc[1:0]};
@@ -208,27 +211,27 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   assign d_valid = d_valid_fifo & {2{~frontend_resp_i.rst_jmp}};
 
   multi_channel_fifo #(
-    .DATA_WIDTH(64 + $bits(bpu_predict_t) + $bits(fetch_excp_t)),
-    .DEPTH     (16                                             ),
-    .BANK      (2                                              ),
-    .WRITE_PORT(2                                              ),
-    .READ_PORT (2                                              )
-  ) inst_fifo (
-    .clk                                   ,
-    .rst_n                                 ,
-    
-    .flush_i      (frontend_resp_i.rst_jmp),
-    
-    .write_valid_i(1'b1                   ),
-    .write_ready_o(mimo_ready             ),
-    .write_num_i  (f2_num                 ),
-    .write_data_i (f2_inst_pack           ),
-    
-    .read_valid_o (d_valid_fifo           ),
-    .read_ready_i (1'b1                   ),
-    .read_num_i   (d_num                  ),
-    .read_data_o  (d_inst_pack            )
-  );
+                       .DATA_WIDTH(64 + $bits(bpu_predict_t) + $bits(fetch_excp_t)),
+                       .DEPTH     (16                                             ),
+                       .BANK      (2                                              ),
+                       .WRITE_PORT(2                                              ),
+                       .READ_PORT (2                                              )
+                     ) inst_fifo (
+                       .clk                                   ,
+                       .rst_n                                 ,
+
+                       .flush_i      (frontend_resp_i.rst_jmp),
+
+                       .write_valid_i(1'b1                   ),
+                       .write_ready_o(mimo_ready             ),
+                       .write_num_i  (f2_num                 ),
+                       .write_data_i (f2_inst_pack           ),
+
+                       .read_valid_o (d_valid_fifo           ),
+                       .read_ready_i (1'b1                   ),
+                       .read_num_i   (d_num                  ),
+                       .read_data_o  (d_inst_pack            )
+                     );
   // compress_fifo #(
   //   .DATA_WIDTH(64 + $bits(bpu_predict_t) + $bits(fetch_excp_t)),
   //   .DEPTH     (8                                              ),
@@ -255,10 +258,10 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   for(genvar p = 0;  p < 2 ;p ++ ) begin
     is_t issue_package;
     decoder decoder_inst (
-      .inst_i     (d_inst_pack[p].inst),
-      .fetch_err_i('0                 ),
-      .is_o       (issue_package      )
-    );
+              .inst_i     (d_inst_pack[p].inst),
+              .fetch_err_i('0                 ),
+              .is_o       (issue_package      )
+            );
     always_comb begin
       decoder_inst_package[p].decode_info = issue_package;
       decoder_inst_package[p].imm_domain = d_inst_pack[p].inst[25:0];
@@ -277,7 +280,8 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   always_ff @(posedge clk) begin
     if(frontend_resp_i.rst_jmp || ~rst_n) begin
       is_valid_q <= '0;
-    end else begin
+    end
+    else begin
       is_valid_q <= is_valid;
     end
     is_inst_package_q <= is_inst_package;
@@ -287,66 +291,66 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
     is_valid        = is_valid_q;
     is_inst_package = is_inst_package_q;
     unique casez({is_valid_q, d_valid, frontend_resp_i.issue})
-      // NO VALID INST YET
-      6'b00???? : begin
-        is_valid        = d_valid;
-        d_num           = d_valid[0] + d_valid[1];
-        is_inst_package = decoder_inst_package;
-      end
-      // HAS ONE VALID INST
-      6'b01?0?0 : begin
-        is_valid = 2'b01;
-      end
-      6'b01?0?1 : begin
-        is_valid = '0;
-      end
-      6'b01?1?0 : begin
-        is_valid           = 2'b11;
-        is_inst_package[1] = decoder_inst_package[0];
-        d_num              = 1;
-      end
-      6'b01?1?1 : begin
-        is_valid           = 2'b01;
-        is_inst_package[0] = decoder_inst_package[0];
-        d_num              = 1;
-      end
-      // HAS TWO VALID INST
-      6'b1???00 : begin
-        is_valid = 2'b11;
-      end
-      6'b1?0001 : begin
-        is_valid           = 2'b01;
-        is_inst_package[0] = is_inst_package_q[1];
-      end
-      6'b1?001? : begin
-        is_valid = 2'b00;
-      end
-      6'b1?0101 : begin
-        is_valid           = 2'b11;
-        is_inst_package[0] = is_inst_package_q[1];
-        is_inst_package[1] = decoder_inst_package[0];
-        d_num              = 1;
-      end
-      6'b1?011? : begin
-        is_valid           = 2'b01;
-        is_inst_package[0] = decoder_inst_package[0];
-        d_num              = 1;
-      end
-      6'b1?1?01 : begin
-        is_valid           = 2'b11;
-        is_inst_package[0] = is_inst_package_q[1];
-        is_inst_package[1] = decoder_inst_package[0];
-        d_num              = 1;
-      end
-      6'b1?1?1? : begin
-        is_valid           = 2'b11;
-        is_inst_package[0] = decoder_inst_package[0];
-        is_inst_package[1] = decoder_inst_package[1];
-        d_num              = 2;
-      end
-    endcase
-  end
-  assign frontend_req_o.inst_valid = is_valid_q;
+             // NO VALID INST YET
+             6'b00???? : begin
+               is_valid        = d_valid;
+               d_num           = d_valid[0] + d_valid[1];
+               is_inst_package = decoder_inst_package;
+             end
+             // HAS ONE VALID INST
+             6'b01?0?0 : begin
+               is_valid = 2'b01;
+             end
+             6'b01?0?1 : begin
+               is_valid = '0;
+             end
+             6'b01?1?0 : begin
+               is_valid           = 2'b11;
+               is_inst_package[1] = decoder_inst_package[0];
+               d_num              = 1;
+             end
+             6'b01?1?1 : begin
+               is_valid           = 2'b01;
+               is_inst_package[0] = decoder_inst_package[0];
+               d_num              = 1;
+             end
+             // HAS TWO VALID INST
+             6'b1???00 : begin
+               is_valid = 2'b11;
+             end
+             6'b1?0001 : begin
+               is_valid           = 2'b01;
+               is_inst_package[0] = is_inst_package_q[1];
+             end
+             6'b1?001? : begin
+               is_valid = 2'b00;
+             end
+             6'b1?0101 : begin
+               is_valid           = 2'b11;
+               is_inst_package[0] = is_inst_package_q[1];
+               is_inst_package[1] = decoder_inst_package[0];
+               d_num              = 1;
+             end
+             6'b1?011? : begin
+               is_valid           = 2'b01;
+               is_inst_package[0] = decoder_inst_package[0];
+               d_num              = 1;
+             end
+             6'b1?1?01 : begin
+               is_valid           = 2'b11;
+               is_inst_package[0] = is_inst_package_q[1];
+               is_inst_package[1] = decoder_inst_package[0];
+               d_num              = 1;
+             end
+             6'b1?1?1? : begin
+               is_valid           = 2'b11;
+               is_inst_package[0] = decoder_inst_package[0];
+               is_inst_package[1] = decoder_inst_package[1];
+               d_num              = 2;
+             end
+           endcase
+         end
+         assign frontend_req_o.inst_valid = is_valid_q;
   assign frontend_req_o.inst       = is_inst_package_q;
 
   // IDLE-WAIT 逻辑

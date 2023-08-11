@@ -287,6 +287,9 @@ typedef struct packed {
 
   // CSR
   csr_t            csr_reg        ;
+  
+  // CSR STALLING
+  logic            addr_trans_stall;
 }frontend_resp_t;
 
 `define IE        2

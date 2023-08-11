@@ -95,6 +95,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
     // 注意： invalidate 不同于 ~rst_n ，只要求无效化指令，不清除管线中的指令。
     logic       m1_refetch   ;
+    logic [1:0] m1_ertn_excp ; // 对于 ertn 和 excp 的情况，有可能改变地址转换结果
     logic [1:0] m1_invalidate, m1_invalidate_req, m1_invalidate_exclude_self;
     logic       ex_invalidate, ex_m1_invalidate;
 
@@ -237,9 +238,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     // 就算前级中有气泡，也不可以前进（并没有必要，徒增stall逻辑复杂度）。但前级不能阻塞后级。
     logic[1:0] m1_lsu_busy,m2_lsu_busy;
     logic rstall_1, rstall_2, rstall_3, rstall_4;
+    logic[1:0] m1_addr_trans_ready;
     always_comb begin
-      ex_stall = |ex_stall_req | |m1_stall_req         | !&m1_addr_trans_ready | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy | rstall_1 | rstall_2 | rstall_3 | rstall_4;
-      m1_stall = |m1_stall_req | !&m1_addr_trans_ready | |m2_stall_req         | |wb_stall_req | |m1_lsu_busy  | |m2_lsu_busy | rstall_2 | rstall_3 | rstall_4;
+      ex_stall = |ex_stall_req | |m1_stall_req         | !(&m1_addr_trans_ready) | |m2_stall_req | |wb_stall_req | |m1_lsu_busy | |m2_lsu_busy | rstall_1 | rstall_2 | rstall_3 | rstall_4;
+      m1_stall = |m1_stall_req | !(&m1_addr_trans_ready) | |m2_stall_req         | |wb_stall_req | |m1_lsu_busy  | |m2_lsu_busy | rstall_2 | rstall_3 | rstall_4;
       m2_stall = |m2_stall_req | |wb_stall_req         | |m2_lsu_busy          | rstall_3 | rstall_4;
       wb_stall = |wb_stall_req | rstall_4;
     end
@@ -272,10 +274,28 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     bpu_correct_t[1:0] m1_bpu_feedback_req;
     bpu_correct_t m2_bpu_feedback_q;
     logic         m2_jump_valid_q  ;
+    logic         m2_jump_addr_change_q; // 导致地址转换改变的跳转，需要暂停前端等待地址转换同步
+    logic         addr_change_stall_q;
+    always_ff @(posedge clk) begin
+      if(!rst_n) begin
+        addr_change_stall_q <= '0;
+      end else begin
+        if(m2_jump_addr_change_q) begin
+          // 有地址改变，需要暂停前端同步
+          addr_change_stall_q <= '1;
+        end else begin
+          if(addr_change_stall_q && !m2_stall) begin
+            addr_change_stall_q <= '0;
+          end
+        end
+      end
+    end
+    assign frontend_resp_o.addr_trans_stall = addr_change_stall_q;
     always_ff @(posedge clk) begin
       m2_jump_valid_q   <= (m1_stall) ? '0 : |m1_invalidate_req;
       m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
       m2_bpu_feedback_q <= (m1_bpu_feedback_req[0].need_update || m1_bpu_feedback_req[0].ras_miss_type) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
+      m2_jump_addr_change_q <= (m1_stall) ? '0 : ((|m1_ertn_excp) || m1_refetch);
     end
     assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
     assign frontend_resp_o.rst_jmp_target = m2_jump_target_q;
@@ -512,8 +532,11 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
     // CSR output
     csr_t csr_value;
+
+    // CSR STALL
+
     assign frontend_resp_o.csr_reg = csr_value;
-    logic[1:0] ex_addr_trans_valid,m1_addr_trans_ready; // TODO: CHECK ME
+    logic[1:0] ex_addr_trans_valid; // TODO: CHECK ME
     logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CHECK ME
     tlb_s_resp_t[1:0] addr_tlb_resp;
     tlb_s_resp_t[1:0] m1_addr_trans_result;
@@ -947,7 +970,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .clk        (clk                  ),
         .rst_n      (rst_n                ),
         .csr_i      (csr_value            ),
-        .valid_i    (!m1_stall && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit
+        .valid_i    (!m1_stall && exc_m1_q[p].need_commit
           && (p == 0 ? 1'b1 : !m1_invalidate_req[0])),
         .ertn_inst_i(decode_info.ertn_inst),
         .excp_flow_i(m1_excp_flow         ),
@@ -987,9 +1010,11 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       // REFETCHER
       logic[31:0] jump_target;
       if(p == 0) begin
-        assign m1_refetch  = decode_info.refetch && exc_m1_q[p].valid_inst && exc_m1_q[p].need_commit;
+        assign m1_refetch  = decode_info.refetch && exc_m1_q[p].need_commit;
         assign jump_target = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
+        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit && 
+          (decode_info.ertn_inst || m1_excp_detect[p]);
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excp_detect[p])
           || (decode_info.ertn_inst && !m1_excp_flow)
@@ -999,6 +1024,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         /* TODO: JUDGE WHETHER IS ONLY NEEDED IN CHIPLAB ? */
       end else begin
         assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
+        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit && 
+          (m1_excp_detect[p]);
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excp_detect[p];
       end

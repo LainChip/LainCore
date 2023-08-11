@@ -481,7 +481,7 @@ assign csr_o.estat = estat_q;
 assign m1_int_o    = ({
     (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
     (timer_intr_q ? 1'b1 : estat_q[11]) ,
-    (|int_q),
+    (int_q),
     estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
   & {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
 // era
@@ -689,6 +689,9 @@ always_ff @(posedge clk) begin
   end
 end
 assign csr_o.asid = asid_q;
+
+// pgd
+logic pgd_re;
 
 //pgdl
 logic pgdl_we,pgdl_re;
@@ -991,6 +994,7 @@ assign tlbelo1_re   = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TLBELO1;
 assign asid_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_ASID;
 assign pgdl_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_PGDL;
 assign pgdh_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_PGDH;
+assign pgd_re       = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_PGD;
 assign cpuid_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CPUID;
 assign save0_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE0;
 assign save1_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE1;
@@ -1057,6 +1061,9 @@ always_ff @(posedge clk) begin
     end
     if(pgdh_re) begin
       csr_r_data_o <= pgdh_q;
+    end
+    if(pgd_re) begin
+      csr_r_data_o <= {(badv_q[31] ? pgdh_q[31:12] : pgdl_q[31:12]), 12'd0};
     end
     if(cpuid_re) begin
       csr_r_data_o <= cpuid_q;
