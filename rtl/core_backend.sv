@@ -272,10 +272,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     logic[1:0][31:0] m1_target;
     logic[31:0] m2_jump_target_q;
     bpu_correct_t[1:0] m1_bpu_feedback_req;
-    bpu_correct_t m2_bpu_feedback_q;
-    logic         m2_jump_valid_q  ;
+    bpu_correct_t m2_bpu_feedback_q    ;
+    logic         m2_jump_valid_q      ;
     logic         m2_jump_addr_change_q; // 导致地址转换改变的跳转，需要暂停前端等待地址转换同步
-    logic         addr_change_stall_q;
+    logic         addr_change_stall_q  ;
     always_ff @(posedge clk) begin
       if(!rst_n) begin
         addr_change_stall_q <= '0;
@@ -292,9 +292,9 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     end
     assign frontend_resp_o.addr_trans_stall = addr_change_stall_q;
     always_ff @(posedge clk) begin
-      m2_jump_valid_q   <= (m1_stall) ? '0 : |m1_invalidate_req;
-      m2_jump_target_q  <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
-      m2_bpu_feedback_q <= (m1_bpu_feedback_req[0].need_update || m1_bpu_feedback_req[0].ras_miss_type) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
+      m2_jump_valid_q       <= (m1_stall) ? '0 : |m1_invalidate_req;
+      m2_jump_target_q      <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
+      m2_bpu_feedback_q     <= (m1_bpu_feedback_req[0].need_update || m1_bpu_feedback_req[0].ras_miss_type) ? m1_bpu_feedback_req[0] : m1_bpu_feedback_req[1];
       m2_jump_addr_change_q <= (m1_stall) ? '0 : ((|m1_ertn_excp) || m1_refetch);
     end
     assign frontend_resp_o.rst_jmp        = m2_jump_valid_q;
@@ -729,10 +729,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     for(genvar p = 0 ; p < 2 ; p++) begin : ISSUE
       // 产生 pipeline_ctrl_is 用于控制流水线
       always_comb begin
-        pipeline_ctrl_is[p].decode_info = is_inst_pack[p].decode_info;
-        pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
         is_r_addr[p] = is_inst_pack[p].reg_info.r_reg;
         is_w_addr[p] = is_inst_pack[p].reg_info.w_reg;
+        pipeline_ctrl_is[p].decode_info = get_ex_from_is(is_inst_pack[p].decode_info);
+        pipeline_ctrl_is[p].w_reg = is_inst_pack[p].reg_info.w_reg;
         pipeline_ctrl_is[p].w_id = is_w_id;
         pipeline_ctrl_is[p].bpu_predict = is_inst_pack[p].bpu_predict;
         pipeline_ctrl_is[p].fetch_excp = is_inst_pack[p].fetch_excp;
@@ -1013,7 +1013,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         assign m1_refetch  = decode_info.refetch && exc_m1_q[p].need_commit;
         assign jump_target = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit && 
+        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit &&
           (decode_info.ertn_inst || m1_excp_detect[p]);
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excp_detect[p])
@@ -1023,8 +1023,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
             ;
         /* TODO: JUDGE WHETHER IS ONLY NEEDED IN CHIPLAB ? */
       end else begin
-        assign jump_target                   = pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit && 
+        assign jump_target     = pipeline_ctrl_m1_q[p].jump_target;
+        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit &&
           (m1_excp_detect[p]);
         assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_excp_detect[p];
         assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excp_detect[p];
@@ -1058,36 +1058,43 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         m1_excp_flow.ale = (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) && (
           (decode_info.mem_type[1:0] == 2'd1 /*WORD*/&& (|pipeline_ctrl_m1_q[p].vaddr[1:0])) ||
           (decode_info.mem_type[1:0] == 2'd2 /*HALF WORD*/&& pipeline_ctrl_m1_q[p].vaddr[0]));
+        // SUPPORT LLSC
         m1_excp_flow.adem = m1_addr_trans_result[p].dmw ? '0 : (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && decode_info.need_lsu)
+          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && (decode_info.need_lsu &&
+              (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)))
         );
         m1_excp_flow.tlbr = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].found && decode_info.need_lsu
+          (!m1_addr_trans_result[p].found && decode_info.need_lsu &&
+            (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
             // && (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop)
           )
         ); // TODO: CHECK
         m1_excp_flow.pis = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].value.v && decode_info.mem_write)
+          (!m1_addr_trans_result[p].value.v && decode_info.mem_write) &&
+          (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
         ); // TODO: CHECK
         m1_excp_flow.pil = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu
+          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu &&
+          (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
             // && (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop)
           )
         ); // TODO: CHECK
         m1_excp_flow.ppi = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (m1_addr_trans_result[p].value.plv == 2'b00 && csr_value.crmd[`PLV] == 2'd3
-            && decode_info.need_lsu
+            && decode_info.need_lsu &&
+            (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
             // && (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop)
           ) // MAY LEAD TO SOME SECURITY BUG.
         ); // TODO: CHECK
         m1_excp_flow.pme = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].value.d && decode_info.mem_write)
+          (!m1_addr_trans_result[p].value.d && decode_info.mem_write) &&
+          (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
         ); // TODO: CHECK
         m1_excp_flow.brk = pipeline_ctrl_m1_q[p].excp_flow.brk && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.sys = pipeline_ctrl_m1_q[p].excp_flow.sys && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
@@ -1251,7 +1258,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = (decode_info.mem_write && ENABLE_TLB) ?
                 {31'd0, csr_value.llbit} : lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst &&
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].need_commit &&
                 (m2_mem_rvalid[p] || (decode_info.mem_write && ENABLE_TLB));
             end
             `_FUSEL_M2_CSR : begin
@@ -1471,8 +1478,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .clock     (clk),
         .coreid    (0  ),
         .index     (p  ),
-        .valid     (cm_valid && cm_inst_info.mem_write && 
-        (!cm_inst_info.llsc_inst || cm_llbit)),
+        .valid     (cm_valid && cm_inst_info.mem_write &&
+          (!cm_inst_info.llsc_inst || cm_llbit)),
         .storePAddr(cm_paddr),
         .storeVAddr(cm_vaddr),
         .storeData (cm_mdata)

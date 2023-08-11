@@ -604,7 +604,6 @@ always_ff @(posedge clk) begin
   end
   else begin
     if(tlbelo0_we) begin
-      tlbelo0_q                   <= csr_w_data;
       tlbelo0_q[`_TLBELO_TLB_V]   <= csr_w_data[`_TLBELO_TLB_V];
       tlbelo0_q[`_TLBELO_TLB_D]   <= csr_w_data[`_TLBELO_TLB_D];
       tlbelo0_q[`_TLBELO_TLB_PLV] <= csr_w_data[`_TLBELO_TLB_PLV];
@@ -641,7 +640,6 @@ always_ff @(posedge clk) begin
   end
   else begin
     if(tlbelo1_we) begin
-      tlbelo1_q                   <= csr_w_data;
       tlbelo1_q[`_TLBELO_TLB_V]   <= csr_w_data[`_TLBELO_TLB_V];
       tlbelo1_q[`_TLBELO_TLB_D]   <= csr_w_data[`_TLBELO_TLB_D];
       tlbelo1_q[`_TLBELO_TLB_PLV] <= csr_w_data[`_TLBELO_TLB_PLV];
