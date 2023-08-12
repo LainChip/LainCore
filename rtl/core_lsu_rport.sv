@@ -366,7 +366,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       end
     end
     rstate_o.rwsize  = m2_size_i;
-    rstate_o.wsel    = (m2_valid_i && m2_op_i == `_DCAHE_OP_WRITE) ? hit_q : '0;
+    rstate_o.wsel    = (m2_valid_i && m2_op_i == `_DCAHE_OP_WRITE && !m2_uncached_i && !miss_q) ? hit_q : '0;
     rstate_o.wstrobe = m2_strobe_i;
     rstate_o.wdata   = mkstrobe(mkwsft(m2_wdata_i, m2_vaddr_i),m2_strobe_i);
 
