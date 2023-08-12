@@ -1,5 +1,5 @@
 `include "lsu.svh"
-/*--JSON--{"module_name":"core_lsu_wport","module_ver":"1","module_type":"module"}--JSON--*/
+/*--JSON--{"module_name":"core_lsu_wport","module_ver":"2","module_type":"module"}--JSON--*/
 
 module core_lsu_wport #(
     parameter int PIPE_MANAGE_NUM = 2          ,
@@ -61,10 +61,11 @@ module core_lsu_wport #(
                 rstate_i[0].wdata : rstate_i[1].wdata;
       wreq_strobe = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid || rstate_i[0].miss_write_req_valid) ?
                   rstate_i[0].wstrobe : rstate_i[1].wstrobe;
-      wreq_size = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
+      wreq_size = (rstate_i[0].uncached_write_valid) ?
                 rstate_i[0].rwsize : rstate_i[1].rwsize;
       // wreq_hit = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
-      wreq_hit      = rstate_i[0].wsel | rstate_i[1].wsel;
+      wreq_hit      = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid || rstate_i[0].miss_write_req_valid) ?
+                rstate_i[0].wsel : rstate_i[1].wsel;
       wreq_uncached = rstate_i[0].uncached_write_valid | rstate_i[1].uncached_write_valid;
     end
   end
@@ -76,114 +77,75 @@ module core_lsu_wport #(
   logic[4:0] op_type_q,op_type;// 0读 refill, 1写 refill, 2读uncached, 3缓存inv请求
   logic[1:0] op_size_q,op_size;// 对于 uncached 读，需要判断其读长度
   logic op_valid_q,op_valid; // 由汇总层负责的握手信号
-  logic op_taken_q;
   logic[$clog2(WAY_CNT) - 1 : 0] refill_sel_q,refill_sel; // 由汇总层负责的 重填/回写 路选择信号
-  logic[PIPE_MANAGE_NUM - 1 : 0] p_sel_q,p_sel;// 由汇总层负责处理的信号，指示目前在处理哪一路信号。
   dcache_tag_t oldtag_q,oldtag;
-  logic        op_ready_q,op_ready; // 由状态机控制的握手信号 TODO: CHECK
-  // TODO: CHECK US
+  logic        op_ready; // 由状态机控制的握手信号 TODO: CHECK
+
   // ONEHOT ENCODING
   localparam logic[4:0] O_READ_REFILL = 1;
   localparam logic[4:0] O_WRITE_REFILL = 2;
   localparam logic[4:0] O_READ_UNCACHE = 4;
   localparam logic[4:0] O_CACHE_INV = 8;  // 区别两类 INV 指令
   localparam logic[4:0] O_CACHE_INVWB = 16;
+
   always_ff @(posedge clk) begin
-    if(!rst_n) begin
-      op_valid_q <= '0;
-      p_sel_q    <= '0;
-      op_type_q  <= '0;
-      refill_sel_q <= '0;
-    end
-    else begin
-      op_ready_q    <= op_ready;
-      op_addr_q     <= op_addr;
-      refill_addr_q <= refill_addr;
-      op_type_q     <= op_type;
-      op_size_q     <= op_size;
-      op_valid_q    <= op_valid;
-      op_taken_q    <= op_valid_q;
-      refill_sel_q  <= refill_sel;
-      p_sel_q       <= p_sel;
-      oldtag_q      <= oldtag;
-    end
+    op_addr_q <= op_addr;
+    refill_addr_q <= refill_addr;
+    op_type_q <= op_type;
+    op_size_q <= op_size;
+    op_valid_q <= op_valid;
+    refill_sel_q <= refill_sel;
+    oldtag_q <= oldtag;
   end
   always_comb begin
-    op_valid    = op_valid_q;
-    op_addr     = op_addr_q;
+    op_addr = op_addr_q;
     refill_addr = refill_addr_q;
-    op_type     = op_type_q;
-    op_size     = op_size_q;
-    refill_sel  = refill_sel_q;
-    p_sel       = p_sel_q;
-    oldtag      = oldtag_q;
-    if(op_ready && op_ready_q) begin
-      for(integer i = PIPE_MANAGE_NUM - 1; i >= 0; i--) begin
-        if(rstate_i[i].cache_refill_valid) begin
-          // 读重填
-          op_valid    = '1;
-          op_addr     = rstate_i[i].addr;
-          refill_addr = {rstate_i[i].addr[31:4], 4'd0};
-          op_type     = O_READ_REFILL;
-          refill_sel  = refill_sel_q + 1;
-          p_sel       = '0;
-          p_sel[i]    = '1;
-          oldtag      = rstate_i[i].tag_rdata[refill_sel];
-          for(integer j = i; j < PIPE_MANAGE_NUM; j++) begin
-            if(rstate_i[j].cache_refill_valid && rstate_i[i].addr[31:4] == rstate_i[j].addr[31:4]) begin
-              p_sel[i] = '1;
-            end
+    op_type = op_type_q;
+    op_size = op_size_q;
+    op_valid = op_valid_q;
+    refill_sel = refill_sel_q;
+    oldtag = oldtag_q;
+    if(op_valid_q) begin
+      if(op_ready) begin
+        op_valid = '0;
+      end
+    end else begin
+      for(integer i = 0 ; i < PIPE_MANAGE_NUM ; i++) begin
+        if(rstate_i[i].cache_refill_valid || rstate_i[i].uncached_read ||
+        rstate_i[i].cache_op_inv ||
+        rstate_i[i].cache_op_invwb || rstate_i[i].miss_write_req_valid) begin
+          op_addr = rstate_i[i].addr;
+          refill_addr = rstate_i[i].uncached_read ? rstate_i[i].addr : {rstate_i[i].addr[11:4], 4'd0};
+          op_size = rstate_i[i].rwsize;
+          op_valid = '1;
+          oldtag = rstate_i[i].tag_rdata[refill_sel_q + 1];
+          refill_sel = refill_sel_q + 1;
+          op_type = 0;
+          if(rstate_i[i].cache_refill_valid) begin
+            op_type = O_READ_REFILL;
           end
-        end
-        else if(rstate_i[i].uncached_read) begin
-          // UNCACHED 读
-          op_valid    = '1;
-          op_addr     = rstate_i[i].addr;
-          op_size     = rstate_i[i].rwsize;
-          refill_addr = rstate_i[i].addr;
-          op_type     = O_READ_UNCACHE;
-          p_sel       = '0;
-          p_sel[i]    = '1;
-        end
-        else if(rstate_i[i].miss_write_req_valid) begin
-          // 写重填
-          op_valid    = '1;
-          op_addr     = rstate_i[i].addr;
-          refill_addr = {rstate_i[i].addr[31:4], 4'd0};
-          op_type     = O_WRITE_REFILL;
-          refill_sel  = refill_sel_q + 1;
-          p_sel[i]    = '1;
-          oldtag      = rstate_i[i].tag_rdata[refill_sel];
-        end
-        else if(rstate_i[i].cache_op_inv) begin
-          // cache 指令
-          op_valid    = '1;
-          op_addr     = rstate_i[i].addr;
-          refill_addr = {rstate_i[i].addr[31:4], 4'd0};
-          op_type     = O_CACHE_INV;
-          refill_sel  = rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0];
-          p_sel[i]    = '1;
-          oldtag      = rstate_i[i].tag_rdata[refill_sel];
-        end
-        else if(rstate_i[i].cache_op_invwb) begin // TODO: COMMENT ME FOR PERF TEST
-          // cache 指令
-          op_valid    = '1;
-          op_addr     = rstate_i[i].addr;
-          refill_addr = {rstate_i[i].addr[31:4], 4'd0};
-          op_type     = O_CACHE_INVWB;
-          refill_sel  = rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0];
-          p_sel[i]    = '1;
-          oldtag      = rstate_i[i].tag_rdata[refill_sel];
+          if(rstate_i[i].uncached_read) begin
+            op_type = O_READ_UNCACHE;
+          end
+          if(rstate_i[i].cache_op_inv) begin
+            op_type = O_CACHE_INV;
+            oldtag = rstate_i[i].tag_rdata[rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0]];
+            refill_sel = rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0];
+          end
+          if(rstate_i[i].cache_op_invwb) begin
+            op_type = O_CACHE_INVWB;
+            oldtag = rstate_i[i].tag_rdata[rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0]];
+            refill_sel = rstate_i[i].addr[$clog2(WAY_CNT) - 1 : 0];
+          end
+          if(rstate_i[i].miss_write_req_valid) begin
+            op_type = O_WRITE_REFILL;
+          end
         end
       end
     end
-    else if(op_ready && !op_ready_q) begin
-      op_valid = '0;
-      p_sel    = '0;
-    end
   end
 
-
+  // TODO: CHECK US
   // 写入 Uncached FIFO 控制层
   // TODO: 完成 FIFO 控制层
   localparam logic[1:0] S_FEMPTY = 2'd0;
@@ -295,7 +257,8 @@ module core_lsu_wport #(
   localparam fsm_t S_TAG_UPDATE = 7;
   localparam fsm_t S_WAIT_BUS   = 8;
   fsm_t fsm_q, fsm;
-  logic            set_timer       ; // TODO: CONNECT ME
+  logic            set_ram_timer       ; // 重设 ram 计数器
+  logic            set_bus_timer       ; // 重设 写回 buf 计数器
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       fsm_q <= S_NORMAL;
@@ -307,13 +270,11 @@ module core_lsu_wport #(
   always_comb begin
     fsm       = fsm_q;
     op_ready  = '0;
-    set_timer = '0;
+    set_ram_timer = '0;
+    set_bus_timer = '0;
     case(fsm_q)
       default/*S_NORMAL*/: begin
-        op_ready = '1;
-        if(op_valid_q & op_ready_q) begin
-          // 注意，全部复制到 WAIT_BUS 部分，时刻同步
-          op_ready = '0;
+        if(op_valid_q) begin
           case(op_type_q)
             default/*O_READ_REFILL,O_WRITE_REFILL*/: begin
               if(bus_busy_o) begin
@@ -322,7 +283,7 @@ module core_lsu_wport #(
               else begin
                 if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
                   // 脏写回
-                  set_timer = '1;
+                  set_ram_timer = '1;
                   fsm       = S_WB_WADR;
                 end
                 else begin
@@ -343,7 +304,6 @@ module core_lsu_wport #(
                 fsm = S_WAIT_BUS;
               end
               else begin
-                // todo: CHECK ME
                 fsm = S_TAG_UPDATE;
               end
             end
@@ -352,10 +312,9 @@ module core_lsu_wport #(
                 fsm = S_WAIT_BUS;
               end
               else begin
-                // todo: CHECK ME
                 if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
                   // 脏写回
-                  set_timer = '1;
+                  set_ram_timer = '1;
                   fsm       = S_WB_WADR;
                 end
                 else begin
@@ -368,39 +327,11 @@ module core_lsu_wport #(
       end
       S_WAIT_BUS : begin
         if(!bus_busy_o) begin
-          case(op_type_q)
-            default/*O_READ_REFILL,O_WRITE_REFILL*/: begin
-              if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
-                // 脏写回
-                set_timer = '1;
-                fsm       = S_WB_WADR;
-              end
-              else begin
-                fsm = S_REFIL_RADR;
-              end
-            end
-            O_READ_UNCACHE : begin
-              fsm = S_PT_RADR;
-            end
-            O_CACHE_INV : begin
-              // todo: CHECK ME
-              fsm = S_TAG_UPDATE;
-            end
-            O_CACHE_INVWB : begin
-              // todo: CHECK ME
-              if(oldtag_q.valid && dirty_rdata[refill_sel_q]) begin
-                // 脏写回
-                set_timer = '1;
-                fsm       = S_WB_WADR;
-              end
-              else begin
-                fsm = S_TAG_UPDATE;
-              end
-            end
-          endcase
+          fsm = S_NORMAL;
         end
       end
       S_WB_WADR : begin
+        set_bus_timer = '1;
         if(bus_resp_i.ready) begin
           fsm = S_WB_WDAT;
         end
@@ -417,7 +348,7 @@ module core_lsu_wport #(
         end
       end
       S_REFIL_RADR : begin
-        set_timer = '1;
+        set_bus_timer = '1;
         if(bus_resp_i.ready) begin
           fsm       = S_REFIL_RDAT;
         end
@@ -428,24 +359,25 @@ module core_lsu_wport #(
         end
       end
       S_PT_RADR : begin
-        set_timer = '1;
         if(bus_resp_i.ready) begin
           fsm = S_PT_RDAT;
         end
       end
       S_PT_RDAT : begin
         if(bus_resp_i.data_ok && bus_resp_i.data_last) begin
+          op_ready = '1;
           fsm = S_NORMAL;
         end
       end
       S_TAG_UPDATE : begin
+        op_ready = '1;
         fsm = S_NORMAL;
       end
     endcase
   end
 
   // 写回抢夺总线相关信号
-  logic refill_take_over_q;
+  logic refill_take_over_q,refill_take_over_q_q;
   always_ff @(posedge clk) begin
     if(fsm_q == S_NORMAL && fsm == S_WB_WADR) begin
       refill_take_over_q <= '1;
@@ -453,6 +385,7 @@ module core_lsu_wport #(
     else if(fsm_q != S_WB_WADR && fsm_q != S_WB_WDAT) begin
       refill_take_over_q <= '0;
     end
+    refill_take_over_q_q <= refill_take_over_q;
   end
   assign wstate_o[0].dram_take_over = '0;
   assign wstate_o[1].dram_take_over = refill_take_over_q;
@@ -474,40 +407,33 @@ module core_lsu_wport #(
     end
   end
   always_ff @(posedge clk) begin
-    if(set_timer) begin
+    if(set_ram_timer) begin
       cur_wb_ram_addr_q <= {oldtag_q.addr, refill_addr_q[11:2], 2'b00};
-      cur_wb_bus_addr_q <= {oldtag_q.addr, refill_addr_q[11:2], 2'b00};
     end
     else begin
-      if(bus_resp_i.data_ok) begin
-        cur_wb_bus_addr_q[3:2] <= cur_wb_bus_addr_q[3:2] + 2'd1;
-      end
       cur_wb_ram_addr_q[3:2]   <= cur_wb_ram_addr_q[3:2] + 2'd1;
       cur_wb_ram_addr_q_q[3:2] <= cur_wb_ram_addr_q[3:2];
     end
   end
   always_ff @(posedge clk) begin
-    refill_fifo_q[cur_wb_ram_addr_q_q[3:2]] <= rstate_i[1].rdata[refill_sel_q];
-  end
-
-  // 重填相关计数器
-  logic[31:0] cur_refill_ram_addr_q;
-  // 注意，rport 所持有的 read_ready 由此为依据进行赋值。
-  always_ff @(posedge clk) begin
-    if(set_timer) begin
-      cur_refill_ram_addr_q <= refill_addr_q;
-    end
-    else begin
+    if(set_bus_timer) begin
+      cur_wb_bus_addr_q <= {oldtag_q.addr, refill_addr_q[11:2], 2'b00};
+    end else begin
       if(bus_resp_i.data_ok) begin
-        cur_refill_ram_addr_q[3:2] <= cur_refill_ram_addr_q[3:2] + 2'd1;
+        cur_wb_bus_addr_q[3:2] <= cur_wb_bus_addr_q[3:2] + 2'd1;
       end
     end
   end
+  always_ff @(posedge clk) begin
+    if(refill_take_over_q_q) begin
+      refill_fifo_q[cur_wb_ram_addr_q_q[3:2]] <= rstate_i[1].rdata[refill_sel_q];
+    end
+  end
+
   for(genvar p = 0 ; p < PIPE_MANAGE_NUM ; p++) begin
     assign wstate_o[p].read_ready = bus_resp_i.data_ok &&
-           cur_refill_ram_addr_q[3:2] == rstate_i[p].addr[3:2] &&
-           p_sel_q[p] &&
-           (fsm_q == S_REFIL_RDAT || fsm_q == S_PT_RDAT);
+        (cur_wb_bus_addr_q[3:2] == rstate_i[p].addr[3:2] && fsm_q == S_REFIL_RDAT) ||
+        fsm_q == S_PT_RDAT;
     assign wstate_o[p].rdata = bus_resp_i.r_data;
   end
 
@@ -524,7 +450,7 @@ module core_lsu_wport #(
     end
     else if(fsm_q == S_REFIL_RDAT) begin
       wport_req.data_we[refill_sel_q] = 4'b1111;
-      wport_req.data_waddr            = dramaddr(cur_refill_ram_addr_q);
+      wport_req.data_waddr            = dramaddr(cur_wb_bus_addr_q);
       wport_req.data_wdata            = bus_resp_i.r_data;
     end
     else if(fsm_q == S_TAG_UPDATE && op_type_q == O_WRITE_REFILL) begin
@@ -571,7 +497,7 @@ module core_lsu_wport #(
   // 管理与 rport 之间的握手信号
   for(genvar p = 0 ; p < PIPE_MANAGE_NUM ; p ++) begin
     always_comb begin
-      wstate_o[p].uop_ready = op_ready && p_sel_q[p];
+      wstate_o[p].uop_ready = op_ready;
     end
   end
 

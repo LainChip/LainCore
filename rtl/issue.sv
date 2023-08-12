@@ -29,10 +29,10 @@ assign structural_conflict = (
     inst_i[1].decode_info.invalid_inst) ||
   (inst_i[0].decode_info.need_mul && inst_i[1].decode_info.need_mul) ||
   (inst_i[0].decode_info.need_div && inst_i[1].decode_info.need_div) ||
-  (inst_i[0].decode_info.need_lsu && inst_i[1].decode_info.need_lsu)// ||
+  (inst_i[0].decode_info.need_lsu && inst_i[1].decode_info.need_lsu) ||
   // (inst_i[0].decode_info.need_lsu && (inst_i[1].decode_info.mem_write || inst_i[1].decode_info.mem_cacop)) ||
   // ((inst_i[0].decode_info.mem_write || inst_i[0].decode_info.mem_cacop) && inst_i[1].decode_info.need_lsu)// ||
-  // (inst_i[0].decode_info.need_bpu && inst_i[1].decode_info.need_bpu) 
+  (inst_i[0].decode_info.need_bpu && inst_i[1].decode_info.need_bpu) 
   );
 
 assign is_o[0]    = ex_ready_i && d_valid_i[0];

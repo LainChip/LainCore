@@ -13,6 +13,7 @@ module core_ifetch #(
   input  logic                                 cacheop_valid_i, // 输入的cache控制信号有效
   input  logic [                   31:0]       cacheop_paddr_i,
   input  logic [                    1:0]       valid_i        , // F1 级别的有效信息
+  input  logic                                 excp_i         , // F1 级别存在异常
   // MMU 地址信号, 在 VPC 同一拍
   input  logic [                   31:0]       npc_i          , // F1 级前一级的 NPC
   input  logic [                   31:0]       vpc_i          , // F1 级别的 VPC
@@ -31,6 +32,17 @@ module core_ifetch #(
   output cache_bus_req_t                       bus_req_o      ,
   input  cache_bus_resp_t                      bus_resp_i
 );
+
+  logic rst_n_q;
+  logic[7:0] rst_addr_q;
+  always_ff @(posedge clk) begin
+    rst_n_q <= rst_n;
+    if(rst_n) begin
+      rst_addr_q <= '0;
+    end else begin
+      rst_addr_q <= rst_addr_q + 1;
+    end
+  end
 
   logic f1_stall_q,f2_stall_q;
   always_ff @(posedge clk) begin
@@ -52,6 +64,7 @@ module core_ifetch #(
 
   logic cacheop_valid_q; // 指示 F2 级别是 cacheop 指令
   logic[1:0] fetch_v_q;// 指示 F2 级别需要读的指令位置
+  logic fetch_excp_q;
   logic uncached_q; // 指示 F2 级别的取值需要是 uncached 类型的
   logic[1:0] cacheop_q;  // 指示 F2 级别的 cacheop 类型
   logic[31:0] ppc_q,vpc_q;// 指示 F2 级别的 PC 地址
@@ -60,20 +73,24 @@ module core_ifetch #(
     if(!rst_n || flush_i) begin
       cacheop_valid_q <= '0;
       fetch_v_q       <= '0;
+      fetch_excp_q    <= '0;
     end else begin
       if(!f2_stall_i) begin
         if(cacheop_valid_i && ENABLE_TLB) begin
           cacheop_valid_q <= '1;
           fetch_v_q       <= '0;
           uncached_q      <= '0;
+          fetch_excp_q    <= '0;
           cacheop_q       <= cacheop_i;
           ppc_q           <= cacheop_paddr_i;
         end else if(f1_stall_i) begin
           cacheop_valid_q <= '0;
           fetch_v_q       <= '0;
+          fetch_excp_q    <= '0;
         end else begin
           cacheop_valid_q <= '0;
           fetch_v_q       <= valid_i;
+          fetch_excp_q    <= excp_i;
           uncached_q      <= uncached_i;
           ppc_q           <= ppc_i;
           vpc_q           <= vpc_i;
@@ -144,12 +161,12 @@ module core_ifetch #(
         if(dram_we[w] && (dram_waddr[9:1] == ppc_i[11:3]) && !dram_waddr[0]) begin
           f2_data[w][0] = dram_wdata; // 前递转发
         end else begin
-          f2_data[w][0] = f1_stall_q?f1_skid_buf_q[w][0] : dram_rdata[w][0];
+          f2_data[w][0] = f1_stall_q ? f1_skid_buf_q[w][0] : dram_rdata[w][0];
         end
         if(dram_we[w] && (dram_waddr[9:1] == ppc_i[11:3]) && dram_waddr[0]) begin
           f2_data[w][1] = dram_wdata; // 前递转发
         end else begin
-          f2_data[w][1] = f1_stall_q?f1_skid_buf_q[w][1] : dram_rdata[w][1];
+          f2_data[w][1] = f1_stall_q ? f1_skid_buf_q[w][1] : dram_rdata[w][1];
         end
       end
     end
@@ -194,8 +211,8 @@ module core_ifetch #(
     ) tram (
       .clk     (clk          ),
       .rst_n   (rst_n        ),
-      .addressA(tram_waddr   ),
-      .we      (tram_we[w]   ),
+      .addressA(tram_waddr ^ rst_addr_q),
+      .we      (tram_we[w] | !rst_n_q),
       .addressB(tram_raddr   ),
       .re      (1'b1         ),
       .inData  (tram_wdata   ),
@@ -298,7 +315,7 @@ module core_ifetch #(
       tram_we |= way_sel_q;
       //   end
     end
-    tram_wdata.valid = 1'b1;
+    tram_wdata.valid = rst_n_q;
     tram_wdata.tag   = itagaddr(ppc_q);
     if(cacheop_valid_q) begin
       case(cacheop_q)
@@ -335,14 +352,14 @@ module core_ifetch #(
         if(cacheop_valid_q && !f2_op_finished_q) begin
           fsm = FSM_RECVER;
         end
-        else if(!uncached_q && miss_q && |fetch_v_q) begin
+        else if(!uncached_q && miss_q && |fetch_v_q && !fetch_excp_q) begin
           if(bus_busy_i) begin
             fsm = FSM_WAITBUS;
           end else begin
             fsm = FSM_RFADDR;
           end
         end
-        else if(uncached_q && !f2_op_finished_q) begin
+        else if(uncached_q && !f2_op_finished_q && |fetch_v_q && !fetch_excp_q) begin
           if(bus_busy_i) begin
             fsm = FSM_WAITBUS;
           end else if(fetch_v_q[0]) begin

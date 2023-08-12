@@ -9,12 +9,18 @@
         "module_ver": "2"
     },
     "mycpu_top": {
-        "module_ver": "2"
+        "module_ver": "6"
     },
     "core_npc": {
         "module_ver": "2"
     },
     "core_ifetch": {
         "module_ver": "2"
+    },
+    "core_lsu_rport": {
+        "module_ver": "2"
+    },
+    "core_lsu_wport": {
+        "module_ver": "1"
     }
 }

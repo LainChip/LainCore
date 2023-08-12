@@ -1,15 +1,6 @@
-// 8.5：这个模块靠近 CPU 管线。
-// 每个 rport 支持处理命中的读指令，其内部有独立的 bram 存储数据以及 lutram 存储 tag / valid
-// 比较特别的是， rport 并不持有 bram 以及 lutram 的写端口，而是统一的交给 wport 处理。
-// 处理器中仅有一个 wport，对于命中的指令也可以连续处理。
-// 每一条写指令仅会进入两个 rport 中的一个。对于 rport，只需要当作正常读指令处理就可以了。
-// 存在一些特殊的 cacop 指令，需要与 wport 进行握手。处理类似写指令。
-
-// 由于时间，调试难度，收益等综合考虑，放弃基于 BANK 的多端口 cache。
-/*--JSON--{"module_name":"core_lsu_rport","module_ver":"1","module_type":"module"}--JSON--*/
-
 `include "lsu.svh"
 // `default_nettype none
+/*--JSON--{"module_name":"core_lsu_rport","module_ver":"2","module_type":"module"}--JSON--*/
 
 module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     input  wire          clk          ,
@@ -43,23 +34,12 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     input  wport_wreq_t  wreq_i         // 需要做 snoop
   );
 
-  assign m1_busy_o = '0;
-
-  // TODO: EARLY OUT
-  assign m1_rvalid_o = '0;
-  assign m1_rdata_o  = '0;
-
-  // CORE TODO: BUSY LOGIC
-  // assign m2_busy_o = '0;
-  // assign m2_rdata_o = '0;
-  // assign m2_rvalid_o = '0;
-
-  // ram 区域，用 distrubute ram 生成 tag-valid
-  // 用 bram 生成数据
-  logic[`_DIDX_LEN - 1 : 2] raw_data_raddr;
-  logic[WAY_CNT - 1 : 0][31:0] raw_data_rdata;
-  logic[7:0] raw_tag_raddr;
-  dcache_tag_t [WAY_CNT-1:0] raw_tag_rdata;
+  // EX-M1
+  // 实例化 bram lutram 存储 tag 以及 data
+  logic[`_DIDX_LEN - 1 : 2] raw_data_raddr;    // TODO: CHECK ME
+  logic[WAY_CNT - 1 : 0][31:0] raw_data_rdata; // TODO: CHECK ME
+  logic[7:0] raw_tag_raddr;                    // TODO: CHECK ME
+  dcache_tag_t [WAY_CNT-1:0] raw_tag_rdata;    // TODO: CHECK ME
   assign raw_data_raddr = wstate_i.dram_take_over ? wstate_i.data_raddr : dramaddr(ex_vaddr_i);
   assign rstate_o.rdata = raw_data_rdata;
   assign raw_tag_raddr  = tramaddr(ex_vaddr_i);
@@ -96,34 +76,25 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
                            .outData (raw_tag_rdata[w])
                          );
   end
-  //   fast tag ram
-  /*logic[$clog2(WAY_CNT) - 1 : 0] raw_fsel_rdata,raw_fsel_wdata; // TODO: CONNECT US
-  logic raw_fsel_we; // TODO: CONNECT US
-  dcache_tag_t raw_ftag_rdata;
-  simpleDualPortLutRam #(
-  .dataWidth($bits(dcache_tag_t) + $clog2(WAY_CNT)),
-  .ramSize  (1 << 8),
-  .latency  (0),
-  .readMuler(1)
-  ) ftag_ram (
-  .clk     (clk       ),
-  .rst_n   (rst_n     ),
-  .addressA(wreq_i.tag_waddr),
-  .we      (raw_fsel_we),
-  .addressB(raw_tag_raddr),
-  .re      (1'b1      ),
-  .inData  ({raw_fsel_wdata,wreq_i.tag_wdata}),
-  .outData ({raw_fsel_rdata,raw_ftag_rdata})
-  );*/
-  // m1 snoop area
+
+  logic m1_stall_q, m2_stall_q;
+  always_ff @(posedge clk) begin
+    m1_stall_q <= m1_stall_i;
+    m2_stall_q <= m2_stall_i;
+  end
+
+  // M1 级别进行地址比较，产生 hit miss，等待流水至 M2 级
+  // M1 级别还需要进行转发，对于 新写入 dataram 或者 tag 的数据，及时的转发至前级，
+  // 保证对于 sw-lw 这种指令流，lw可以看到sw的修改
   logic[WAY_CNT - 1 : 0][31:0] m1_data_rdata,m1_data_rdata_q;
   dcache_tag_t [WAY_CNT-1:0] m1_tag_rdata,m1_tag_rdata_q;
   logic[WAY_CNT - 1 : 0][3:0] wb_data_we;
-  logic[WAY_CNT - 1 : 0] wb_tag_we;
   logic[`_DIDX_LEN - 1 : 0] wb_data_waddr;
+
+  logic[WAY_CNT - 1 : 0] wb_tag_we;
+  logic[31:0] wb_data_wdata;
   logic[7:0] wb_tag_waddr;
   dcache_tag_t wb_tag_wdata;
-  logic[31:0] wb_data_wdata;
   always_ff @(posedge clk) begin
     wb_data_we    <= wreq_i.data_we;
     wb_data_waddr <= wreq_i.data_waddr;
@@ -134,29 +105,27 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     wb_tag_waddr <= wreq_i.tag_waddr;
     wb_tag_wdata <= wreq_i.tag_wdata;
   end
+
   always_ff @(posedge clk) begin
     m1_data_rdata_q <= m1_data_rdata;
     m1_tag_rdata_q  <= m1_tag_rdata;
   end
-  logic m1_stall_q;
-  always_ff @(posedge clk) begin
-    m1_stall_q <= m1_stall_i;
-  end
-  for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    always_comb begin
-      m1_data_rdata[w] = m1_stall_q ? m1_data_rdata_q[w] : raw_data_rdata[w];
-      for(integer i = 0 ; i < 4 ; i++) begin
-        if(wb_data_we[w][i] &&
-            wb_data_waddr == dramaddr(m1_vaddr_i)) begin
-          m1_data_rdata[w][7+8*i-:8] = wb_data_wdata[7+8*i-:8];
+  always_comb begin
+    m1_data_rdata = m1_stall_q ? m1_data_rdata_q : raw_data_rdata;
+    for(integer w = 0 ; w < WAY_CNT ;w++) begin
+      for(integer b = 0 ; b < 4 ; b++) begin
+        if(wb_data_we[w][b] && (wb_data_waddr == dramaddr(m1_vaddr_i))) begin
+          m1_data_rdata[w][7 + 8 * b -: 8] = wb_data_wdata[7 + 8 * b -: 8];
         end
-        if(wreq_i.data_we[w][i] &&
+        if(wreq_i.data_we[w][b] &&
             wreq_i.data_waddr == dramaddr(m1_vaddr_i)) begin
           // 这个优先级更高
-          m1_data_rdata[w][7+8*i-:8] = wreq_i.data_wdata[7+8*i-:8];
+          m1_data_rdata[w][7 + 8 * b -: 8] = wreq_i.data_wdata[7 + 8 * b -: 8];
         end
       end
     end
+  end
+  for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     always_comb begin
       m1_tag_rdata[w] = m1_stall_q ? m1_tag_rdata_q[w] : raw_tag_rdata[w];
       if(wb_tag_we[w] && wb_tag_waddr == tramaddr(m1_vaddr_i)) begin
@@ -168,6 +137,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     end
   end
 
+  // 地址比较
   logic[WAY_CNT - 1 : 0] m1_hit;
   logic m1_miss;
   // m1 hit miss area
@@ -176,7 +146,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     assign m1_hit[w] = dcache_hit(m1_tag_rdata[w], m1_paddr_i) && !m1_uncached_i;
   end
 
-  // m2 core
+  // M2 核心状态机
   logic[WAY_CNT - 1 : 0] hit_q;
   logic miss_q;
   always_ff @(posedge clk) begin
@@ -186,14 +156,13 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     end
   end
 
-  // m2 fsm
   typedef logic[2:0] fsm_t;
   localparam fsm_t S_NORMAL        = 0;
   localparam fsm_t S_UNCACHE_READ  = 1;
   localparam fsm_t S_REFILL_READ   = 2;
   localparam fsm_t S_UNCACHE_WRITE = 3;
   localparam fsm_t S_REFILL_WRITE  = 4;
-  localparam fsm_t S_CACHE_INVOP   = 5;
+  localparam fsm_t S_CACHE_INVOP   = 5; // CACHE 指令相关
   localparam fsm_t S_WAIT_STALL    = 6;
   fsm_t fsm_q,fsm;
   always_ff @(posedge clk) begin
@@ -211,7 +180,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     case(fsm_q)
       default/*S_NORMAL*/: begin
         if(m2_valid_i) begin
-          if(!m2_uncached_i) begin
+          if(!m2_uncached_i) begin // cacheable
             if(miss_q) begin
               if(m2_op_i == `_DCAHE_OP_READ) begin
                 fsm       = S_REFILL_READ;
@@ -220,9 +189,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
               else if(m2_op_i == `_DCAHE_OP_WRITE) begin
                 fsm       = S_REFILL_WRITE;
                 m2_busy_o = '1;
-              end
-              else if(m2_op_i == `_DCAHE_OP_DIRECT_INVWB ||
-                      (m2_op_i   == `_DCAHE_OP_DIRECT_INV)) begin
+              end else if(m2_op_i == `_DCAHE_OP_DIRECT_INVWB || // 优化写法
+                  (m2_op_i   == `_DCAHE_OP_DIRECT_INV)) begin
                 fsm       = S_CACHE_INVOP; // 直接无效化对应行的每一路，以降低复杂度
                 m2_busy_o = '1;
               end
@@ -251,7 +219,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       end
       S_UNCACHE_READ : begin
         m2_busy_o = '1;
-        if(wstate_i.read_ready) begin
+        if(wstate_i.uop_ready) begin
           fsm = S_WAIT_STALL;
         end
       end
@@ -286,6 +254,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       end
     endcase
   end
+
+
   // assign m2_busy_o = fsm_q != S_WAIT_STALL || fsm_q != S_NORMAL;
 
   // m2 snoop area
@@ -299,21 +269,17 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       m2_tag_rdata_q  <= m2_tag_rdata;
     end
   end
-  logic m2_stall_q;
-  always_ff @(posedge clk) begin
-    m2_stall_q <= m2_stall_i;
-  end
   always_comb begin
     if(!m2_stall_i) begin
       m2_tag_rdata = m1_tag_rdata;
     end
     else begin
       m2_tag_rdata = m2_tag_rdata_q;
-      for(integer w = 0 ; w < WAY_CNT ; w++) begin
-        if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
-          m2_tag_rdata[w] = wreq_i.tag_wdata;
-        end
-      end
+      // for(integer w = 0 ; w < WAY_CNT ; w++) begin
+      //   if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
+      //     m2_tag_rdata[w] = wreq_i.tag_wdata;
+      //   end
+      // end
     end
   end
   logic[31:0] data_rdata,data_rdata_q;
@@ -323,7 +289,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
         data_rdata_q <= wstate_i.rdata;
       end
     end
-    else if(fsm != S_WAIT_STALL) begin
+    else if(fsm == S_NORMAL) begin
       data_rdata_q <= '0;
     end
   end
@@ -337,34 +303,11 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   assign m2_rdata_o  = mkrsft(data_rdata, m2_vaddr_i, m2_type_i);
   assign m2_rvalid_o = !m2_busy_o && m2_valid_i && m2_op_i == `_DCAHE_OP_READ; // TODO: CHECKME
 
-  // typedef struct packed {
-  //   // 仅有这两个请求有可能同时出现
-  //   logic cache_refill_valid;
-  //   logic uncached_read;
-
-  //   // 不可能同时出现的请求
-  //   logic hit_write_req_valid; // 不需要暂停
-  //   logic cache_op_inv;
-  //   logic miss_write_req_valid;
-  //   logic uncached_write_valid;
-
-  //   // 请求相关地址以及数据
-  //   logic [31:0] addr;
-  //   logic [1:0] rwsize;
-  //   logic [`_DWAY_CNT - 1 : 0] wsel;
-  //   logic [3:0] wstrobe;
-  //   logic [31:0] wdata;
-
-  //   // take over 写回用
-  //   logic [`_DWAY_CNT - 1 : 0][31:0] rdata;
-  // } rport_state_t;
-
   always_comb begin
     rstate_o.cache_refill_valid = fsm_q == S_REFILL_READ;
     rstate_o.uncached_read      = fsm_q == S_UNCACHE_READ;
-
-    rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_stall_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
     rstate_o.uncached_write_valid = (fsm_q == S_NORMAL && m2_valid_i && !m2_stall_i && m2_uncached_i && m2_op_i == `_DCAHE_OP_WRITE) || (fsm_q == S_UNCACHE_WRITE);
+    // rstate_o.cache_op_inv         = (fsm_q == S_CACHE_INVOP && m2_op_i == `_DCAHE_OP_DIRECT_INV/* && m2_valid_i*/ /*TODO: CHECK ME*/);
     rstate_o.cache_op_inv         = '0;
     rstate_o.cache_op_invwb       = (fsm_q == S_CACHE_INVOP && (m2_op_i == `_DCAHE_OP_DIRECT_INVWB || m2_op_i == `_DCAHE_OP_HIT_INV)/* && m2_valid_i*/ /*TODO: CHECK ME*/);
     rstate_o.miss_write_req_valid = (fsm_q == S_REFILL_WRITE /*&& m2_valid_i && !m2_uncached_i && miss_q && m2_op_i == `_DCAHE_OP_WRITE*/);
@@ -378,11 +321,14 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       end
     end
     rstate_o.rwsize  = m2_size_i;
+    rstate_o.tag_rdata = m2_tag_rdata_q;
+
+    rstate_o.hit_write_req_valid  = (fsm_q == S_NORMAL && m2_valid_i && !m2_stall_i && !m2_uncached_i && !miss_q && m2_op_i == `_DCAHE_OP_WRITE);
     rstate_o.wsel    = (fsm_q == S_NORMAL && m2_valid_i && m2_op_i == `_DCAHE_OP_WRITE && !m2_uncached_i && !miss_q) ? hit_q : '0;
     rstate_o.wstrobe = m2_strobe_i;
     rstate_o.wdata   = mkstrobe(mkwsft(m2_wdata_i, m2_vaddr_i),m2_strobe_i);
 
-    rstate_o.tag_rdata = m2_tag_rdata_q;
   end
+
 
 endmodule

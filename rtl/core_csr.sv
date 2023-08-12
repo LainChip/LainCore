@@ -466,12 +466,12 @@ always_ff @(posedge clk) begin
       estat_q[`_ESTAT_ECODE]    <= ecode;
       estat_q[`_ESTAT_ESUBCODE] <= esubcode;
     end
-    if (estat_we_q) begin // TODO: USE _Q ONLY FOR CHIPLAB.
+    if (estat_we) begin // TODO: USE _Q ONLY FOR CHIPLAB.
       estat_q[1:0] <=  csr_w_data[1:0];
     end
   end
 end
-localparam int ESTAT_DELAY = 3;
+localparam int ESTAT_DELAY = 2;
 logic[ESTAT_DELAY - 1 : 0][31:0] estat_q_q;
 always_ff @(posedge clk) begin
   if(!m2_stall_i) begin

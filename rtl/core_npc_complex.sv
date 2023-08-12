@@ -205,6 +205,17 @@ module core_npc (
     winfo.history = {correct_i.history[3:0], correct_i.true_taken};
     winfo.tag = get_tag(correct_i.pc);
   end
+  logic[7:0] rst_addr_q;
+  logic rst_n_q;
+  always_ff @(posedge clk) begin
+    if(rst_n) begin
+      rst_n_q <= '1;
+      rst_addr_q <= rst_addr_q + 1;
+    end else begin
+      rst_n_q <= '0;
+      rst_addr_q <= '0;
+    end
+  end
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 创建两个 btb 和 info mem，用于写更新时区别开来。
     simpleDualPortRamRE #(
@@ -232,8 +243,8 @@ module core_npc (
                            .clk     (clk       ),
                            .rst_n   (rst_n     ),
                            .addressA(info_waddr),
-                           .we      (info_we[p]),
-                           .addressB(info_raddr),
+                           .we      (info_we[p] | rst_n_q),
+                           .addressB(info_raddr ^ rst_addr_q),
                            .re      (!f_stall_i),
                            .inData  (winfo),
                            .outData (rinfo_q[p])

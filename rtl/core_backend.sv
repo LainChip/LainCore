@@ -555,6 +555,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .valid_i         (ex_addr_trans_valid[p] ),
         .vaddr_i         (ex_mem_vaddr[p]        ),
         .m1_stall_i      (m1_stall               ),
+        .jmp_i           ('0                     ),
+        .flush_i         ('0                     ),
         .ready_o         (m1_addr_trans_ready[p] ),
         .csr_i           (csr_value              ),
         .tlb_update_req_i(tlb_update_req         ),
@@ -854,13 +856,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       // 接入 dcache
       // 接入 addr-trans 模块
       assign ex_mem_read[p] = decode_info.mem_read && exc_ex_q[p].need_commit;
-      if(p == 0) begin
-        assign ex_mem_vaddr[p]        = decode_info.tlbsrch_en ? {csr_value.tlbehi[31:13],13'd0} : vaddr;
-        assign ex_addr_trans_valid[p] = decode_info.need_lsu | decode_info.tlbsrch_en;
-      end else begin
-        assign ex_mem_vaddr[p]        = vaddr;
-        assign ex_addr_trans_valid[p] = decode_info.need_lsu;
-      end
+      assign ex_mem_vaddr[p]        = vaddr;
+      assign ex_addr_trans_valid[p] = decode_info.need_lsu;
 
       // 接入 mul
       always_comb begin
@@ -960,9 +957,9 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       end
 
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
-      // assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1 &&
-      //   !decode_info.mem_cacop; // TODO: CHECKME
-      assign m1_mem_uncached[p] = !decode_info.mem_cacop; // TODO: CHECKME
+      assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1 &&
+        !decode_info.mem_cacop; // TODO: CHECKME
+      // assign m1_mem_uncached[p] = !decode_info.mem_cacop; // TODO: CHECKME
       assign m1_mem_vaddr[p]  = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]  = paddr;
       assign m1_mem_strobe[p] = mkwstrobe(decode_info.mem_type, pipeline_ctrl_m1_q[p].vaddr);
@@ -1180,6 +1177,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         end
       end
       // 写数据输入
+      // div.wu -> st.w ，在 st.w miss ， 且 div.wu 的输入较大的时候可能写入内存错误的数据。
       always_comb begin
         m2_mem_op[p]       = '0;
         m2_mem_valid[p]    = '0;
@@ -1189,7 +1187,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           m2_mem_op[p]    = `_DCAHE_OP_READ ;
         end
         if(decode_info.mem_write) begin
-          m2_mem_valid[p] = exc_m2_q[p].need_commit;
+          m2_mem_valid[p] = exc_m2_q[p].need_commit && pipeline_data_m2_q[p].r_flow.r_ready[0];
           m2_mem_op[p]    = `_DCAHE_OP_WRITE;
         end
         // TODO: CHECK CACOP
@@ -1197,7 +1195,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           m2_mem_valid[p] = /**/(ctlb_opcode[2:0] == 3'd1) && exc_m2_q[p].need_commit;
           case(ctlb_opcode[4:3])
             default/*2'd0*/: begin
-              m2_mem_op[p] = `_DCAHE_OP_DIRECT_INV;
+              m2_mem_op[p] = `_DCAHE_OP_DIRECT_INVWB;
             end
             2'd1 : begin
               m2_mem_op[p] = `_DCAHE_OP_DIRECT_INVWB;

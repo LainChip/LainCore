@@ -130,6 +130,7 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   logic f1_uncached;
   assign f1_ppc      = {f1_trans_result.value.ppn, f1_pc[11:0]};
   assign f1_uncached = f1_trans_result.value.mat != 2'b01;
+  // assign f1_uncached = '1;
   always_comb begin
     f1_excp      = '0;
     f1_excp.adef = (|f1_ppc[1:0]) || (f1_trans_result.dmw ? '0 :
@@ -167,6 +168,7 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
                 .cacheop_valid_i(icacheop_valid          ),
                 .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
                 .valid_i        (f1_valid                ),
+                .excp_i         (|f1_excp /*&& '0  */    ),
                 .npc_i          (npc_vaddr               ),
                 .vpc_i          (f1_pc                   ),
                 .ppc_i          (f1_ppc                  ),
