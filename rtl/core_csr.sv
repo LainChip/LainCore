@@ -340,23 +340,23 @@ always_ff @(posedge clk) begin
     crmd_q[31:9]        <= 23'b0;
   end
   else begin
-    if(excp_tlbr) begin
-      crmd_q[`_CRMD_DA] <= 1'b1;
-      crmd_q[`_CRMD_PG] <= 1'b0;
-    end
     if(excp_valid) begin
       crmd_q[`_CRMD_PLV] <= 2'b0;
       crmd_q[`_CRMD_IE]  <= 1'b0;
+      if(excp_tlbr) begin
+        crmd_q[`_CRMD_DA] <= 1'b1;
+        crmd_q[`_CRMD_PG] <= 1'b0;
+      end
     end
-    if(ertn_valid) begin
+    else if(ertn_valid) begin
       crmd_q[`_CRMD_PLV] <= prmd_q[`_PRMD_PPLV];
       crmd_q[`_CRMD_IE]  <= prmd_q[`_PRMD_PIE];
+      if(ertn_tlbr_valid) begin
+            crmd_q[`_CRMD_DA] <= 1'b0;
+            crmd_q[`_CRMD_PG] <= 1'b1;
+      end
     end
-    if(ertn_tlbr_valid) begin
-      crmd_q[`_CRMD_DA] <= 1'b0;
-      crmd_q[`_CRMD_PG] <= 1'b1;
-    end
-    if(crmd_we) begin
+    else if(crmd_we) begin
       crmd_q[`_CRMD_PLV]  <= csr_w_data[ `_CRMD_PLV];
       crmd_q[`_CRMD_IE]   <= csr_w_data[  `_CRMD_IE];
       crmd_q[`_CRMD_DA]   <= csr_w_data[  `_CRMD_DA];
@@ -364,7 +364,6 @@ always_ff @(posedge clk) begin
       crmd_q[`_CRMD_DATF] <= csr_w_data[`_CRMD_DATF];
       crmd_q[`_CRMD_DATM] <= csr_w_data[`_CRMD_DATM];
     end
-
   end
 end
 assign csr_o.crmd = crmd_q;
@@ -381,7 +380,7 @@ always_ff @(posedge clk) begin
       prmd_q[`_PRMD_PPLV] <= crmd_q[`_CRMD_PLV];
       prmd_q[`_PRMD_PIE]  <= crmd_q[ `_CRMD_IE];
     end
-    if(prmd_we) begin
+    else if(prmd_we) begin
       prmd_q[`_PRMD_PPLV] <= csr_w_data[`_PRMD_PPLV];
       prmd_q[`_PRMD_PIE]  <= csr_w_data[ `_PRMD_PIE];
     end
@@ -435,12 +434,7 @@ always_ff @(posedge clk) begin
   int_q <= int_i;
 end
 assign estat_we = csr_we && (csr_w_addr_i == `_CSR_ESTAT);
-logic estat_we_q;
-logic[1:0] estat_sft_intr_q;
-always_ff @(posedge clk) begin
-  estat_we_q       <= estat_we;
-  estat_sft_intr_q <= csr_w_data[1:0];
-end
+
 always_ff @(posedge clk) begin
   if (!rst_n) begin
     estat_q[1:0]   <= 2'b0;
@@ -459,13 +453,13 @@ always_ff @(posedge clk) begin
       timer_en <= csr_w_data[`_TCFG_EN];
     end
     // else if (timer_en && (tval_q == 32'b0)) begin
-    else if (/*timer_intr_q && m1_commit_i_q && */timer_en && (tval_q == '0) && !m2_stall_i) begin
+    else if (/*timer_intr_q && m1_commit_i_q && */timer_en && (tval_q == '0) && (!m2_stall_i | '1)) begin
       estat_q[11] <= 1'b1;
       timer_en    <= tcfg_q[`_TCFG_PERIODIC];
     end
 
     // estat_q[9:2] <= int_i;
-    if(/* m1_commit_i_q && */!m2_stall_i) begin
+    if(/* m1_commit_i_q && */!m2_stall_i | '1) begin
       estat_q[9:2] <= int_q;
     end
     if (excp_valid) begin
@@ -473,11 +467,11 @@ always_ff @(posedge clk) begin
       estat_q[`_ESTAT_ESUBCODE] <= esubcode;
     end
     if (estat_we_q) begin // TODO: USE _Q ONLY FOR CHIPLAB.
-      estat_q[1:0] <= estat_sft_intr_q;
+      estat_q[1:0] <=  csr_w_data[1:0];
     end
   end
 end
-localparam int ESTAT_DELAY = 2;
+localparam int ESTAT_DELAY = 3;
 logic[ESTAT_DELAY - 1 : 0][31:0] estat_q_q;
 always_ff @(posedge clk) begin
   if(!m2_stall_i) begin
@@ -511,7 +505,7 @@ always_ff @(posedge clk) begin
     if (excp_valid) begin
       era_q <= era;
     end
-    if (era_we) begin
+    else if (era_we) begin
       era_q <= csr_w_data;
     end
   end
@@ -529,7 +523,7 @@ always_ff @(posedge clk) begin
     if (va_error) begin
       badv_q <= badva;
     end
-    if (badv_we) begin
+    else if (badv_we) begin
       badv_q <= csr_w_data;
     end
   end
@@ -554,153 +548,178 @@ assign csr_o.eentry = eentry_q;
 // tlbidx
 logic tlbidx_we,tlbidx_re;
 assign tlbidx_we = csr_we && (csr_w_addr_i == `_CSR_TLBIDX);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    tlbidx_q[23:5]           <= 19'b0;
-    tlbidx_q[30]             <= 1'b0;
-    tlbidx_q[`_TLBIDX_INDEX] <= '0;
-  end
-  else begin
-    if(tlbidx_we) begin
-      tlbidx_q[`_TLBIDX_INDEX] <= csr_w_data[`_TLBIDX_INDEX];
-      tlbidx_q[`_TLBIDX_PS]    <= csr_w_data[`_TLBIDX_PS];
-      tlbidx_q[`_TLBIDX_NE]    <= csr_w_data[`_TLBIDX_NE];
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      tlbidx_q[23:5]           <= 19'b0;
+      tlbidx_q[30]             <= 1'b0;
+      tlbidx_q[`_TLBIDX_INDEX] <= '0;
     end
-    else if (!m2_stall_i && tlb_op_i.tlbsrch) begin
-      if (tlb_srch_valid_q) begin
-        tlbidx_q[`_TLBIDX_INDEX] <= tlb_srch_idx_q;
-        tlbidx_q[`_TLBIDX_NE]    <= 1'b0;
+    else begin
+      if(tlbidx_we) begin
+        tlbidx_q[`_TLBIDX_INDEX] <= csr_w_data[`_TLBIDX_INDEX];
+        tlbidx_q[`_TLBIDX_PS]    <= csr_w_data[`_TLBIDX_PS];
+        tlbidx_q[`_TLBIDX_NE]    <= csr_w_data[`_TLBIDX_NE];
       end
-      else begin
-        tlbidx_q[`_TLBIDX_NE] <= 1'b1;
+      else if (!m2_stall_i && tlb_op_i.tlbsrch) begin
+        if (tlb_srch_valid_q) begin
+          tlbidx_q[`_TLBIDX_INDEX] <= tlb_srch_idx_q;
+          tlbidx_q[`_TLBIDX_NE]    <= 1'b0;
+        end
+        else begin
+          tlbidx_q[`_TLBIDX_NE] <= 1'b1;
+        end
+      end
+      else if (tlbrd_valid_wr_en) begin
+        tlbidx_q[`_TLBIDX_PS] <= tlb_r_entry_q.key.ps;
+        tlbidx_q[`_TLBIDX_NE] <= ~tlb_r_entry_q.key.e;
+      end
+      else if (tlbrd_invalid_wr_en) begin
+        tlbidx_q[`_TLBIDX_PS] <= 6'b0;
+        tlbidx_q[`_TLBIDX_NE] <= ~tlb_r_entry_q.key.e;
       end
     end
-    else if (tlbrd_valid_wr_en) begin
-      tlbidx_q[`_TLBIDX_PS] <= tlb_r_entry_q.key.ps;
-      tlbidx_q[`_TLBIDX_NE] <= ~tlb_r_entry_q.key.e;
-    end
-    else if (tlbrd_invalid_wr_en) begin
-      tlbidx_q[`_TLBIDX_PS] <= 6'b0;
-      tlbidx_q[`_TLBIDX_NE] <= ~tlb_r_entry_q.key.e;
-    end
   end
+end
+else begin
+  assign tlbidx_q = '0;
 end
 assign csr_o.tlbidx = tlbidx_q;
 
 // tlbehi
 logic tlbehi_we,tlbehi_re;
 assign tlbehi_we = csr_we && (csr_w_addr_i == `_CSR_TLBEHI);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    tlbehi_q <= /*DEFAULT VALUE*/'0;
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      tlbehi_q <= /*DEFAULT VALUE*/'0;
+    end
+    else begin
+      if(tlbehi_we) begin
+        tlbehi_q[`_TLBEHI_VPPN] <= csr_w_data[`_TLBEHI_VPPN];
+      end
+      else if (tlbrd_valid_wr_en) begin
+        tlbehi_q[`_TLBEHI_VPPN] <= tlb_r_entry_q.key.vppn;
+      end
+      else if (tlbrd_invalid_wr_en) begin
+        tlbehi_q[`_TLBEHI_VPPN] <= '0;
+      end
+      else if (excp_tlb) begin
+        tlbehi_q[`_TLBEHI_VPPN] <= badva[`_TLBEHI_VPPN];
+      end
+    end
   end
-  else begin
-    if(tlbehi_we) begin
-      tlbehi_q[`_TLBEHI_VPPN] <= csr_w_data[`_TLBEHI_VPPN];
-    end
-    else if (tlbrd_valid_wr_en) begin
-      tlbehi_q[`_TLBEHI_VPPN] <= tlb_r_entry_q.key.vppn;
-    end
-    else if (tlbrd_invalid_wr_en) begin
-      tlbehi_q[`_TLBEHI_VPPN] <= '0;
-    end
-    else if (excp_tlb) begin
-      tlbehi_q[`_TLBEHI_VPPN] <= badva[`_TLBEHI_VPPN];
-    end
-  end
+end
+else begin
+  assign tlbehi_q = /*DEFAULT VALUE*/'0;
 end
 assign csr_o.tlbehi = tlbehi_q;
 
 //tlbelo0
 logic tlbelo0_we,tlbelo0_re;
 assign tlbelo0_we = csr_we && (csr_w_addr_i == `_CSR_TLBELO0);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    tlbelo0_q <= /*DEFAULT VALUE*/'0;
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      tlbelo0_q <= /*DEFAULT VALUE*/'0;
+    end
+    else begin
+      if(tlbelo0_we) begin
+        tlbelo0_q[`_TLBELO_TLB_V]   <= csr_w_data[`_TLBELO_TLB_V];
+        tlbelo0_q[`_TLBELO_TLB_D]   <= csr_w_data[`_TLBELO_TLB_D];
+        tlbelo0_q[`_TLBELO_TLB_PLV] <= csr_w_data[`_TLBELO_TLB_PLV];
+        tlbelo0_q[`_TLBELO_TLB_MAT] <= csr_w_data[`_TLBELO_TLB_MAT];
+        tlbelo0_q[`_TLBELO_TLB_G]   <= csr_w_data[`_TLBELO_TLB_G];
+        tlbelo0_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
+      end
+      else if (tlbrd_valid_wr_en) begin
+        tlbelo0_q[`_TLBELO_TLB_V]   <= tlb_r_entry_q.value[0].v;
+        tlbelo0_q[`_TLBELO_TLB_D]   <= tlb_r_entry_q.value[0].d;
+        tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_r_entry_q.value[0].plv;
+        tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_r_entry_q.value[0].mat;
+        tlbelo0_q[`_TLBELO_TLB_G]   <= tlb_r_entry_q.key.g;
+        tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_r_entry_q.value[0].ppn;
+      end
+      else if (tlbrd_invalid_wr_en) begin
+        tlbelo0_q[`_TLBELO_TLB_V]   <= '0;
+        tlbelo0_q[`_TLBELO_TLB_D]   <= '0;
+        tlbelo0_q[`_TLBELO_TLB_PLV] <= '0;
+        tlbelo0_q[`_TLBELO_TLB_MAT] <= '0;
+        tlbelo0_q[`_TLBELO_TLB_G]   <= '0;
+        tlbelo0_q[`_TLBELO_TLB_PPN] <= '0;
+      end
+    end
   end
-  else begin
-    if(tlbelo0_we) begin
-      tlbelo0_q[`_TLBELO_TLB_V]   <= csr_w_data[`_TLBELO_TLB_V];
-      tlbelo0_q[`_TLBELO_TLB_D]   <= csr_w_data[`_TLBELO_TLB_D];
-      tlbelo0_q[`_TLBELO_TLB_PLV] <= csr_w_data[`_TLBELO_TLB_PLV];
-      tlbelo0_q[`_TLBELO_TLB_MAT] <= csr_w_data[`_TLBELO_TLB_MAT];
-      tlbelo0_q[`_TLBELO_TLB_G]   <= csr_w_data[`_TLBELO_TLB_G];
-      tlbelo0_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
-    end
-    else if (tlbrd_valid_wr_en) begin
-      tlbelo0_q[`_TLBELO_TLB_V]   <= tlb_r_entry_q.value[0].v;
-      tlbelo0_q[`_TLBELO_TLB_D]   <= tlb_r_entry_q.value[0].d;
-      tlbelo0_q[`_TLBELO_TLB_PLV] <= tlb_r_entry_q.value[0].plv;
-      tlbelo0_q[`_TLBELO_TLB_MAT] <= tlb_r_entry_q.value[0].mat;
-      tlbelo0_q[`_TLBELO_TLB_G]   <= tlb_r_entry_q.key.g;
-      tlbelo0_q[`_TLBELO_TLB_PPN] <= tlb_r_entry_q.value[0].ppn;
-    end
-    else if (tlbrd_invalid_wr_en) begin
-      tlbelo0_q[`_TLBELO_TLB_V]   <= '0;
-      tlbelo0_q[`_TLBELO_TLB_D]   <= '0;
-      tlbelo0_q[`_TLBELO_TLB_PLV] <= '0;
-      tlbelo0_q[`_TLBELO_TLB_MAT] <= '0;
-      tlbelo0_q[`_TLBELO_TLB_G]   <= '0;
-      tlbelo0_q[`_TLBELO_TLB_PPN] <= '0;
-    end
-  end
+end
+else begin
+  assign tlbelo0_q = /*DEFAULT VALUE*/'0;
 end
 assign csr_o.tlbelo0 = tlbelo0_q;
 
 //tlblo1
 logic tlbelo1_we,tlbelo1_re;
 assign tlbelo1_we = csr_we && (csr_w_addr_i == `_CSR_TLBELO1);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    tlbelo1_q <= /*DEFAULT VALUE*/'0;
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      tlbelo1_q <= /*DEFAULT VALUE*/'0;
+    end
+    else begin
+      if(tlbelo1_we) begin
+        tlbelo1_q[`_TLBELO_TLB_V]   <= csr_w_data[`_TLBELO_TLB_V];
+        tlbelo1_q[`_TLBELO_TLB_D]   <= csr_w_data[`_TLBELO_TLB_D];
+        tlbelo1_q[`_TLBELO_TLB_PLV] <= csr_w_data[`_TLBELO_TLB_PLV];
+        tlbelo1_q[`_TLBELO_TLB_MAT] <= csr_w_data[`_TLBELO_TLB_MAT];
+        tlbelo1_q[`_TLBELO_TLB_G]   <= csr_w_data[`_TLBELO_TLB_G];
+        tlbelo1_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
+      end
+      else if (tlbrd_valid_wr_en) begin
+        tlbelo1_q[`_TLBELO_TLB_V]   <= tlb_r_entry_q.value[1].v;
+        tlbelo1_q[`_TLBELO_TLB_D]   <= tlb_r_entry_q.value[1].d;
+        tlbelo1_q[`_TLBELO_TLB_PLV] <= tlb_r_entry_q.value[1].plv;
+        tlbelo1_q[`_TLBELO_TLB_MAT] <= tlb_r_entry_q.value[1].mat;
+        tlbelo1_q[`_TLBELO_TLB_G]   <= tlb_r_entry_q.key.g;
+        tlbelo1_q[`_TLBELO_TLB_PPN] <= tlb_r_entry_q.value[1].ppn;
+      end
+      else if (tlbrd_invalid_wr_en) begin
+        tlbelo1_q[`_TLBELO_TLB_V]   <= '0;
+        tlbelo1_q[`_TLBELO_TLB_D]   <= '0;
+        tlbelo1_q[`_TLBELO_TLB_PLV] <= '0;
+        tlbelo1_q[`_TLBELO_TLB_MAT] <= '0;
+        tlbelo1_q[`_TLBELO_TLB_G]   <= '0;
+        tlbelo1_q[`_TLBELO_TLB_PPN] <= '0;
+      end
+    end
   end
-  else begin
-    if(tlbelo1_we) begin
-      tlbelo1_q[`_TLBELO_TLB_V]   <= csr_w_data[`_TLBELO_TLB_V];
-      tlbelo1_q[`_TLBELO_TLB_D]   <= csr_w_data[`_TLBELO_TLB_D];
-      tlbelo1_q[`_TLBELO_TLB_PLV] <= csr_w_data[`_TLBELO_TLB_PLV];
-      tlbelo1_q[`_TLBELO_TLB_MAT] <= csr_w_data[`_TLBELO_TLB_MAT];
-      tlbelo1_q[`_TLBELO_TLB_G]   <= csr_w_data[`_TLBELO_TLB_G];
-      tlbelo1_q[`_TLBELO_TLB_PPN] <= csr_w_data[`_TLBELO_TLB_PPN];
-    end
-    else if (tlbrd_valid_wr_en) begin
-      tlbelo1_q[`_TLBELO_TLB_V]   <= tlb_r_entry_q.value[1].v;
-      tlbelo1_q[`_TLBELO_TLB_D]   <= tlb_r_entry_q.value[1].d;
-      tlbelo1_q[`_TLBELO_TLB_PLV] <= tlb_r_entry_q.value[1].plv;
-      tlbelo1_q[`_TLBELO_TLB_MAT] <= tlb_r_entry_q.value[1].mat;
-      tlbelo1_q[`_TLBELO_TLB_G]   <= tlb_r_entry_q.key.g;
-      tlbelo1_q[`_TLBELO_TLB_PPN] <= tlb_r_entry_q.value[1].ppn;
-    end
-    else if (tlbrd_invalid_wr_en) begin
-      tlbelo1_q[`_TLBELO_TLB_V]   <= '0;
-      tlbelo1_q[`_TLBELO_TLB_D]   <= '0;
-      tlbelo1_q[`_TLBELO_TLB_PLV] <= '0;
-      tlbelo1_q[`_TLBELO_TLB_MAT] <= '0;
-      tlbelo1_q[`_TLBELO_TLB_G]   <= '0;
-      tlbelo1_q[`_TLBELO_TLB_PPN] <= '0;
-    end
-  end
+end
+else begin
+  assign tlbelo1_q = '0;
 end
 assign csr_o.tlbelo1 = tlbelo1_q;
 
 //asid
 logic asid_we,asid_re;
 assign asid_we = csr_we && (csr_w_addr_i == `_CSR_ASID);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    asid_q[31:10] <= /*DEFAULT VALUE*/22'h280;
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      asid_q[31:10] <= /*DEFAULT VALUE*/22'h280;
+    end
+    else begin
+      if (asid_we) begin
+        asid_q[`_ASID] <= csr_w_data[`_ASID];
+      end
+      else if (tlbrd_valid_wr_en) begin
+        asid_q[`_ASID] <= tlb_r_entry_q.key.asid;
+      end
+      else if (tlbrd_invalid_wr_en) begin
+        asid_q[`_ASID] <= 10'b0;
+      end
+    end
   end
-  else begin
-    if (asid_we) begin
-      asid_q[`_ASID] <= csr_w_data[`_ASID];
-    end
-    else if (tlbrd_valid_wr_en) begin
-      asid_q[`_ASID] <= tlb_r_entry_q.key.asid;
-    end
-    else if (tlbrd_invalid_wr_en) begin
-      asid_q[`_ASID] <= 10'b0;
-    end
-  end
+end
+else begin
+  assign asid_q = '0;
 end
 assign csr_o.asid = asid_q;
 
@@ -710,30 +729,40 @@ logic pgd_re;
 //pgdl
 logic pgdl_we,pgdl_re;
 assign pgdl_we = csr_we && (csr_w_addr_i == `_CSR_PGDL);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    pgdl_q <= /*DEFAULT VALUE*/'0;
-  end
-  else begin
-    if(pgdl_we) begin
-      pgdl_q[`_PGD_BASE] <= csr_w_data[`_PGD_BASE];
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      pgdl_q <= /*DEFAULT VALUE*/'0;
+    end
+    else begin
+      if(pgdl_we) begin
+        pgdl_q[`_PGD_BASE] <= csr_w_data[`_PGD_BASE];
+      end
     end
   end
+end
+else begin
+  assign pgdl_q = '0;
 end
 assign csr_o.pgdl = pgdl_q;
 
 //pgdh
 logic pgdh_we,pgdh_re;
 assign pgdh_we = csr_we && (csr_w_addr_i == `_CSR_PGDH);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    pgdh_q <= /*DEFAULT VALUE*/'0;
-  end
-  else begin
-    if(pgdh_we) begin
-      pgdh_q[`_PGD_BASE] <= csr_w_data[`_PGD_BASE];
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      pgdh_q <= /*DEFAULT VALUE*/'0;
+    end
+    else begin
+      if(pgdh_we) begin
+        pgdh_q[`_PGD_BASE] <= csr_w_data[`_PGD_BASE];
+      end
     end
   end
+end
+else begin
+  assign pgdh_q = '0;
 end
 assign csr_o.pgdh = pgdh_q;
 
@@ -898,7 +927,7 @@ always_ff @(posedge clk) begin
   if(!rst_n) begin
     llbctl_q[`_LLBCT_KLO] <= /*DEFAULT VALUE*/'0;
     llbctl_q[31:3]        <= 29'b0;
-    // llbctl_q[`_LLBCT_WCLLB] <= 1'b0;
+    llbctl_q[`_LLBCT_WCLLB] <= 1'b0;
     llbit_q               <= 1'b0;
   end
   else begin
@@ -927,15 +956,20 @@ assign csr_o.llbit  = llbit_q;
 //tlbrentry
 logic tlbrentry_we,tlbrentry_re;
 assign tlbrentry_we = csr_we && (csr_w_addr_i == `_CSR_TLBRENTRY);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    tlbrentry_q[5:0] <= /*DEFAULT VALUE*/'0;
-  end
-  else begin
-    if(tlbrentry_we) begin
-      tlbrentry_q[`_TLBRENTRY_PA] <= csr_w_data[`_TLBRENTRY_PA];
+if(ENABLE_TLB) begin
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      tlbrentry_q[5:0] <= /*DEFAULT VALUE*/'0;
+    end
+    else begin
+      if(tlbrentry_we) begin
+        tlbrentry_q[`_TLBRENTRY_PA] <= csr_w_data[`_TLBRENTRY_PA];
+      end
     end
   end
+end
+else begin
+  assign tlbrentry_q = '0;
 end
 assign csr_o.tlbrentry = tlbrentry_q;
 
@@ -946,11 +980,11 @@ always_ff @(posedge clk) begin
   if(!rst_n) begin
     ctag_q <= /*DEFAULT VALUE*/'0;
   end
-  else begin
-    if(ctag_we) begin
-      ctag_q <= csr_w_data;
-    end
-  end
+  // else begin
+  //   if(ctag_we) begin
+  //     ctag_q <= csr_w_data;
+  //   end
+  // end
 end
 assign csr_o.ctag = ctag_q;
 
