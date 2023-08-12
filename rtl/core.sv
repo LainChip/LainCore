@@ -1,7 +1,7 @@
 `include "pipeline.svh"
 `include "lsu.svh"
 
-module core(
+module core #(parameter bit ENABLE_TLB = 1'b1)(
     input clk,
     input rst_n,
     input [7:0] int_i,
@@ -24,7 +24,9 @@ module core(
                   .resp_o({dbus_resp,ibus_resp})
                 );
 
-  core_frontend  core_frontend_inst (
+  core_frontend #(
+    .ENABLE_TLB(ENABLE_TLB)
+  ) core_frontend_inst (
                    .clk(clk),
                    .rst_n(rst_n),
                    .frontend_req_o(frontend_req),
@@ -33,10 +35,12 @@ module core(
                    .bus_req_o(ibus_req)
                  );
 
-  core_backend  core_backend_inst (
+  core_backend #(
+    .ENABLE_TLB(ENABLE_TLB)
+  ) core_backend_inst (
                   .clk(clk),
                   .rst_n(rst_n),
-				  .int_i(int_i),
+		        		  .int_i(int_i),
                   .frontend_req_i(frontend_req),
                   .frontend_resp_o(frontend_resp),
                   .bus_resp_i(dbus_resp),

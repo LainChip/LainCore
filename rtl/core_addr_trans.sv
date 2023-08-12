@@ -33,47 +33,60 @@ module core_addr_trans #(
 
 // TLB 表项匹配逻辑
   logic [TLB_ENTRY_NUM-1:0] tlb_match;
-  for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
-    tlb_match_single # (
-      .ENABLE_OPT('0),
-      .ENABLE_RST('1)
-    )
-    tlb_match_single_i (
-      .clk(clk),
-      .rst_n(rst_n),
-      .vppn_i(vaddr[31:13]),
-      .asid_i(csr_i.asid[9:0]),
-      .match_o(tlb_match[i]),
-      .update_i(tlb_update_req_i.tlb_we[i]),
-      .update_key_i(tlb_update_req_i.tlb_w_entry.key)
-    );
+  if(ENABLE_TLB) begin
+    for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
+      tlb_match_single # (
+        .ENABLE_OPT('0),
+        .ENABLE_RST('1)
+      )
+      tlb_match_single_i (
+        .clk(clk),
+        .rst_n(rst_n),
+        .vppn_i(vaddr[31:13]),
+        .asid_i(csr_i.asid[9:0]),
+        .match_o(tlb_match[i]),
+        .update_i(tlb_update_req_i.tlb_we[i]),
+        .update_key_i(tlb_update_req_i.tlb_w_entry.key)
+      );
+    end
+  end else begin
+    assign tlb_match = '0;
   end
 
 // TLB 表项值
   tlb_value_t   [TLB_ENTRY_NUM-1:0][1:0] tlb_value_q ;
   logic         [TLB_ENTRY_NUM-1:0]      is_4M_page_q;
-  for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
-    always_ff @(posedge clk) begin
-      if(tlb_update_req_i.tlb_we[i]) begin
-        tlb_value_q[i] <= tlb_update_req_i.tlb_w_entry.value;
-        is_4M_page_q[i]   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22;
+  if(ENABLE_TLB) begin
+    for(genvar i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
+      always_ff @(posedge clk) begin
+        if(tlb_update_req_i.tlb_we[i]) begin
+          tlb_value_q[i] <= tlb_update_req_i.tlb_w_entry.value;
+          is_4M_page_q[i]   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22;
+        end
       end
     end
+  end else begin
+    assign tlb_value_q = '0;
+    assign is_4M_page_q = '0;
   end
 
   logic        tlb_hit   ;
   tlb_s_resp_t tlb_result;
   assign tlb_hit = |tlb_match;
-  always_comb begin
-    tlb_result = '0;
-    for(integer i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
-      if(tlb_match[i]) begin // ONTHOT
-        tlb_result.found |= '1;
-        tlb_result.index |= i;
-        tlb_result.ps    |= is_4M_page_q[i] ? 6'd22 : 6'd12;
-        tlb_result.value |= tlb_value_q[i][is_4M_page_q[i] ? vaddr[22]:vaddr[12]];
+  if(ENABLE_TLB) begin
+    always_comb begin
+      tlb_result = '0;
+      for(integer i = 0 ; i < TLB_ENTRY_NUM ; i++) begin
+        if(tlb_match[i]) begin // ONTHOT
+          tlb_result.found |= '1;
+          tlb_result.index |= i;
+          tlb_result.ps    |= is_4M_page_q[i] ? 6'd22 : 6'd12;
+          tlb_result.value |= tlb_value_q[i][is_4M_page_q[i] ? vaddr[22]:vaddr[12]];
+        end
       end
     end
+  end else begin
+    assign tlb_result = '0;
   end
 
   logic        da_mode      ;
