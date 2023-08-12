@@ -833,7 +833,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         pipeline_wdata_ex[p].w_data = alu_result;
         pipeline_wdata_ex[p].w_flow.w_id = pipeline_ctrl_ex_q[p].w_id;
         pipeline_wdata_ex[p].w_flow.w_addr = pipeline_ctrl_ex_q[p].w_reg;
-        pipeline_wdata_ex[p].w_flow.w_valid = exc_ex_q[p].valid_inst && (decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
+        pipeline_wdata_ex[p].w_flow.w_valid = exc_ex_q[p].need_commit && (decode_info.fu_sel_ex == `_FUSEL_EX_ALU ? (
             (&pipeline_data_ex_q[p].r_flow.r_ready)) :
           '0);
       end
@@ -848,7 +848,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         ex_stall_req[p] = ((decode_info.latest_r0_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[0]) |
           (decode_info.latest_r1_ex & ~pipeline_data_ex_q[p].r_flow.r_ready[1]) |
           (decode_info.need_div & ~div_ready)) &
-        exc_ex_q[p].valid_inst & exc_ex_q[p].need_commit; // LUT6 - 1
+        exc_ex_q[p].need_commit; // LUT6 - 1
       end
 
       // 接入 dcache
@@ -872,7 +872,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       // 接入 div
       always_comb begin
-        div_req[p] = decode_info.need_div && exc_ex_q[p].need_commit && exc_ex_q[p].valid_inst &&
+        div_req[p] = decode_info.need_div && exc_ex_q[p].need_commit && exc_ex_q[p].need_commit &&
           &pipeline_data_ex_q[p].r_flow.r_ready;
         div_op_req[p]       = decode_info.alu_op;
         div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
@@ -898,7 +898,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     end
 
     /* ------ ------ ------ ------ ------ M1 级 ------ ------ ------ ------ ------ */
-    logic[1:0] m1_excp_detect;
+    logic[1:0] m1_excpertn_detect;
     for(genvar p = 0 ; p < 2 ; p++) begin : M1
       // M1 的 FU 部分，接入 ALU、LSU（EARLY）
       m1_t decode_info;
@@ -978,9 +978,9 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .target_o   (excp_target          ),
         .trigger_o  (local_excp_detect    )
       );
-      // assign m1_excp_detect[p] = p == 0 ? local_excp_detect :
+      // assign m1_excpertn_detect[p] = p == 0 ? local_excp_detect :
       // (local_excp_detect && !m1_invalidate_req[0]);/
-      assign m1_excp_detect[p] = local_excp_detect;
+      assign m1_excpertn_detect[p] = local_excp_detect;
 
       // 物理地址产生
       assign paddr = {m1_addr_trans_result[p].value.ppn, pipeline_ctrl_m1_q[p].vaddr[11:0]};
@@ -994,15 +994,15 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         pipeline_wdata_m1[p] = pipeline_wdata_ex_q[p]; // TODO: FIXME
         case(decode_info.fu_sel_m1)
           default : begin
-            pipeline_wdata_m1[p].w_flow.w_valid &= exc_m1_q[p].valid_inst;
+            pipeline_wdata_m1[p].w_flow.w_valid &= exc_m1_q[p].need_commit;
           end
           `_FUSEL_M1_ALU : begin
             pipeline_wdata_m1[p].w_data = alu_result;
-            pipeline_wdata_m1[p].w_flow.w_valid = exc_m1_q[p].valid_inst && &pipeline_data_m1_q[p].r_flow.r_ready;
+            pipeline_wdata_m1[p].w_flow.w_valid = exc_m1_q[p].need_commit && &pipeline_data_m1_q[p].r_flow.r_ready;
           end
           `_FUSEL_M1_MEM : begin
             pipeline_wdata_m1[p].w_data = lsu_result;
-            pipeline_wdata_m1[p].w_flow.w_valid = exc_m1_q[p].valid_inst && lsu_valid;
+            pipeline_wdata_m1[p].w_flow.w_valid = exc_m1_q[p].need_commit && lsu_valid;
           end
         endcase
       end
@@ -1014,11 +1014,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         assign m1_refetch  = decode_info.refetch && exc_m1_q[p].need_commit;
         assign jump_target = decode_info.refetch ? (pipeline_ctrl_m1_q[p].pc + 4) :
           pipeline_ctrl_m1_q[p].jump_target;
-        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit &&
-          (decode_info.ertn_inst || m1_excp_detect[p]);
-        assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excp_detect[p];
-        assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excp_detect[p])
-          || (decode_info.ertn_inst && !m1_excp_flow)
+        assign m1_ertn_excp[p] = exc_m1_q[p].need_commit && m1_excpertn_detect[p];
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_refetch || m1_excpertn_detect[p];
+        assign m1_invalidate_exclude_self[p] = ((m1_branch_jmp_req || m1_refetch) && !m1_excpertn_detect[p])
+          || (decode_info.ertn_inst && !(|m1_excp_flow))
             // || m1_excp_flow.brk || m1_excp_flow.sys
             // || m1_excp_flow.ine || m1_excp_flow.adef
             ;
@@ -1026,11 +1025,11 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       end else begin
         assign jump_target     = pipeline_ctrl_m1_q[p].jump_target;
         assign m1_ertn_excp[p] = exc_m1_q[p].need_commit &&
-          (m1_excp_detect[p]);
-        assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_excp_detect[p];
-        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excp_detect[p];
+          (m1_excpertn_detect[p]);
+        assign m1_invalidate_req[p]          = m1_branch_jmp_req || m1_excpertn_detect[p];
+        assign m1_invalidate_exclude_self[p] = m1_branch_jmp_req && !m1_excpertn_detect[p];
       end
-      assign m1_target[p] = m1_excp_detect[p] ? excp_target : true_bpu_target;
+      assign m1_target[p] = m1_excpertn_detect[p] ? excp_target : true_bpu_target;
 
       // 接入转发源
       always_comb begin
@@ -1073,7 +1072,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].found && decode_info.need_lsu &&
             (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
-            && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
+            && (!ENABLE_TLB || p != 0 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
           )
         ); // TODO: CHECK
         m1_excp_flow.pis = (
@@ -1083,8 +1082,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         ); // TODO: CHECK
         m1_excp_flow.pil = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu &&
-          (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
+          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu
             && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
           )
         ); // TODO: CHECK
@@ -1109,14 +1107,14 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       always_comb begin
         m1_stall_req[p] = ((decode_info.latest_r0_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[0]) |
           (decode_info.latest_r1_m1 & ~pipeline_data_m1_q[p].r_flow.r_ready[1]) ) &
-        exc_m1_q[p].valid_inst & exc_m1_q[p].need_commit; // LUT6 - 1
+        exc_m1_q[p].need_commit; // LUT6 - 1
       end
 
       // 流水线间信息传递
       always_comb begin
         pipeline_ctrl_m2[p].decode_info = get_m2_from_m1(decode_info);
         pipeline_ctrl_m2[p].excp_flow = m1_excp_flow;
-        pipeline_ctrl_m2[p].excp_valid = m1_excp_detect[p];
+        pipeline_ctrl_m2[p].excp_valid = m1_excpertn_detect[p];
         pipeline_ctrl_m2[p].mem_uncached = m1_mem_uncached[p];
         pipeline_ctrl_m2[p].op_code = pipeline_ctrl_m1_q[p].op_code;
         pipeline_ctrl_m2[p].csr_id = pipeline_ctrl_m1_q[p].csr_id;
@@ -1195,7 +1193,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         end
         // TODO: CHECK CACOP
         if(p == 0 && ENABLE_TLB && decode_info.mem_cacop) begin
-          m2_mem_valid[p] = /**/ctlb_opcode[2:0] == 3'd1 && exc_m2_q[p].need_commit;
+          m2_mem_valid[p] = /**/(ctlb_opcode[2:0] == 3'd1) && exc_m2_q[p].need_commit;
           case(ctlb_opcode[4:3])
             default/*2'd0*/: begin
               m2_mem_op[p] = `_DCAHE_OP_DIRECT_INV;
@@ -1254,11 +1252,11 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
           case(decode_info.fu_sel_m2)
             default : begin
-              pipeline_wdata_m2[p].w_flow.w_valid &= exc_m2_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid &= exc_m2_q[p].need_commit;
             end
             `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && (&pipeline_data_m2_q[p].r_flow.r_ready);
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].need_commit && (&pipeline_data_m2_q[p].r_flow.r_ready);
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = (decode_info.mem_write && ENABLE_TLB) ?
@@ -1268,7 +1266,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
             end
             `_FUSEL_M2_CSR : begin
               pipeline_wdata_m2[p].w_data = csr_r_data;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].need_commit;
             end
           endcase
         end
@@ -1278,15 +1276,15 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           pipeline_wdata_m2[p] = pipeline_wdata_m1_q[p]; // TODO: FIXME
           case(decode_info.fu_sel_m2)
             default : begin
-              pipeline_wdata_m2[p].w_flow.w_valid &= exc_m2_q[p].valid_inst;
+              pipeline_wdata_m2[p].w_flow.w_valid &= exc_m2_q[p].need_commit;
             end
             `_FUSEL_M2_ALU : begin
               pipeline_wdata_m2[p].w_data = alu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && (&pipeline_data_m2_q[p].r_flow.r_ready);
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].need_commit && (&pipeline_data_m2_q[p].r_flow.r_ready);
             end
             `_FUSEL_M2_MEM : begin
               pipeline_wdata_m2[p].w_data = lsu_result;
-              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].valid_inst && m2_mem_rvalid[p];
+              pipeline_wdata_m2[p].w_flow.w_valid = exc_m2_q[p].need_commit && m2_mem_rvalid[p];
             end
           endcase
         end
@@ -1300,7 +1298,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       always_comb begin
         m2_stall_req[p] = ((decode_info.latest_r0_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[0]) |
           (decode_info.latest_r1_m2 & ~pipeline_data_m2_q[p].r_flow.r_ready[1])) &
-        exc_m2_q[p].valid_inst & exc_m2_q[p].need_commit; // LUT6 + MUXF7
+        exc_m2_q[p].need_commit; // LUT6 + MUXF7
       end
 
       // 接入异常写回
@@ -1347,9 +1345,9 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         pipeline_wdata_wb[p] = pipeline_wdata_m2_q[p];
         if(decode_info.fu_sel_wb == `_FUSEL_WB_DIV) begin
           pipeline_wdata_wb[p].w_data = div_result;
-          pipeline_wdata_wb[p].w_flow.w_valid = exc_wb_q[p].valid_inst && div_result_valid;
+          pipeline_wdata_wb[p].w_flow.w_valid = exc_wb_q[p].need_commit && div_result_valid;
         end else begin
-          pipeline_wdata_wb[p].w_flow.w_valid &= exc_wb_q[p].valid_inst;
+          pipeline_wdata_wb[p].w_flow.w_valid &= exc_wb_q[p].need_commit;
         end
       end
 
@@ -1360,7 +1358,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       // 接入暂停请求
       always_comb begin
-        wb_stall_req[p] = exc_wb_q[p].valid_inst & exc_wb_q[p].need_commit
+        wb_stall_req[p] = exc_wb_q[p].need_commit
           & decode_info.need_div & !div_result_valid; // 4 - 1
       end
 
@@ -1368,7 +1366,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       always_comb begin
         wb_w_data[p] = pipeline_wdata_wb[p].w_data;
         wb_w_addr[p] = pipeline_wdata_wb[p].w_flow.w_addr;
-        wb_commit[p] = exc_wb_q[p].need_commit;
+        wb_commit[p] = exc_wb_q[p].need_commit && !wb_stall;
         wb_valid[p]  = exc_wb_q[p].valid_inst && !wb_stall;
       end
     end
@@ -1426,7 +1424,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       assign wb_wen   = pipeline_wdata_wb[p].w_flow.w_valid && exc_wb_q[p].need_commit;
       assign wb_waddr = pipeline_wdata_wb[p].w_flow.w_addr;
-      assign wb_valid = exc_wb_q[p].valid_inst && exc_wb_q[p].need_commit && !wb_stall;
+      assign wb_valid = exc_wb_q[p].need_commit && !wb_stall;
       assign wb_pc    = pipeline_ctrl_wb_q[p].pc;
       assign wb_instr = pipeline_ctrl_wb_q[p].decode_info.debug_inst;
       assign wb_wdata = pipeline_wdata_wb[p].w_data;

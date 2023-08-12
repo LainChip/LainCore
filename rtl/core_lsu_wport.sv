@@ -626,6 +626,7 @@ module core_lsu_wport #(
       bus_req_o.addr  = {oldtag_q.addr,refill_addr_q[11:0]};
     end
     else if(fsm_q == S_WB_WDAT) begin
+      bus_busy_o      = '1;
       bus_req_o.data_ok   = refill_fifo_ready_q;
       bus_req_o.data_last = cur_wb_bus_addr_q[3:2] == 2'b11;
     end

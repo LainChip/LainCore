@@ -14,10 +14,9 @@ module core_excp_handler(
 
   always_comb begin
     target_o = csr_i.eentry;
-    if(ertn_inst_i) begin
+    if(!(|excp_flow_i) && ertn_inst_i) begin
       target_o = csr_i.era;
-    end
-    else if(excp_flow_i.tlbr || excp_flow_i.itlbr) begin
+    end else if(excp_flow_i.tlbr || excp_flow_i.itlbr) begin
       target_o = csr_i.tlbrentry;
     end
   end
@@ -27,7 +26,7 @@ module core_excp_handler(
     if(!valid_i) begin
         trigger_o = '0;
     end else begin
-        trigger_o = |excp_flow_i | ertn_inst_i;
+        trigger_o = (|excp_flow_i) | ertn_inst_i;
     end
   end
 

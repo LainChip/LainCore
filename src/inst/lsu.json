@@ -170,6 +170,7 @@
             "fu_sel_m2": "`_FUSEL_M2_MEM",
             "latest_r0_m2": 1,
             "latest_r1_ex": 1,
+            "refetch": 1,
             "need_csr": 1
         },
         "cacop": {
@@ -187,12 +188,15 @@
         },
         "dbar": {
             "opcode": "00111000011100100",
-            "dbarrier": 1
+            "dbarrier": 1,
+            "refetch": 1,
+            "need_csr": 1
         },
         "ibar": {
             "opcode": "00111000011100101",
             "ibarrier": 1,
-            "refetch": 1
+            "refetch": 1,
+            "need_csr": 1
         },
         "preld_nop": {
             "opcode": "0010101011"

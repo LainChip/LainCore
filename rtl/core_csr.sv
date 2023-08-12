@@ -47,12 +47,12 @@ module core_csr #(
   output csr_t csr_o
 );
 
-logic m1_commit_i_q;
-always_ff @(posedge clk) begin
-  if(!m2_stall_i) begin
-    m1_commit_i_q <= m1_commit_i && m1_int_o && !m1_stall_i && !m1_not_interruptable_i;
-  end
-end
+// logic m1_commit_i_q;
+// always_ff @(posedge clk) begin
+//   if(!m2_stall_i) begin
+//     m1_commit_i_q <= m1_commit_i && m1_int_o && !m1_stall_i && !m1_not_interruptable_i;
+//   end
+// end
 
 // TLB 控制模块，执行 TLB 相关指令，产生 tlb_update_req_o 信号控制外部 ADDR_TRANS 模块。
 // 注意，TLB 指令在 M2 级执行，同级会发出 REFETCH 信号。
@@ -427,10 +427,10 @@ logic timer_en;
 logic ticlr_we,ticlr_re;
 logic tcfg_we,tcfg_re;
 logic[7:0] int_q;
-logic timer_intr_q;
-always_ff @(posedge clk) begin
-  timer_intr_q <= (timer_en && (tval_q == 32'd1 || tval_q == 32'd0));
-end
+// logic timer_intr_q;
+// always_ff @(posedge clk) begin
+//   timer_intr_q <= (timer_en && (tval_q == 32'd1 || tval_q == 32'd0));
+// end
 always_ff @(posedge clk) begin
   int_q <= int_i;
 end
@@ -459,13 +459,13 @@ always_ff @(posedge clk) begin
       timer_en <= csr_w_data[`_TCFG_EN];
     end
     // else if (timer_en && (tval_q == 32'b0)) begin
-    else if (timer_intr_q && m1_commit_i_q && !m2_stall_i) begin
+    else if (/*timer_intr_q && m1_commit_i_q && */timer_en && (tval_q == '0) && !m2_stall_i) begin
       estat_q[11] <= 1'b1;
       timer_en    <= tcfg_q[`_TCFG_PERIODIC];
     end
 
     // estat_q[9:2] <= int_i;
-    if(m1_commit_i_q && !m2_stall_i) begin
+    if(/* m1_commit_i_q && */!m2_stall_i) begin
       estat_q[9:2] <= int_q;
     end
     if (excp_valid) begin
@@ -477,14 +477,29 @@ always_ff @(posedge clk) begin
     end
   end
 end
+localparam int ESTAT_DELAY = 2;
+logic[ESTAT_DELAY - 1 : 0][31:0] estat_q_q;
+always_ff @(posedge clk) begin
+  if(!m2_stall_i) begin
+    estat_q_q[0] <= estat_q;
+  end
+end
+for(genvar e = 1 ; e < ESTAT_DELAY ; e++) begin
+  always_ff @(posedge clk) begin
+    if(!m2_stall_i) begin
+      estat_q_q[e] <= estat_q_q[e - 1];
+    end
+  end
+end
 // 注意：这里需要对 estate[1:0] 及 estate[11] 进行前递，以保证相关中断可以被足够及时的触发。
-assign csr_o.estat = estat_q;
-assign m1_int_o    = (({
-    (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
-    (timer_intr_q ? 1'b1 : estat_q[11]) ,
-    int_q,
-    estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
-  & {ectl_q[11], ectl_q[9:0]}) != 0) && (crmd_q[2] != 0);
+assign csr_o.estat = {estat_q[31:12],estat_q_q[ESTAT_DELAY - 1][11:0]};
+// assign m1_int_o    = (({
+//     (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
+//     (timer_intr_q ? 1'b1 : estat_q[11]) ,
+//     int_q,
+//     estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
+//   & {ectl_q[11], ectl_q[9:0]}) != 0) && (crmd_q[2] != 0);
+assign m1_int_o = (|(ectl_q[11:0] & estat_q[11:0])) && (crmd_q[2] != 0);
 // era
 logic era_we,era_re;
 assign era_we = csr_we && (csr_w_addr_i == `_CSR_ERA);
@@ -837,7 +852,7 @@ always_ff @(posedge clk) begin
       if (tval_q != 32'b0) begin
         tval_q <= tval_q - 32'b1;
       end
-      else if (/*tval_q == 32'b0 &&*/ m1_commit_i_q && !m2_stall_i) begin
+      else if (/*tval_q == 32'b0 && m1_commit_i_q && */!m2_stall_i) begin
         tval_q <= tcfg_q[`_TCFG_PERIODIC] ? {tcfg_q[`_TCFG_INITVAL], 2'b0} : 32'hffffffff;
       end
     end

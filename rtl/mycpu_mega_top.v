@@ -48,15 +48,14 @@ module mycpu_mega_top(
     input           bvalid,
     output          bready,
 
-    output [31:0] debug_wb_pc,
-    output [31:0] debug_wb_rf_wdata,
-    output [31:0] debug_wb_instr
+    (*mark_debug = "true"*)output [31:0] debug_wb_pc,
+    (*mark_debug = "true"*)output [31:0] debug_wb_rf_wdata,
+    (*mark_debug = "true"*)output [31:0] debug_wb_instr
 );
 
     assign global_reset = ~aresetn;
-    // wire[3:0] wid_nc;
-    wire[4:0] debug0_wb_rf_wnum_nc;
-    // wire debug0_wb_rf_we_nc;
+    (*mark_debug = "true"*)wire[4:0] debug0_wb_rf_wnum_nc;
+    (*mark_debug = "true"*)wire debug0_wb_rf_we_nc;
     core_top core_wrap(
         .aclk(aclk),
         .aresetn(aresetn),
@@ -98,7 +97,7 @@ module mycpu_mega_top(
         .bvalid(bvalid),
         .bready(bready),
         .debug0_wb_pc(debug_wb_pc),
-        .debug0_wb_rf_wen(debug0_wb_rf_wen_nc),
+        .debug0_wb_rf_wen(debug0_wb_rf_we_nc),
         .debug0_wb_rf_wnum(debug0_wb_rf_wnum_nc),
         .debug0_wb_rf_wdata(debug_wb_rf_wdata),
         .debug0_wb_inst(debug_wb_instr)
