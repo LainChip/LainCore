@@ -1,6 +1,4 @@
 `include "lsu_types.svh"
-`include "./pulp_axi/AXI_BUS.sv"
-`include "./zip_axi/axixbar.sv"
 
 module bus_mux_2x1 #(
     parameter int CACHE_PORT_NUM = 2
@@ -41,7 +39,7 @@ module bus_mux_2x1 #(
   logic [2:0] aw_qos_wasted, ar_qos_wasted;
   logic [1:0] b_resp_wasted, r_resp_wasted;
 
-  axixbar # (
+  la_axixbar # (
             .C_AXI_DATA_WIDTH(32),
             .C_AXI_ADDR_WIDTH(32),
             .C_AXI_ID_WIDTH(4), // TODO: should it also add log2(NM)? 

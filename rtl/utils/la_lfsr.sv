@@ -19,7 +19,7 @@
 // patterns. The additional cipher layers can only be used for an LFSR width
 // of 64bit, since the block cipher has been designed for that block length.
 
-module lfsr #(
+module la_lfsr #(
   parameter int unsigned          LfsrWidth     = 64,   // [4,64]
   parameter int unsigned          OutWidth      = 8,    // [1,LfsrWidth]
   parameter logic [LfsrWidth-1:0] RstVal        = '1,   // [1,2^LfsrWidth-1]

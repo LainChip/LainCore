@@ -1,4 +1,4 @@
-module	axixbar #(
+module	la_axixbar #(
 		// {{{
 		parameter integer C_AXI_DATA_WIDTH = 32,
 		parameter integer C_AXI_ADDR_WIDTH = 32,
@@ -485,7 +485,7 @@ module	axixbar #(
 
 		// awskid, the skidbuffer for the incoming AW* channel
 		// {{{
-		zip_skidbuffer #(
+		la_zip_skidbuffer #(
 			// {{{
 			.DW(IW+AW+8+3+2+1+4+3+4),
 			.OPT_OUTREG(OPT_SKID_INPUT)
@@ -510,7 +510,7 @@ module	axixbar #(
 		// wraddr, decode the write channel's address request to a
 		// particular slave index
 		// {{{
-		zip_addrdecode #(
+		la_zip_addrdecode #(
 			// {{{
 			.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
@@ -537,7 +537,7 @@ module	axixbar #(
 
 		// wskid, the skid buffer for the incoming W* channel
 		// {{{
-		zip_skidbuffer #(
+		la_zip_skidbuffer #(
 			// {{{
 			.DW(DW+DW/8+1),
 			.OPT_OUTREG(OPT_SKID_INPUT || OPT_BUFFER_DECODER)
@@ -698,7 +698,7 @@ module	axixbar #(
 
 		// arskid
 		// {{{
-		zip_skidbuffer #(
+		la_zip_skidbuffer #(
 			// {{{
 			.DW(IW+AW+8+3+2+1+4+3+4),
 			.OPT_OUTREG(OPT_SKID_INPUT)
@@ -722,7 +722,7 @@ module	axixbar #(
 
 		// Read address decoder
 		// {{{
-		zip_addrdecode #(
+		la_zip_addrdecode #(
 			// {{{
 			.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
@@ -1745,7 +1745,7 @@ module	axixbar #(
 
 		// bskid, the B* channel skidbuffer
 		// {{{
-		zip_skidbuffer #(
+		la_zip_skidbuffer #(
 			// {{{
 			.DW(IW+2),
 			.OPT_LOWPOWER(OPT_LOWPOWER),
@@ -1805,7 +1805,7 @@ module	axixbar #(
 		// determined, we'll throw them into an outgoing skid buffer
 		// to register them (per spec) and to make it easier to meet
 		// timing.
-		zip_skidbuffer #(
+		la_zip_skidbuffer #(
 			// {{{
 			.DW(IW+DW+1+2),
 			.OPT_LOWPOWER(OPT_LOWPOWER),

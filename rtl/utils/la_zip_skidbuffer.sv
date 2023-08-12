@@ -1,4 +1,4 @@
-module zip_skidbuffer #(
+module la_zip_skidbuffer #(
 		// {{{
 		parameter	[0:0]	OPT_LOWPOWER = 0,
 		parameter	[0:0]	OPT_OUTREG = 1,

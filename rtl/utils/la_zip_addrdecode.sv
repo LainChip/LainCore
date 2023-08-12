@@ -1,4 +1,4 @@
-module	zip_addrdecode #(
+module	la_zip_addrdecode #(
 		// {{{
 		parameter	NS=8,
 		parameter	AW = 32, DW=32+32/8+1+1,
