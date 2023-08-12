@@ -54,9 +54,9 @@ module mycpu_mega_top(
 );
 
     assign global_reset = ~aresetn;
-    logic[3:0] wid_nc;
-    logic[4:0] debug0_wb_rf_wnum_nc;
-    logic debug0_wb_rf_we_nc;
+    // wire[3:0] wid_nc;
+    wire[4:0] debug0_wb_rf_wnum_nc;
+    // wire debug0_wb_rf_we_nc;
     core_top core_wrap(
         .aclk(aclk),
         .aresetn(aresetn),

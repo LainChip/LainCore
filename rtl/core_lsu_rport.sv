@@ -55,7 +55,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
 
   // ram 区域，用 distrubute ram 生成 tag-valid
   // 用 bram 生成数据
-  logic[`_DIDX_LEN - 1 : 0] raw_data_raddr;
+  logic[`_DIDX_LEN - 1 : 2] raw_data_raddr;
   logic[WAY_CNT - 1 : 0][31:0] raw_data_rdata;
   logic[7:0] raw_tag_raddr;
   dcache_tag_t [WAY_CNT-1:0] raw_tag_rdata;

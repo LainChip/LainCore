@@ -158,19 +158,33 @@ module core_ifetch #(
   end
 
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    simpleDualPortRamDW #(
+    simpleDualPortRam #(
       .dataWidth(32),
-      .ramSize  (1 << 10),
+      .ramSize  (1 << 9),
       .latency  (1),
-      .readMuler(2)
-    ) dram (
+      .readMuler(1)
+    ) dram_0 (
       .clk     (clk       ),
       .rst_n   (rst_n     ),
-      .addressA(dram_waddr),
-      .we      (dram_we[w]),
+      .addressA(dram_waddr[9:1]),
+      .we      (dram_we[w] && !dram_waddr[0]),
       .addressB(dram_raddr),
       .inData  (dram_wdata),
-      .outData (dram_rdata[w])
+      .outData (dram_rdata[w][0])
+    );
+    simpleDualPortRam #(
+      .dataWidth(32),
+      .ramSize  (1 << 9),
+      .latency  (1),
+      .readMuler(1)
+    ) dram_1 (
+      .clk     (clk       ),
+      .rst_n   (rst_n     ),
+      .addressA(dram_waddr[9:1]),
+      .we      (dram_we[w] && dram_waddr[0]),
+      .addressB(dram_raddr),
+      .inData  (dram_wdata),
+      .outData (dram_rdata[w][1])
     );
     simpleDualPortLutRam #(
       .dataWidth($bits(i_tag_t)),
@@ -355,7 +369,8 @@ module core_ifetch #(
       end
       FSM_RFDATA : begin
         if((&refill_addr_q_q[1:0]) && refill_valid_q) begin
-          fsm = FSM_NORMAL;
+          fsm = EARLY_BRAM ? FSM_NORMAL : FSM_WAITBUS; 
+          // UGLY FIX： 多暂停一拍允许后续指令看到refill 的数据。
         end
       end
       FSM_PTADDR0 : begin

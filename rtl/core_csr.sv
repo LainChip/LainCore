@@ -14,6 +14,7 @@ module core_csr #(
   input logic commit_i,
 
   input logic m1_stall_i,
+  input logic m1_not_interruptable_i,
   input logic m2_stall_i,
 
   input logic[13:0] csr_r_addr_i, // M1 in
@@ -49,7 +50,7 @@ module core_csr #(
 logic m1_commit_i_q;
 always_ff @(posedge clk) begin
   if(!m2_stall_i) begin
-    m1_commit_i_q <= m1_commit_i && m1_int_o && !m1_stall_i;
+    m1_commit_i_q <= m1_commit_i && m1_int_o && !m1_stall_i && !m1_not_interruptable_i;
   end
 end
 
@@ -478,12 +479,12 @@ always_ff @(posedge clk) begin
 end
 // 注意：这里需要对 estate[1:0] 及 estate[11] 进行前递，以保证相关中断可以被足够及时的触发。
 assign csr_o.estat = estat_q;
-assign m1_int_o    = ({
+assign m1_int_o    = (({
     (ticlr_we && csr_w_data[`_TICLR_CLR]) ? '0 :
     (timer_intr_q ? 1'b1 : estat_q[11]) ,
-    (int_q),
+    int_q,
     estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
-  & {ectl_q[11], ectl_q[9:0]}) != 0 && crmd_q[2];
+  & {ectl_q[11], ectl_q[9:0]}) != 0) && (crmd_q[2] != 0);
 // era
 logic era_we,era_re;
 assign era_we = csr_we && (csr_w_addr_i == `_CSR_ERA);

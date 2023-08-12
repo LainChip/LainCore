@@ -56,7 +56,7 @@ module core_addr_trans #(
     always_ff @(posedge clk) begin
       if(tlb_update_req_i.tlb_we[i]) begin
         tlb_value_q[i] <= tlb_update_req_i.tlb_w_entry.value;
-        is_4M_page_q   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22;
+        is_4M_page_q[i]   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22;
       end
     end
   end
@@ -71,7 +71,7 @@ module core_addr_trans #(
         tlb_result.found |= '1;
         tlb_result.index |= i;
         tlb_result.ps    |= is_4M_page_q[i] ? 6'd22 : 6'd12;
-        tlb_result.value |= tlb_value_q[i][is_4M_page_q ? vaddr[22]:vaddr[12]];
+        tlb_result.value |= tlb_value_q[i][is_4M_page_q[i] ? vaddr[22]:vaddr[12]];
       end
     end
   end

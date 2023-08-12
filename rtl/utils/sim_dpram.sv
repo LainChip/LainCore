@@ -13,7 +13,7 @@ module sim_dpram
      input  [$clog2(DEPTH) - 1 : 0] addrb,
      input                          rstb,
      input  [WIDTH - 1:0]           dina,
-     output [WIDTH - 1:0]           doutb,
+     output logic [WIDTH - 1:0]           doutb,
      input                          wea,
      input                          ena,
      input                          enb,
@@ -43,6 +43,13 @@ module sim_dpram
       ram[addra] <= dina;
     end
   end
-
-  assign doutb = ram[rd_addr_buf];
+  if(LATENCY == 1) begin
+    always @(posedge clkb) begin
+      if(enb) begin
+        doutb <= ram[addrb];
+      end
+    end
+  end else begin
+     assign doutb = ram[rd_addr_buf];
+  end
 endmodule

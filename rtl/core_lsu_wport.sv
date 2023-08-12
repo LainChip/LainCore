@@ -256,7 +256,7 @@ module core_lsu_wport #(
     pw_w_e        = !uncac_fifo_full && wreq_uncached;
   end
   for(genvar p = 0 ; p < PIPE_MANAGE_NUM ; p++) begin
-    assign wstate_o[p].uncached_write_ready = pw_w_e;
+    assign wstate_o[p].uncached_write_ready = !uncac_fifo_full;
   end
   always_comb begin
     fifo_fsm = fifo_fsm_q;

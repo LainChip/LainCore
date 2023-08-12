@@ -32,7 +32,7 @@ module cam_cmp_lutram #(parameter int PACKS_OF_5_BITS = 4) (
       .CLK(clk),
       .RST(~rst_n),
       .WEN(update_i | refill_v_q),
-      .A(cmp_ky_i[i]),
+      .A(cmp_key_i[i]),
       .AW(w_addr_q[i]),
       .DI(refill_q),
       .DO(sub_hit[i])

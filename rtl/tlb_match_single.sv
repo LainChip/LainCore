@@ -28,40 +28,40 @@ module tlb_match_single #(
       end
     end
   end
-  if(ENABLE_OPT) begin
-    // TODO: checkme
-    cam_cmp_lutram #(.PACKS_OF_5_BITS(2)) cmp_high10 (
-      .clk            (clk                               ),
-      .rst_n          (rst_n                             ),
-      .update_i       (update_i || (ENABLE_RST && !rst_n)),
-      .set_key_i      ({'0, update_key_i.vppn[18:10]}               ),
-      .set_key_valid_i(rst_n                             ),
-      .cmp_key_i      ({'0, vppn_i[18:10]}               ),
-      .hit_o          (match_high10                      )
-    );
-    cam_cmp_lutram #(.PACKS_OF_5_BITS(2)) cmp_low10 (
-      .clk            (clk                               ),
-      .rst_n          (rst_n                             ),
-      .update_i       (update_i || (ENABLE_RST && !rst_n)),
-      .set_key_i      (update_key_i.vppn[9:0]            ),
-      .set_key_valid_i(rst_n                             ),
-      .cmp_key_i      (vppn_i[9:0]                       ),
-      .hit_o          (match_low10                       )
-    );
-    cam_cmp_lutram #(.PACKS_OF_5_BITS(2)) cmp_asid (
-      .clk            (clk                               ),
-      .rst_n          (rst_n                             ),
-      .update_i       (update_i || (ENABLE_RST && !rst_n)),
-      .set_key_i      (update_key_i.asid[9:0]            ),
-      .set_key_valid_i(rst_n                             ),
-      .cmp_key_i      (vppn_i[9:0]                       ),
-      .hit_o          (match_asid                        )
-    );
-  end else begin
+  // if(ENABLE_OPT) begin
+  //   // TODO: checkme
+  //   cam_cmp_lutram #(.PACKS_OF_5_BITS(2)) cmp_high10 (
+  //     .clk            (clk                               ),
+  //     .rst_n          (rst_n                             ),
+  //     .update_i       (update_i || (ENABLE_RST && !rst_n)),
+  //     .set_key_i      ({'0, update_key_i.vppn[18:10]}               ),
+  //     .set_key_valid_i(rst_n                             ),
+  //     .cmp_key_i      ({'0, vppn_i[18:10]}               ),
+  //     .hit_o          (match_high10                      )
+  //   );
+  //   cam_cmp_lutram #(.PACKS_OF_5_BITS(2)) cmp_low10 (
+  //     .clk            (clk                               ),
+  //     .rst_n          (rst_n                             ),
+  //     .update_i       (update_i || (ENABLE_RST && !rst_n)),
+  //     .set_key_i      (update_key_i.vppn[9:0]            ),
+  //     .set_key_valid_i(rst_n                             ),
+  //     .cmp_key_i      (vppn_i[9:0]                       ),
+  //     .hit_o          (match_low10                       )
+  //   );
+  //   cam_cmp_lutram #(.PACKS_OF_5_BITS(2)) cmp_asid (
+  //     .clk            (clk                               ),
+  //     .rst_n          (rst_n                             ),
+  //     .update_i       (update_i || (ENABLE_RST && !rst_n)),
+  //     .set_key_i      (update_key_i.asid[9:0]            ),
+  //     .set_key_valid_i(rst_n                             ),
+  //     .cmp_key_i      (vppn_i[9:0]                       ),
+  //     .hit_o          (match_asid                        )
+  //   );
+  // end else begin
     assign match_high10 = key_q.vppn[18:10] == vppn_i[18:10];
     assign match_low10  = key_q.vppn[9:0] == vppn_i[9:0];
     assign match_asid   = key_q.asid == asid_i;
-  end
+  // end
   always_comb begin
     if(key_q.e &&
       match_high10 && // 4M match
