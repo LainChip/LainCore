@@ -275,22 +275,22 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     bpu_correct_t m2_bpu_feedback_q    ;
     logic         m2_jump_valid_q      ;
     logic         m2_jump_addr_change_q; // 导致地址转换改变的跳转，需要暂停前端等待地址转换同步
-    logic         addr_change_stall_q  ;
+    logic    [1:0]addr_change_stall_q  ;
     always_ff @(posedge clk) begin
       if(!rst_n) begin
         addr_change_stall_q <= '0;
       end else begin
         if(m2_jump_addr_change_q) begin
           // 有地址改变，需要暂停前端同步
-          addr_change_stall_q <= '1;
+          addr_change_stall_q <= 2'd2; // 3
         end else begin
-          if(addr_change_stall_q && !m2_stall) begin
-            addr_change_stall_q <= '0;
+          if((|addr_change_stall_q) && !m2_stall) begin
+            addr_change_stall_q <= addr_change_stall_q - 2'd1;
           end
         end
       end
     end
-    assign frontend_resp_o.addr_trans_stall = ENABLE_TLB ? addr_change_stall_q : '0;
+    assign frontend_resp_o.addr_trans_stall = ENABLE_TLB ? (|addr_change_stall_q) : '0;
     always_ff @(posedge clk) begin
       m2_jump_valid_q       <= (m1_stall) ? '0 : |m1_invalidate_req;
       m2_jump_target_q      <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
