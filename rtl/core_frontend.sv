@@ -160,7 +160,7 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
   core_ifetch #(
                 .ATTACHED_INFO_WIDTH(2*$bits(bpu_predict_t)+$bits(fetch_excp_t)),
                 .ENABLE_TLB         (ENABLE_TLB                                ),
-                .EARLY_BRAM         ('1                                        )
+                .EARLY_BRAM         ('0                                        )
               ) core_ifetch_inst (
                 .clk            (clk                     ),
                 .rst_n          (rst_n                   ),

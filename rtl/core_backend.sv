@@ -290,7 +290,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         end
       end
     end
-    assign frontend_resp_o.addr_trans_stall = addr_change_stall_q;
+    assign frontend_resp_o.addr_trans_stall = ENABLE_TLB ? addr_change_stall_q : '0;
     always_ff @(posedge clk) begin
       m2_jump_valid_q       <= (m1_stall) ? '0 : |m1_invalidate_req;
       m2_jump_target_q      <= (m1_invalidate_req[0]) ? m1_target[0] : m1_target[1];
@@ -961,7 +961,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       assign m1_mem_read[p]     = exc_m1_q[p].need_commit && decode_info.mem_read;
       assign m1_mem_uncached[p] = m1_addr_trans_result[p].value.mat != 2'd1 &&
-        !decode_info.mem_cacop; // TODO: CHECKME
+        (!decode_info.mem_cacop || !ENABLE_TLB); // TODO: CHECKME
       // assign m1_mem_uncached[p] = !decode_info.mem_cacop; // TODO: CHECKME
       assign m1_mem_vaddr[p]  = pipeline_ctrl_m1_q[p].vaddr;
       assign m1_mem_paddr[p]  = paddr;
@@ -1066,39 +1066,39 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         // SUPPORT LLSC
         m1_excp_flow.adem = m1_addr_trans_result[p].dmw ? '0 : (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && decode_info.need_lsu && !decode_info.mem_cacop)
+          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && decode_info.need_lsu && (!decode_info.mem_cacop || !ENABLE_TLB))
         );
-        m1_excp_flow.tlbr = (
+        m1_excp_flow.tlbr = ENABLE_TLB ? (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].found && decode_info.need_lsu &&
             (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
             && (!ENABLE_TLB || p != 0 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
           )
-        ); // TODO: CHECK
-        m1_excp_flow.pis = (
+        ) : '0; // TODO: CHECK
+        m1_excp_flow.pis = ENABLE_TLB ? (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].value.v && decode_info.mem_write) &&
           (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
-        ); // TODO: CHECK
-        m1_excp_flow.pil = (
+        ) : '0; // TODO: CHECK
+        m1_excp_flow.pil = ENABLE_TLB ? (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].value.v && decode_info.need_lsu && !decode_info.mem_write
             && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
           )
-        ); // TODO: CHECK
-        m1_excp_flow.ppi = (
+        ) : '0; // TODO: CHECK
+        m1_excp_flow.ppi = ENABLE_TLB ? (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (m1_addr_trans_result[p].value.plv == 2'b00 && csr_value.crmd[`PLV] == 2'd3
             && decode_info.need_lsu &&
             (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
             && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
           ) // MAY LEAD TO SOME SECURITY BUG.
-        ); // TODO: CHECK
-        m1_excp_flow.pme = (
+        ) : '0; // TODO: CHECK
+        m1_excp_flow.pme = ENABLE_TLB ? (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].value.d && decode_info.mem_write) &&
           (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
-        ); // TODO: CHECK
+        ) : '0; // TODO: CHECK
         m1_excp_flow.brk = pipeline_ctrl_m1_q[p].excp_flow.brk && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
         m1_excp_flow.sys = pipeline_ctrl_m1_q[p].excp_flow.sys && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0]);
       end
@@ -1236,9 +1236,9 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           end
         end
         always_comb begin
-          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[0].need_commit;
-          frontend_resp_o.icache_op       = ctlb_opcode[4:3];
-          frontend_resp_o.icacheop_addr   = m2_mem_paddr[p];
+          frontend_resp_o.icache_op_valid = decode_info.mem_cacop && ctlb_opcode[2:0] == 3'd0 && exc_m2_q[0].need_commit && ENABLE_TLB;
+          frontend_resp_o.icache_op       = ENABLE_TLB ? ctlb_opcode[4:3] : '0;
+          frontend_resp_o.icacheop_addr   = ENABLE_TLB ? m2_mem_paddr[p] : '0;
         end
       end
       assign m2_mem_size[p]   = mkmemsize(decode_info.mem_type);
@@ -1327,8 +1327,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       // WAIT 指令接入
       if(p == 0) begin
-        assign frontend_resp_o.wait_inst  = decode_info.wait_inst && exc_m2_q[p].need_commit;
-        assign frontend_resp_o.int_detect = csr_m1_int;
+        assign frontend_resp_o.wait_inst  = ENABLE_TLB && decode_info.wait_inst && exc_m2_q[p].need_commit;
+        assign frontend_resp_o.int_detect = ENABLE_TLB && csr_m1_int;
       end
     end
     // CSR 控制接线，一定在流水线级1
