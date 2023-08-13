@@ -126,7 +126,8 @@
             "addr_imm_type": "_ADDR_IMM_S14",
             "reg_type_w": "_REG_W_RD",
             "latest_r1_ex": true,
-            "fu_sel_m2": "_FUSEL_M2_MEM"
+            "fu_sel_m2": "_FUSEL_M2_MEM",
+            "need_csr": true
         },
         "st.w": {
             "opcode": "0010100110",
@@ -175,7 +176,8 @@
             "addr_imm_type": "_ADDR_IMM_S14",
             "reg_type_w": "_REG_W_RD",
             "latest_r0_m2": true,
-            "latest_r1_ex": true
+            "latest_r1_ex": true,
+            "need_csr": true
         },
         "cacop": {
             "opcode": "0000011000",
@@ -188,16 +190,19 @@
             "reg_type_w": "_REG_W_NONE",
             "latest_r1_ex": true,
             "refetch": true,
-            "priv_inst": true
+            "need_csr": true
         },
         "dbar": {
             "opcode": "00111000011100100",
-            "dbarrier": true
+            "dbarrier": true,
+            "refetch": true,
+            "need_csr": true
         },
         "ibar": {
             "opcode": "00111000011100101",
             "ibarrier": true,
-            "refetch": true
+            "refetch": true,
+            "need_csr": true
         },
         "preld_nop": {
             "opcode": "0010101011"

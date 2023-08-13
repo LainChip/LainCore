@@ -123,7 +123,6 @@
             "reg_type_w": "_REG_W_RD",
             "latest_r0_m1": true,
             "latest_r1_m1": true,
-            "addr_imm_sel": "_ADDR_IMM_S14",
             "fu_sel_m2": "_FUSEL_M2_CSR",
             "priv_inst": true,
             "refetch": true,
@@ -137,6 +136,7 @@
             "reg_type_r1": "_REG_R1_NONE",
             "reg_type_w": "_REG_W_NONE",
             "priv_inst": true,
+            "refetch": true,
             "addr_imm_type": "_ADDR_IMM_S26",
             "need_csr": true
         },
@@ -211,6 +211,7 @@
             "opcode": "00000110010010001",
             "wait_inst": true,
             "priv_inst": true,
+            "refetch": true,
             "addr_imm_type": "_ADDR_IMM_S26",
             "need_csr": true
         }

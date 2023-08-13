@@ -35,13 +35,6 @@
             "_ADDR_IMM_S16"
         ],
 
-        "addr_imm_sel": [
-            "_ADDR_IMM_S26",
-            "_ADDR_IMM_S12",
-            "_ADDR_IMM_S14",
-            "_ADDR_IMM_S16"
-        ],
-
         "fu_sel_ex": [
             "_FUSEL_EX_NONE",
             "_FUSEL_EX_ALU"
@@ -195,11 +188,6 @@
             "default": "_IMM_U5"
         },
         "addr_imm_type": {
-            "length": 2,
-            "stage": "ex",
-            "default": "_ADDR_IMM_S26"
-        },
-        "addr_imm_sel": {
             "length": 2,
             "stage": "ex",
             "default": "_ADDR_IMM_S26"

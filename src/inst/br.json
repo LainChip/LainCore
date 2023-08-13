@@ -33,7 +33,8 @@
         "jirl": {
             "opcode": "010011",
             "alu_grand_op": "`_ALU_GTYPE_LI",
-            "alu_op": "`_ALU_STYPE_PCPLUS4","cmp_type": "`_CMP_NOCONDITION",
+            "alu_op": "`_ALU_STYPE_PCPLUS4",
+            "cmp_type": "`_CMP_NOCONDITION",
             "target_type": "`_TARGET_ABS",
             "reg_type_r0": "`_REG_R0_NONE",
             "addr_imm_type": "`_ADDR_IMM_S16",
@@ -45,7 +46,8 @@
             "need_bpu": 1
         },
         "b": {
-            "opcode": "010100","cmp_type": "`_CMP_NOCONDITION",
+            "opcode": "010100",
+            "cmp_type": "`_CMP_NOCONDITION",
             "target_type": "`_TARGET_REL",
             "reg_type_r0": "`_REG_R0_NONE",
             "addr_imm_type": "`_ADDR_IMM_S26",
@@ -59,7 +61,8 @@
         "bl": {
             "opcode": "010101",
             "alu_grand_op": "`_ALU_GTYPE_LI",
-            "alu_op": "`_ALU_STYPE_PCPLUS4","cmp_type": "`_CMP_NOCONDITION",
+            "alu_op": "`_ALU_STYPE_PCPLUS4",
+            "cmp_type": "`_CMP_NOCONDITION",
             "target_type": "`_TARGET_REL",
             "reg_type_r0": "`_REG_R0_NONE",
             "addr_imm_type": "`_ADDR_IMM_S26",

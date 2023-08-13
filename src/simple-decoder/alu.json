@@ -229,8 +229,8 @@
             "reg_type_r0": "_REG_R0_RK",
             "reg_type_r1": "_REG_R1_RJ",
             "reg_type_w": "_REG_W_RD",
-            "latest_r0_ex": true,
-            "latest_r1_ex": true,
+            "latest_r0_m2": true,
+            "latest_r1_m2": true,
             "fu_sel_wb": "_FUSEL_WB_DIV"
         },
         "mod.w": {
@@ -240,8 +240,8 @@
             "reg_type_r0": "_REG_R0_RK",
             "reg_type_r1": "_REG_R1_RJ",
             "reg_type_w": "_REG_W_RD",
-            "latest_r0_ex": true,
-            "latest_r1_ex": true,
+            "latest_r0_m2": true,
+            "latest_r1_m2": true,
             "fu_sel_wb": "_FUSEL_WB_DIV"
         },
         "div.wu": {
@@ -251,8 +251,8 @@
             "reg_type_r0": "_REG_R0_RK",
             "reg_type_r1": "_REG_R1_RJ",
             "reg_type_w": "_REG_W_RD",
-            "latest_r0_ex": true,
-            "latest_r1_ex": true,
+            "latest_r0_m2": true,
+            "latest_r1_m2": true,
             "fu_sel_wb": "_FUSEL_WB_DIV"
         },
         "mod.wu": {
@@ -262,8 +262,8 @@
             "reg_type_r0": "_REG_R0_RK",
             "reg_type_r1": "_REG_R1_RJ",
             "reg_type_w": "_REG_W_RD",
-            "latest_r0_ex": true,
-            "latest_r1_ex": true,
+            "latest_r0_m2": true,
+            "latest_r1_m2": true,
             "fu_sel_wb": "_FUSEL_WB_DIV"
         },
         "slli.w": {
