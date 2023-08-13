@@ -22,3 +22,7 @@ rtl/test
 rtl/pipeline/issue/decoder.svh
 
 tmp
+
+# simple-decoder
+src/simple-decoder/project
+src/simple-decoder/target

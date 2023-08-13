@@ -228,13 +228,6 @@ object JsonInstSet extends InstSet {
     val _REG_R1_RJ = newElement("_REG_R1_RJ")
   }
 
-  private object AddrImmSelEnum extends SpinalEnum(binarySequential) {
-    val _ADDR_IMM_S26 = newElement("_ADDR_IMM_S26")
-    val _ADDR_IMM_S12 = newElement("_ADDR_IMM_S12")
-    val _ADDR_IMM_S14 = newElement("_ADDR_IMM_S14")
-    val _ADDR_IMM_S16 = newElement("_ADDR_IMM_S16")
-  }
-
   private object AddrImmTypeEnum extends SpinalEnum(binarySequential) {
     val _ADDR_IMM_S26 = newElement("_ADDR_IMM_S26")
     val _ADDR_IMM_S12 = newElement("_ADDR_IMM_S12")
@@ -353,8 +346,6 @@ object JsonInstSet extends InstSet {
 
   private object LATEST_RFALSE_M1 extends Signal(Bool())
 
-  private object ADDR_IMM_SEL extends Signal(AddrImmSelEnum())
-
   private object ADDR_IMM_TYPE extends Signal(AddrImmTypeEnum())
 
   private object LATEST_R1_WB extends Signal(Bool())
@@ -411,7 +402,6 @@ object JsonInstSet extends InstSet {
     decoder.addDefault(PRIV_INST, False)
     decoder.addDefault(TLBSRCH_EN, False)
     decoder.addDefault(LATEST_RFALSE_M1, False)
-    decoder.addDefault(ADDR_IMM_SEL, AddrImmSelEnum._ADDR_IMM_S26)
     decoder.addDefault(ADDR_IMM_TYPE, AddrImmTypeEnum._ADDR_IMM_S26)
     decoder.addDefault(LATEST_R1_WB, False)
     decoder.addDefault(CMP_TYPE, CmpTypeEnum._CMP_NONE)
@@ -505,12 +495,12 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(MOD_WU, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
+      LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._DIV_TYPE_MODU,
-      LATEST_R0_EX -> True,
+      LATEST_R1_M2 -> True,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
-      LATEST_R1_EX -> True,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
     decoder.add(BGE, List(
@@ -536,9 +526,11 @@ object JsonInstSet extends InstSet {
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
     decoder.add(SC_W, List(
+      NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_WORD,
       LATEST_R0_M2 -> True,
+      FU_SEL_M2 -> FuSelM2Enum._FUSEL_M2_MEM,
       MEM_WRITE -> True,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
@@ -773,7 +765,8 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(IBAR, List(
       IBARRIER -> True,
-      REFETCH -> True
+      REFETCH -> True,
+      NEED_CSR -> True
     ))
     decoder.add(XORI, List(
       ALU_GRAND_OP -> AluGrandOpEnum._ALU_GTYPE_BW,
@@ -789,7 +782,9 @@ object JsonInstSet extends InstSet {
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
     decoder.add(DBAR, List(
-      DBARRIER -> True
+      DBARRIER -> True,
+      REFETCH -> True,
+      NEED_CSR -> True
     ))
     decoder.add(LD_H, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
@@ -823,7 +818,6 @@ object JsonInstSet extends InstSet {
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RD,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ,
       PRIV_INST -> True,
-      ADDR_IMM_SEL -> AddrImmSelEnum._ADDR_IMM_S14,
       ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S26,
       LATEST_R0_M1 -> True,
       REFETCH -> True
@@ -852,23 +846,23 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(DIV_W, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
+      LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._DIV_TYPE_DIV,
-      LATEST_R0_EX -> True,
+      LATEST_R1_M2 -> True,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
-      LATEST_R1_EX -> True,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
     decoder.add(CACOP, List(
       MEM_CACOP -> True,
+      NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_BYTE,
       NEED_LSU -> True,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_NONE,
       LATEST_R1_EX -> True,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ,
-      PRIV_INST -> True,
       ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S12,
       REFETCH -> True
     ))
@@ -955,12 +949,12 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(MOD_W, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
+      LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._DIV_TYPE_MOD,
-      LATEST_R0_EX -> True,
+      LATEST_R1_M2 -> True,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
-      LATEST_R1_EX -> True,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
     decoder.add(SYSCALL, List(
@@ -975,9 +969,11 @@ object JsonInstSet extends InstSet {
       NEED_CSR -> True,
       WAIT_INST -> True,
       PRIV_INST -> True,
-      ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S26
+      ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S26,
+      REFETCH -> True
     ))
     decoder.add(LL_W, List(
+      NEED_CSR -> True,
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
       MEM_TYPE -> MemTypeEnum._MEM_TYPE_WORD,
       MEM_READ -> True,
@@ -996,7 +992,8 @@ object JsonInstSet extends InstSet {
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_NONE,
       PRIV_INST -> True,
       TLBSRCH_EN -> True,
-      ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S26
+      ADDR_IMM_TYPE -> AddrImmTypeEnum._ADDR_IMM_S26,
+      REFETCH -> True
     ))
     decoder.add(BEQ, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_NONE,
@@ -1088,12 +1085,12 @@ object JsonInstSet extends InstSet {
     ))
     decoder.add(DIV_WU, List(
       REG_TYPE_W -> RegTypeWEnum._REG_W_RD,
+      LATEST_R0_M2 -> True,
       ALU_OP -> AluOpEnum._DIV_TYPE_DIVU,
-      LATEST_R0_EX -> True,
+      LATEST_R1_M2 -> True,
       NEED_DIV -> True,
       FU_SEL_WB -> FuSelWbEnum._FUSEL_WB_DIV,
       REG_TYPE_R0 -> RegTypeR0Enum._REG_R0_RK,
-      LATEST_R1_EX -> True,
       REG_TYPE_R1 -> RegTypeR1Enum._REG_R1_RJ
     ))
   }
@@ -1134,7 +1131,6 @@ object JsonInstSet extends InstSet {
     RegTypeR0Enum.elements.foreach{ e => bw.write(s"`define $e (${getWidth(RegTypeR0Enum)}'d${RegTypeR0Enum.defaultEncoding.getValue(e)})\n") }
     FuSelM1Enum.elements.foreach{ e => bw.write(s"`define $e (${getWidth(FuSelM1Enum)}'d${FuSelM1Enum.defaultEncoding.getValue(e)})\n") }
     RegTypeR1Enum.elements.foreach{ e => bw.write(s"`define $e (${getWidth(RegTypeR1Enum)}'d${RegTypeR1Enum.defaultEncoding.getValue(e)})\n") }
-    AddrImmSelEnum.elements.foreach{ e => bw.write(s"`define $e (${getWidth(AddrImmSelEnum)}'d${AddrImmSelEnum.defaultEncoding.getValue(e)})\n") }
     AddrImmTypeEnum.elements.foreach{ e => bw.write(s"`define $e (${getWidth(AddrImmTypeEnum)}'d${AddrImmTypeEnum.defaultEncoding.getValue(e)})\n") }
     CmpTypeEnum.elements.foreach{ e => bw.write(s"`define $e (${getWidth(CmpTypeEnum)}'d${CmpTypeEnum.defaultEncoding.getValue(e)})\n") }
     bw.write("\n")

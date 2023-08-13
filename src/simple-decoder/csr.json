@@ -37,7 +37,7 @@
         },
         "wait_inst": {
             "length": 1,
-            "stage": "m1",
+            "stage": "m2",
             "default": false
         },
         "syscall_inst": {

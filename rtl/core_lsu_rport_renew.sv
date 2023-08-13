@@ -100,11 +100,11 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     wb_data_waddr <= wreq_i.data_waddr;
     wb_data_wdata <= wreq_i.data_wdata;
   end
-  always_ff @(posedge clk) begin
-    wb_tag_we    <= wreq_i.tag_we;
-    wb_tag_waddr <= wreq_i.tag_waddr;
-    wb_tag_wdata <= wreq_i.tag_wdata;
-  end
+  // always_ff @(posedge clk) begin
+  //   wb_tag_we    <= wreq_i.tag_we;
+  //   wb_tag_waddr <= wreq_i.tag_waddr;
+  //   wb_tag_wdata <= wreq_i.tag_wdata;
+  // end
 
   always_ff @(posedge clk) begin
     m1_data_rdata_q <= m1_data_rdata;
@@ -128,10 +128,10 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     always_comb begin
       m1_tag_rdata[w] = m1_stall_q ? m1_tag_rdata_q[w] : raw_tag_rdata[w];
-      if(wb_tag_we[w] && wb_tag_waddr == tramaddr(m1_vaddr_i)) begin
-        m1_tag_rdata[w] = wb_tag_wdata;
-      end
-      else if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i)) begin
+      // if(wb_tag_we[w] && wb_tag_waddr == tramaddr(m1_vaddr_i)) begin
+      //   m1_tag_rdata[w] = wb_tag_wdata;
+      // end else
+      if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i)) begin
         m1_tag_rdata[w] = wreq_i.tag_wdata;
       end
     end

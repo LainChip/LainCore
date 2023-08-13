@@ -178,8 +178,8 @@ module core_lsu_wport #(
   logic uncac_fifo_full;
   logic[2:0] pw_w_ptr,pw_r_ptr,pw_cnt;
   assign pw_cnt          = pw_w_ptr - pw_r_ptr;
-  assign pw_empty        = pw_cnt == '0;
-  assign uncac_fifo_full = pw_cnt == 3'd4;
+  // assign pw_empty        = pw_cnt == '0;
+  // assign uncac_fifo_full = pw_cnt == 3'd4;
   always_ff @(posedge clk) begin
     if(~rst_n) begin
       pw_w_ptr <= '0;
@@ -194,6 +194,36 @@ module core_lsu_wport #(
     end
     else if(pw_r_e && !pw_empty) begin
       pw_r_ptr <= pw_r_ptr + 1'd1;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      pw_empty <= '1;
+    end else begin
+      if(pw_empty) begin
+        if(pw_w_e && !pw_r_e) begin
+          pw_empty <= '0;
+        end
+      end else begin
+        if(pw_r_e && (pw_cnt == 1) && !pw_w_e) begin
+          pw_empty <= '1;
+        end
+      end
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      uncac_fifo_full <= '0;
+    end else begin
+      if(uncac_fifo_full) begin
+        if(pw_r_e && !pw_w_e) begin
+          uncac_fifo_full <= '0;
+        end
+      end else begin
+        if(!pw_r_e && (pw_cnt == 3) && pw_w_e) begin
+          uncac_fifo_full <= '1;
+        end
+      end
     end
   end
   always_ff @(posedge clk) begin

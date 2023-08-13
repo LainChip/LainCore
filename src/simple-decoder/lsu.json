@@ -175,6 +175,7 @@
             "reg_type_r1": "_REG_R1_RJ",
             "addr_imm_type": "_ADDR_IMM_S14",
             "reg_type_w": "_REG_W_RD",
+            "fu_sel_m2": "_FUSEL_M2_MEM",
             "latest_r0_m2": true,
             "latest_r1_ex": true,
             "need_csr": true
