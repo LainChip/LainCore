@@ -459,7 +459,7 @@ always_ff @(posedge clk) begin
     end
 
     // estat_q[9:2] <= int_i;
-    if(/* m1_commit_i_q && */!m2_stall_i | '1) begin
+    if(/* m1_commit_i_q && */'1) begin
       estat_q[9:2] <= int_q;
     end
     if (excp_valid) begin
@@ -493,7 +493,7 @@ assign csr_o.estat = {estat_q[31:12],estat_q_q[ESTAT_DELAY - 1][11:0]};
 //     int_q,
 //     estat_we ? csr_w_data[1:0] : (estat_we_q ? estat_sft_intr_q : estat_q[1:0])}
 //   & {ectl_q[11], ectl_q[9:0]}) != 0) && (crmd_q[2] != 0);
-assign m1_int_o = (|(ectl_q[11:0] & estat_q[11:0])) && (crmd_q[2] != 0);
+assign m1_int_o = (|(ectl_q[11:0] & estat_q[11:0])) && (crmd_q[2]);
 // era
 logic era_we,era_re;
 assign era_we = csr_we && (csr_w_addr_i == `_CSR_ERA);

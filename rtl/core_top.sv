@@ -3,7 +3,7 @@
 module core_top(
   input           aclk,
   input           aresetn,
-  input    [ 7:0] intrpt,
+  (*mark_debug*) input    [ 7:0] intrpt,
   //AXI interface
   //read reqest
   output   [ 3:0] arid,

@@ -1,6 +1,10 @@
 `include "lsu.svh"
 /*--JSON--{"module_name":"core_lsu_wport","module_ver":"2","module_type":"module"}--JSON--*/
 
+function logic[$clog2(`_DWAY_CNT) - 1 : 0] next_tag_sel(logic[$clog2(`_DWAY_CNT) - 1 : 0] old_sel);
+  next_tag_sel = (old_sel[$clog2(`_DWAY_CNT) - 1 : 0] + 1'd1) % `_DWAY_CNT;
+endfunction
+
 module core_lsu_wport #(
     parameter int PIPE_MANAGE_NUM = 2          ,
     parameter int WAY_CNT         = `_DWAY_CNT ,
@@ -64,7 +68,7 @@ module core_lsu_wport #(
       wreq_size = (rstate_i[0].uncached_write_valid) ?
                 rstate_i[0].rwsize : rstate_i[1].rwsize;
       // wreq_hit = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
-      wreq_hit      = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid || rstate_i[0].miss_write_req_valid) ?
+      wreq_hit      = (rstate_i[0].hit_write_req_valid || rstate_i[0].uncached_write_valid) ?
                 rstate_i[0].wsel : rstate_i[1].wsel;
       wreq_uncached = rstate_i[0].uncached_write_valid | rstate_i[1].uncached_write_valid;
     end
@@ -89,20 +93,26 @@ module core_lsu_wport #(
   localparam logic[4:0] O_CACHE_INVWB = 16;
 
   always_ff @(posedge clk) begin
-    op_addr_q <= op_addr;
-    refill_addr_q <= refill_addr;
-    op_type_q <= op_type;
-    op_size_q <= op_size;
-    op_valid_q <= op_valid;
-    refill_sel_q <= refill_sel;
-    oldtag_q <= oldtag;
+    if(!rst_n) begin
+      op_valid_q <= '0;
+      op_type_q <= '0;
+      refill_sel_q <= '0;
+    end else begin
+      op_addr_q <= op_addr;
+      refill_addr_q <= refill_addr;
+      op_type_q <= op_type;
+      op_size_q <= op_size;
+      op_valid_q <= op_valid;
+      refill_sel_q <= refill_sel;
+      oldtag_q <= oldtag;
+    end
   end
   always_comb begin
+    op_valid = op_valid_q;
     op_addr = op_addr_q;
     refill_addr = refill_addr_q;
     op_type = op_type_q;
     op_size = op_size_q;
-    op_valid = op_valid_q;
     refill_sel = refill_sel_q;
     oldtag = oldtag_q;
     if(op_valid_q) begin
@@ -115,11 +125,11 @@ module core_lsu_wport #(
         rstate_i[i].cache_op_inv ||
         rstate_i[i].cache_op_invwb || rstate_i[i].miss_write_req_valid) begin
           op_addr = rstate_i[i].addr;
-          refill_addr = rstate_i[i].uncached_read ? rstate_i[i].addr : {rstate_i[i].addr[11:4], 4'd0};
+          refill_addr = rstate_i[i].uncached_read ? rstate_i[i].addr : {rstate_i[i].addr[31:4], 4'd0};
           op_size = rstate_i[i].rwsize;
           op_valid = '1;
-          oldtag = rstate_i[i].tag_rdata[refill_sel_q + 1];
-          refill_sel = refill_sel_q + 1;
+          oldtag = rstate_i[i].tag_rdata[next_tag_sel(refill_sel_q)]; // FIXME: ^ 1 -> + 1
+          refill_sel = next_tag_sel(refill_sel_q);
           op_type = 0;
           if(rstate_i[i].cache_refill_valid) begin
             op_type = O_READ_REFILL;
@@ -412,8 +422,8 @@ module core_lsu_wport #(
     end
     else begin
       cur_wb_ram_addr_q[3:2]   <= cur_wb_ram_addr_q[3:2] + 2'd1;
-      cur_wb_ram_addr_q_q[3:2] <= cur_wb_ram_addr_q[3:2];
     end
+    cur_wb_ram_addr_q_q[3:2] <= cur_wb_ram_addr_q[3:2];
   end
   always_ff @(posedge clk) begin
     if(set_bus_timer) begin

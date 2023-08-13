@@ -168,7 +168,7 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
                 .cacheop_valid_i(icacheop_valid          ),
                 .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
                 .valid_i        (f1_valid                ),
-                .excp_i         (|f1_excp /*&& '0  */    ),
+                .excp_i         (|f1_excp && '0          ),
                 .npc_i          (npc_vaddr               ),
                 .vpc_i          (f1_pc                   ),
                 .ppc_i          (f1_ppc                  ),

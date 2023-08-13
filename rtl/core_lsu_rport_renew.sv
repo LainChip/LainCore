@@ -262,26 +262,26 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   // 注意：正常流水下，m2 只需要从 m1 流水选择有效的即可。
   // 暂停的情况下，m2 需要及时的捕捉 read_ready 信号。
   logic[WAY_CNT - 1 : 0][31:0] m2_data_rdata_q;
-  dcache_tag_t [WAY_CNT-1:0] m2_tag_rdata_q,m2_tag_rdata;
+  dcache_tag_t [WAY_CNT-1:0] m2_tag_rdata_q/*m2_tag_rdata*/;
   always_ff @(posedge clk) begin
     if(!m2_stall_i) begin
       m2_data_rdata_q <= m1_data_rdata;
-      m2_tag_rdata_q  <= m2_tag_rdata;
+      m2_tag_rdata_q  <= m1_tag_rdata;
     end
   end
-  always_comb begin
-    if(!m2_stall_i) begin
-      m2_tag_rdata = m1_tag_rdata;
-    end
-    else begin
-      m2_tag_rdata = m2_tag_rdata_q;
-      // for(integer w = 0 ; w < WAY_CNT ; w++) begin
-      //   if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
-      //     m2_tag_rdata[w] = wreq_i.tag_wdata;
-      //   end
-      // end
-    end
-  end
+  // always_comb begin
+  //   if(!m2_stall_i) begin
+  //     m2_tag_rdata = m1_tag_rdata;
+  //   end
+  //   else begin
+  //     m2_tag_rdata = m2_tag_rdata_q;
+  //     // for(integer w = 0 ; w < WAY_CNT ; w++) begin
+  //     //   if(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m2_vaddr_i)) begin
+  //     //     m2_tag_rdata[w] = wreq_i.tag_wdata;
+  //     //   end
+  //     // end
+  //   end
+  // end
   logic[31:0] data_rdata,data_rdata_q;
   always_ff @(posedge clk) begin
     if(fsm_q == S_UNCACHE_READ || fsm_q == S_REFILL_READ) begin

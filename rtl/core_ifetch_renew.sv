@@ -352,14 +352,14 @@ module core_ifetch #(
         if(cacheop_valid_q && !f2_op_finished_q) begin
           fsm = FSM_RECVER;
         end
-        else if(!uncached_q && miss_q && |fetch_v_q && !fetch_excp_q) begin
+        else if(!uncached_q && miss_q && (|fetch_v_q) && !fetch_excp_q) begin
           if(bus_busy_i) begin
             fsm = FSM_WAITBUS;
           end else begin
             fsm = FSM_RFADDR;
           end
         end
-        else if(uncached_q && !f2_op_finished_q && |fetch_v_q && !fetch_excp_q) begin
+        else if(uncached_q && !f2_op_finished_q && (|fetch_v_q) && !fetch_excp_q) begin
           if(bus_busy_i) begin
             fsm = FSM_WAITBUS;
           end else if(fetch_v_q[0]) begin
