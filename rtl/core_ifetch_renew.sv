@@ -156,6 +156,9 @@ module core_ifetch #(
     end
     for(genvar w = 0 ; w < WAY_CNT ; w++) begin
       always_ff @(posedge clk) begin
+        if(!f2_stall_i) begin
+          f2_data_q[w] <= f2_data[w];
+        end
       end
       always_comb begin
         if(dram_we[w] && (dram_waddr[9:1] == ppc_i[11:3]) && !dram_waddr[0]) begin
