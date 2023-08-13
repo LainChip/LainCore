@@ -1,7 +1,7 @@
 `include "pipeline.svh"
 `include "lsu.svh"
 
-module core #(parameter bit ENABLE_TLB = 1'b1)(
+module core #(parameter bit ENABLE_TLB = 1'b0)(
     input clk,
     input rst_n,
     input [7:0] int_i,

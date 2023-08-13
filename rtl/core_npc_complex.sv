@@ -243,7 +243,7 @@ module core_npc (
                            .clk     (clk       ),
                            .rst_n   (rst_n     ),
                            .addressA(info_waddr),
-                           .we      (info_we[p] | rst_n_q),
+                           .we      (info_we[p] | !rst_n_q),
                            .addressB(info_raddr ^ rst_addr_q),
                            .re      (!f_stall_i),
                            .inData  (winfo),

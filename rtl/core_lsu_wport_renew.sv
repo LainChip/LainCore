@@ -1,10 +1,6 @@
 `include "lsu.svh"
 /*--JSON--{"module_name":"core_lsu_wport","module_ver":"2","module_type":"module"}--JSON--*/
 
-function logic[$clog2(`_DWAY_CNT) - 1 : 0] next_tag_sel(logic[$clog2(`_DWAY_CNT) - 1 : 0] old_sel);
-  next_tag_sel = (old_sel[$clog2(`_DWAY_CNT) - 1 : 0] + 1'd1) % `_DWAY_CNT;
-endfunction
-
 module core_lsu_wport #(
     parameter int PIPE_MANAGE_NUM = 2          ,
     parameter int WAY_CNT         = `_DWAY_CNT ,
@@ -128,8 +124,8 @@ module core_lsu_wport #(
           refill_addr = rstate_i[i].uncached_read ? rstate_i[i].addr : {rstate_i[i].addr[31:4], 4'd0};
           op_size = rstate_i[i].rwsize;
           op_valid = '1;
-          oldtag = rstate_i[i].tag_rdata[next_tag_sel(refill_sel_q)]; // FIXME: ^ 1 -> + 1
-          refill_sel = next_tag_sel(refill_sel_q);
+          oldtag = rstate_i[i].tag_rdata[refill_sel_q ^ 1]; // FIXME: ^ 1 -> + 1
+          refill_sel = refill_sel_q ^ 1;
           op_type = 0;
           if(rstate_i[i].cache_refill_valid) begin
             op_type = O_READ_REFILL;
