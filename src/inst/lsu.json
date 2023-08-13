@@ -170,7 +170,6 @@
             "fu_sel_m2": "`_FUSEL_M2_MEM",
             "latest_r0_m2": 1,
             "latest_r1_ex": 1,
-            "refetch": 1,
             "need_csr": 1
         },
         "cacop": {
