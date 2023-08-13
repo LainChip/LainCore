@@ -1079,7 +1079,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         ); // TODO: CHECK
         m1_excp_flow.pil = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu
+          (!m1_addr_trans_result[p].value.v && decode_info.need_lsu && !decode_info.mem_write
             && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
           )
         ); // TODO: CHECK
