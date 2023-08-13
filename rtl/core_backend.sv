@@ -1063,7 +1063,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         // SUPPORT LLSC
         m1_excp_flow.adem = m1_addr_trans_result[p].dmw ? '0 : (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
-          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && decode_info.need_lsu)
+          (csr_value.crmd[`PLV] == 2'd3 && m1_mem_vaddr[p][31] && decode_info.need_lsu && !decode_info.mem_cacop)
         );
         m1_excp_flow.tlbr = (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
