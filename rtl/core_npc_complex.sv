@@ -199,21 +199,21 @@ module core_npc (
     info_we = '0;
     info_we[correct_i.pc[2]] = correct_i.need_update;
   end
+  logic[7:0] rst_addr_q;
+  logic rst_n_q;
   always_comb begin
-    winfo.target_type = correct_i.true_target_type;
+    winfo.target_type = rst_n_q ? correct_i.true_target_type : `_BPU_TARGET_NPC;
     winfo.conditional_jmp = correct_i.true_conditional_jmp;
     winfo.history = {correct_i.history[3:0], correct_i.true_taken};
     winfo.tag = get_tag(correct_i.pc);
   end
-  logic[7:0] rst_addr_q;
-  logic rst_n_q;
   always_ff @(posedge clk) begin
     if(rst_n) begin
       rst_n_q <= '1;
-      rst_addr_q <= rst_addr_q + 1;
+      rst_addr_q <= '0;
     end else begin
       rst_n_q <= '0;
-      rst_addr_q <= '0;
+      rst_addr_q <= rst_addr_q + 1;
     end
   end
   for(genvar p = 0 ; p < 2 ; p++) begin
