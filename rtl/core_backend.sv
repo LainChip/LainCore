@@ -491,8 +491,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     logic div_valid;
     logic div_ready;
     logic[1:0] div_op;
-    logic[2:0] div_push_id; // EX
-    logic[2:0] div_pop_id;  // M2
+    // logic[2:0] div_push_id; // M2
+    // logic[2:0] div_pop_id;  // WB
     logic[1:0][31:0] div_input;
 
     logic[1:0] div_request_req;
@@ -504,10 +504,25 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       div_input   = div_req[0] ? div_input_req[0] : div_input_req[1];
       div_op      = div_req[0] ? div_op_req[0] : div_op_req[1];
       div_request = |div_request_req;
-      div_push_id = pipeline_wdata_ex[0].w_flow.w_id[2:0];
-      div_pop_id  = pipeline_wdata_m2[0].w_flow.w_id[2:0];
+      // div_push_id = pipeline_wdata_m2[0].w_flow.w_id[2:0];
+      // div_pop_id  = pipeline_wdata_wb[0].w_flow.w_id[2:0];
     end
-  core_divider_manager core_divider_manager_inst (
+  // core_divider_manager core_divider_manager_inst (
+  //   .clk           (clk             ),
+  //   .rst_n         (rst_n           ),
+  //   .r0_i          (div_input[0]    ),
+  //   .r1_i          (div_input[1]    ),
+  //   .op_i          (div_op          ),
+  //   .push_valid_i  (div_valid       ),
+  //   .push_ready_o  (div_ready       ),
+  //   .push_id_i     (div_push_id     ),
+  //   .wb_stall_i    (wb_stall        ),
+  //   .pop_id_i      (div_pop_id      ),
+  //   .result_valid_o(div_result_valid),
+  //   .result_o      (div_result      )
+  // );
+
+  core_divider_manager  core_divider_manager_inst (
     .clk           (clk             ),
     .rst_n         (rst_n           ),
     .r0_i          (div_input[0]    ),
@@ -515,9 +530,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     .op_i          (div_op          ),
     .push_valid_i  (div_valid       ),
     .push_ready_o  (div_ready       ),
-    .push_id_i     (div_push_id     ),
-    .wb_stall_i    (wb_stall        ),
-    .pop_id_i      (div_pop_id      ),
     .result_valid_o(div_result_valid),
     .result_o      (div_result      )
   );
@@ -865,15 +877,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         mul_op_req[p] = decode_info.alu_op;
         mul_r0_req[p] = pipeline_data_ex_q[p].r_data[0];
         mul_r1_req[p] = pipeline_data_ex_q[p].r_data[1];
-      end
-
-      // 接入 div
-      always_comb begin
-        div_req[p] = decode_info.need_div && exc_ex_q[p].need_commit && exc_ex_q[p].need_commit &&
-          &pipeline_data_ex_q[p].r_flow.r_ready;
-        div_op_req[p]       = decode_info.alu_op;
-        div_input_req[p][0] = pipeline_data_ex_q[p].r_data[0];
-        div_input_req[p][1] = pipeline_data_ex_q[p].r_data[1];
       end
 
       // 流水线间信息传递
@@ -1290,6 +1293,15 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       // 接入转发源
       always_comb begin
         fwd_data_m2[p] = mkfwddata(pipeline_wdata_m2[p]);
+      end
+
+      // 接入除法请求
+      always_comb begin
+        div_req[p] = decode_info.need_div && exc_m2_q[p].need_commit && !m2_stall;
+        // stall 的时候不产生 req，以避免前后两条 div 冲突
+        div_op_req[p]       = decode_info.alu_op;
+        div_input_req[p][0] = pipeline_data_m2_q[p].r_data[0];
+        div_input_req[p][1] = pipeline_data_m2_q[p].r_data[1];
       end
 
       // 接入暂停请求

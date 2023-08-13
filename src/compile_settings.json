@@ -9,7 +9,7 @@
         "module_ver": "2"
     },
     "mycpu_top": {
-        "module_ver": "2"
+        "module_ver": "6"
     },
     "core_npc": {
         "module_ver": "2"
@@ -21,6 +21,9 @@
         "module_ver": "2"
     },
     "core_lsu_wport": {
+        "module_ver": "2"
+    },
+    "core_divider_manager": {
         "module_ver": "2"
     }
 }

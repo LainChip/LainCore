@@ -5,16 +5,16 @@ module fast_div (
     input rst_n,
     input [31:0] A,
     input [31:0] B,
-    output [31:0] HI,
-    output [31:0] LO,
+    output [31:0] rem,
+    output [31:0] quo,
     input start,
     input sign,
     output busy
 );
 
   wire [63:0] result;
-  assign HI = result[63:32];
-  assign LO = result[31:0];
+  assign rem = result[63:32];
+  assign quo = result[31:0];
   wire negA = A[31] && sign, negB = B[31] && sign;
   reg negRemainder, negQuotient;
   wire [31:0] absA = negA ? -A : A, absB = negB ? -B : B;

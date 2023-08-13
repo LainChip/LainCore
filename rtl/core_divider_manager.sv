@@ -1,6 +1,7 @@
 `include "pipeline.svh"
 
-// TAG: 需要重构：简化逻辑
+/*--JSON--{"module_name":"core_divider_manager","module_ver":"1","module_type":"module"}--JSON--*/
+// 注意：接口发生变化，老版本不可用
 
 module core_divider_manager(
     input logic clk,
