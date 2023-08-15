@@ -148,7 +148,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
 
   // M2 核心状态机
   logic[WAY_CNT - 1 : 0] hit_q;
-  logic miss_q;
+  (*MAX_FANOUT=400*) logic miss_q;
   always_ff @(posedge clk) begin
     if(!m2_stall_i) begin
       hit_q  <= m1_hit;
@@ -164,7 +164,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   localparam fsm_t S_REFILL_WRITE  = 4;
   localparam fsm_t S_CACHE_INVOP   = 5; // CACHE 指令相关
   localparam fsm_t S_WAIT_STALL    = 6;
-  fsm_t fsm_q,fsm;
+  (*MAX_FANOUT=400*) fsm_t fsm_q,fsm;
   always_ff @(posedge clk) begin
     if(~rst_n) begin
       fsm_q <= S_NORMAL;

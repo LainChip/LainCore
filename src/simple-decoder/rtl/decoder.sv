@@ -1,6 +1,6 @@
 // Generator : SpinalHDL v1.9.2    git head : 457a28dd4b2ae1f3a1f3ef4268c3a7f613ec81ed
 // Component : decoder
-// Git hash  : 0ae7a09fb3e78f2b8ff398fc58666b19b3b1b2aa
+// Git hash  : 2410ee731f2c9a14f8bfeec9a0ac79cf1bbe9426
 
 `timescale 1ns/1ps
 
@@ -818,10 +818,10 @@ module decoder (
   assign _zz_ctrl_136 = 32'h66480000;
   assign _zz_ctrl_138 = 32'h66508000;
   assign _zz_ctrl_167 = 32'h65400000;
-  assign _zz_ctrl_169 = (inst_i & 32'h67800000);
-  assign _zz_ctrl_170 = 32'h02000000;
-  assign _zz_ctrl_172 = ((inst_i & _zz_ctrl_173) == 32'h00020000);
-  assign _zz_ctrl_174 = ((inst_i & _zz_ctrl_175) == 32'h00080000);
+  assign _zz_ctrl_169 = (inst_i & 32'h66280000);
+  assign _zz_ctrl_170 = 32'h00080000;
+  assign _zz_ctrl_172 = ((inst_i & _zz_ctrl_173) == 32'h02000000);
+  assign _zz_ctrl_174 = ((inst_i & _zz_ctrl_175) == 32'h00020000);
   assign _zz_ctrl_179 = (inst_i & 32'h70000000);
   assign _zz_ctrl_180 = 32'h40000000;
   assign _zz_ctrl_182 = ((inst_i & _zz_ctrl_183) == 32'h10000000);
@@ -836,8 +836,8 @@ module decoder (
   assign _zz_ctrl_227 = (|_zz_ctrl_228);
   assign _zz_ctrl_230 = (|_zz_ctrl_231);
   assign _zz_ctrl_236 = {_zz_ctrl_237,{_zz_ctrl_256,_zz_ctrl_274}};
-  assign _zz_ctrl_173 = 32'h66220000;
-  assign _zz_ctrl_175 = 32'h662c0000;
+  assign _zz_ctrl_173 = 32'h67800000;
+  assign _zz_ctrl_175 = 32'h66220000;
   assign _zz_ctrl_183 = 32'h70000000;
   assign _zz_ctrl_185 = (inst_i & 32'h6c000000);
   assign _zz_ctrl_186 = 32'h44000000;

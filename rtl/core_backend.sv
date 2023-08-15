@@ -325,8 +325,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       pipeline_data_skid_q[p],
       pipeline_data_skid_fwd[p]
     );
-    core_fwd_unit #(3) ex_fwd (
-      {fwd_data_wb, fwd_data_m1, fwd_data_m2 /* SUPPORT FULL */},
+    core_fwd_unit #(2) ex_fwd (
+      {fwd_data_wb, fwd_data_m1/*, fwd_data_m2 */ /* DONOT SUPPORT FULL */},
       pipeline_data_ex_q[p],
       pipeline_data_ex_fwd[p]
     );
@@ -1072,7 +1072,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].found && decode_info.need_lsu &&
             (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
-            && (!ENABLE_TLB || p != 0 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
+            && (!ENABLE_TLB || p != 0 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:3] != 2)))
           )
         ) : '0; // TODO: CHECK
         m1_excp_flow.pis = ENABLE_TLB ? (
@@ -1083,7 +1083,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         m1_excp_flow.pil = ENABLE_TLB ? (
           (!(|m1_excp_flow) && exc_m1_q[p].need_commit && (p == 0 ? 1'b1 : !m1_invalidate_req[0])) &&
           (!m1_addr_trans_result[p].value.v && decode_info.need_lsu && !decode_info.mem_write
-            && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
+            && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:3] != 2)))
           )
         ) : '0; // TODO: CHECK
         m1_excp_flow.ppi = ENABLE_TLB ? (
@@ -1091,7 +1091,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           (m1_addr_trans_result[p].value.plv == 2'b00 && csr_value.crmd[`PLV] == 2'd3
             && decode_info.need_lsu &&
             (!ENABLE_TLB || p != 0 || !decode_info.llsc_inst || !decode_info.mem_write || csr_value.llbit)
-            && (!ENABLE_TLB || p == 1 || !(decode_info.mem_cacop && (pipeline_ctrl_m1_q[p].op_code[4:1] == 0)))
+            && (!ENABLE_TLB || p == 1 || !decode_info.mem_cacop)
           ) // MAY LEAD TO SOME SECURITY BUG.
         ) : '0; // TODO: CHECK
         m1_excp_flow.pme = ENABLE_TLB ? (

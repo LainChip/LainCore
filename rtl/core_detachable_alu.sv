@@ -66,7 +66,7 @@ always_comb begin
         res_o = g0_result;
       end
     `_ALU_GTYPE_INT : begin
-      if(USE_LI || USE_INT || USE_MUL) begin
+      if(USE_LI || USE_INT) begin
         res_o = g1_result;
       end else begin
         res_o = g0_result;
@@ -80,7 +80,7 @@ always_comb begin
       end
     end
     `_ALU_GTYPE_CMP : begin
-      if(USE_CMP) begin
+      if(USE_CMP || USE_MUL) begin
         res_o = g3_result;
       end else begin
         res_o = g0_result;
@@ -183,11 +183,6 @@ else if(USE_LI) begin
     endcase
   end
 end
-else if(USE_MUL) begin
-  always_comb begin
-    g1_result = mul_i;
-  end
-end
 else begin
   assign g1_result = '0;
 end
@@ -218,7 +213,9 @@ if (USE_CMP) begin
   // assign g3_result[0] = ext ? sub_r[32] : sub_r[31];
   assign g3_result[0] = sub_r[32];
 end
-else begin
+else if(USE_MUL) begin
+  assign g3_result = mul_i;
+end else begin
   assign g3_result = '0;
 end
 
