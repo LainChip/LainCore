@@ -6,6 +6,7 @@
 // L0 TLB 完全可以用 FPGA-CAM 电路进行优化
 module core_addr_trans #(
   parameter bit ENABLE_TLB       = 1'b1           ,
+  parameter bit ENABLE_TLBL0     = 1'b0           ,
   parameter bit FETCH_ADDR       = 1'b0           ,
   parameter bit SUPPORT_32_PADDR = 1'b0           ,
   parameter int TLB_ENTRY_NUM    = `_TLB_ENTRY_NUM

@@ -1,6 +1,6 @@
 `include "common.svh"
 
-module core_top(
+module core_top #(parameter bit ENABLE_TLB = 1'b0)(
   input           aclk,
   input           aresetn,
   (*mark_debug*) input    [ 7:0] intrpt,
@@ -152,7 +152,7 @@ always_ff @(posedge aclk) begin
   rst_n <= aresetn;
 end
 
-core core (
+core #(.ENABLE_TLB(ENABLE_TLB)) core (
   .clk    (aclk   ),
   .rst_n  (rst_n  ),
   .int_i  (intrpt ),

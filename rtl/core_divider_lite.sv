@@ -20,7 +20,7 @@ module core_divider_manager(
   );
   logic div_core_busy;
   logic[31:0] mod_result, div_result;
-  fast_div  fast_div_inst (
+  simple_div  fast_div_inst (
             .clk(clk),
             .rst_n(rst_n),
             .A(r1_i),
