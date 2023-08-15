@@ -32,7 +32,7 @@ module core_divider_manager(
             .busy(div_core_busy)
           );
   // 加一周期用于选择 rem 或者 qua
-  logic rvalid_q, rready_q, cal_mod_q;
+  (*MAX_FANOUT=400*) logic rvalid_q, rready_q, cal_mod_q;
   logic[31:0] result_q;
   assign push_ready_o = rready_q;
   assign result_valid_o = rvalid_q;

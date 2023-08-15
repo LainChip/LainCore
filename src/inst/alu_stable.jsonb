@@ -3,9 +3,9 @@
         "_ALU_GTYPE_BW": "2'd0",
         "_ALU_GTYPE_INT": "2'd1",
         "_ALU_GTYPE_LI": "2'd1",
+        "_ALU_GTYPE_MUL": "2'd1",
         "_ALU_GTYPE_SFT": "2'd2",
         "_ALU_GTYPE_CMP": "2'd3",
-        "_ALU_GTYPE_MUL": "2'd3",
 
         "_ALU_STYPE_NOR": "2'b00",
         "_ALU_STYPE_AND": "2'b01",

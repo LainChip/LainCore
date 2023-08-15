@@ -4,8 +4,8 @@
             "_ALU_GTYPE_BW": 0,
             "_ALU_GTYPE_INT": 1,
             "_ALU_GTYPE_LI": 1,
+            "_ALU_GTYPE_MUL": 1,
             "_ALU_GTYPE_SFT": 2,
-            "_ALU_GTYPE_MUL": 3,
             "_ALU_GTYPE_CMP": 3
         },
 

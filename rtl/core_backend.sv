@@ -325,8 +325,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       pipeline_data_skid_q[p],
       pipeline_data_skid_fwd[p]
     );
-    core_fwd_unit #(3) ex_fwd (
-      {fwd_data_wb, fwd_data_m1, fwd_data_m2 /* SUPPORT FULL */},
+    core_fwd_unit #(2) ex_fwd (
+      {fwd_data_wb, fwd_data_m1/*, fwd_data_m2 */ /* DONOT SUPPORT FULL */},
       pipeline_data_ex_q[p],
       pipeline_data_ex_fwd[p]
     );

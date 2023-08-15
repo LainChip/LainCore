@@ -96,7 +96,7 @@ typedef logic [31:0] debug_inst_t;
 typedef logic invalid_inst_t;
 
 `define _ALU_GTYPE_BW (2'd0)
-`define _ALU_GTYPE_MUL (2'd1)
+`define _ALU_GTYPE_MUL (2'd3)
 `define _ALU_GTYPE_LI (2'd1)
 `define _ALU_GTYPE_INT (2'd1)
 `define _ALU_GTYPE_CMP (2'd3)

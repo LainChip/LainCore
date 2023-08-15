@@ -81,7 +81,7 @@ object JsonInstSet extends InstSet {
     val _ALU_GTYPE_SFT = newElement("_ALU_GTYPE_SFT")
     defaultEncoding = SpinalEnumEncoding("staticEncoding")(
       _ALU_GTYPE_BW -> 0,
-      _ALU_GTYPE_MUL -> 1,
+      _ALU_GTYPE_MUL -> 3,
       _ALU_GTYPE_LI -> 1,
       _ALU_GTYPE_INT -> 1,
       _ALU_GTYPE_CMP -> 3,
