@@ -26,3 +26,5 @@ tmp
 # simple-decoder
 src/simple-decoder/project
 src/simple-decoder/target
+
+*.drawio.*

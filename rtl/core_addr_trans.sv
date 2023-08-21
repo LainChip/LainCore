@@ -62,7 +62,7 @@ module core_addr_trans #(
       always_ff @(posedge clk) begin
         if(tlb_update_req_i.tlb_we[i]) begin
           tlb_value_q[i] <= tlb_update_req_i.tlb_w_entry.value;
-          is_4M_page_q[i]   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22;
+          is_4M_page_q[i]   <= tlb_update_req_i.tlb_w_entry.key.ps == 6'd22; // in fact 21 (TODO)
         end
       end
     end
