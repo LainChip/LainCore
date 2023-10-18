@@ -27,7 +27,7 @@ module cam_cmp_lutram #(parameter int PACKS_OF_5_BITS = 4) (
     end
   end
 
-  for(genvar i = 0 ; i < 4 ; i ++) begin
+  for(genvar i = 0 ; i < PACKS_OF_5_BITS ; i ++) begin
     dpram_32x1  dpram_32x1_inst (
       .CLK(clk),
       .RST(~rst_n),
