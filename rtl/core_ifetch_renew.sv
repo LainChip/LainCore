@@ -178,48 +178,35 @@ module core_ifetch #(
   end
 
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    simpleDualPortRam #(
-      .DATA_WIDTH(32),
-      .DATA_DEPTH  (1 << 9),
-      .latency  (1),
-      .readMuler(1)
-    ) dram_0 (
+    syncDualPortRam #(
+      .DATA_WIDTH(64),
+      .DATA_DEPTH(1 << 9),
+      .BYTE_SIZE(32)
+    ) dram_bank (
       .clk     (clk       ),
       .rst_n   (rst_n     ),
-      .addressA(dram_waddr[9:1]),
-      .we      (dram_we[w] && !dram_waddr[0]),
-      .addressB(dram_raddr),
-      .inData  (dram_wdata),
-      .outData (dram_rdata[w][0])
-    );
-    simpleDualPortRam #(
-      .DATA_WIDTH(32),
-      .DATA_DEPTH  (1 << 9),
-      .latency  (1),
-      .readMuler(1)
-    ) dram_1 (
-      .clk     (clk       ),
-      .rst_n   (rst_n     ),
-      .addressA(dram_waddr[9:1]),
-      .we      (dram_we[w] && dram_waddr[0]),
-      .addressB(dram_raddr),
-      .inData  (dram_wdata),
-      .outData (dram_rdata[w][1])
+      .waddr_i (dram_waddr[9:1]),
+      .we_i    ({dram_we[w] && dram_waddr[0],
+          dram_we[w] && !dram_waddr[0]}),
+      .raddr_i (dram_raddr),
+      .re_i    (1'b1),
+      .wdata_i (dram_wdata),
+      .rdata_o (dram_rdata[w])
     );
     simpleDualPortLutRam #(
       .DATA_WIDTH($bits(i_tag_t)),
-      .DATA_DEPTH  (1 << 8        ),
-      .latency  (0             ),
-      .readMuler(1             )
+      .DATA_DEPTH(1 << 8        ),
+      .latency   (0             ),
+      .readMuler (1             )
     ) tram (
-      .clk     (clk          ),
-      .rst_n   (rst_n        ),
+      .clk     (clk                    ),
+      .rst_n   (rst_n                  ),
       .addressA(tram_waddr ^ rst_addr_q),
-      .we      (tram_we[w] | !rst_n_q),
-      .addressB(tram_raddr   ),
-      .re      (1'b1         ),
-      .inData  (tram_wdata   ),
-      .outData (tram_rdata[w])
+      .we      (tram_we[w] | !rst_n_q  ),
+      .addressB(tram_raddr             ),
+      .re      (1'b1                   ),
+      .inData  (tram_wdata             ),
+      .outData (tram_rdata[w]          )
     );
   end
 
@@ -389,7 +376,7 @@ module core_ifetch #(
       end
       FSM_RFDATA : begin
         if((&refill_addr_q_q[1:0]) && refill_valid_q) begin
-          fsm = EARLY_BRAM ? FSM_NORMAL : FSM_WAITBUS; 
+          fsm = EARLY_BRAM ? FSM_NORMAL : FSM_WAITBUS;
           // UGLY FIX： 多暂停一拍允许后续指令看到refill 的数据。
         end
       end

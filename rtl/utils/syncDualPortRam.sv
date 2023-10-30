@@ -13,24 +13,26 @@ module syncDualPortRam #(
   input                                     rst_n  ,
   input  logic [    $clog2(DATA_DEPTH)-1:0] waddr_i,
   input        [(DATA_WIDTH/BYTE_SIZE)-1:0] we_i   ,
-  input  dataType                           wdata_i,
   input  logic [    $clog2(DATA_DEPTH)-1:0] raddr_i,
+  input  logic                              re_i   ,
+  input  dataType                           wdata_i,
   output dataType                           rdata_o
 );
 
-  logic re, contention_q;
-  assign re = (!we_i) || (waddr_i != raddr_i);
-  // rdata may have 1-2ns~ delay
+  logic contention, contention_re_q;
+  assign contention = re_i && (|we_i) && (waddr_i == raddr_i);
+  assign re = re_i && !contention;
+  // rdata may have 1-3ns~ delay
   dataType wdata_q, rdata;
   always_ff @(posedge clk) begin
-    if(!re) begin
+    if(re_i && contention) begin
       wdata_q <= wdata_i;
     end
-    contention_q <= ~re;
+    contention_re_q <= re_i && contention;
   end
 
-  // rdata_o may have 2ns~ delay
-  assign rdata_o = contention_q ? wdata_q : rdata;
+  // rdata_o may have 3ns~ delay
+  assign rdata_o = contention_re_q ? wdata_q : rdata;
 
 `ifdef _FPGA
   xpm_memory_sdpram #(
@@ -57,7 +59,6 @@ module syncDualPortRam #(
   ) instanceSdpram (
     .clka          (clk    ),
     .clkb          (clk    ),
-    
     .waddr         (waddr_i),
     .raddr         (raddr_i),
     .rstb          (~rst_n ),
@@ -74,7 +75,6 @@ module syncDualPortRam #(
 `endif
 
 `ifdef _VERILATOR
-
   reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE:0] sim_ram[DATA_DEPTH-1:0];
 
   for(genvar i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i += 1) begin
@@ -87,10 +87,11 @@ module syncDualPortRam #(
 
   always @(posedge clkb) begin
     if(re) begin
-	  rdata <= sim_ram[raddr_i];
+      rdata <= sim_ram[raddr_i];
     end
   end
-
 `endif
+
+// ASIC BEGINS HERE, WE CHECK AND USE PROPER MODULE WE WANT HERE.
 
 endmodule // dualPortRam

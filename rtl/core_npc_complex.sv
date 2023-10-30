@@ -36,17 +36,17 @@ endfunction
 // 8.7 还是只做 8 对齐的 npc 模块
 
 module core_npc (
-    input  logic              clk       ,
-    input  logic              rst_n     ,
-    input  logic              rst_jmp   ,
-    input  logic [31:0]       rst_target,
-    input  logic              f_stall_i ,
-    output logic [31:0]       pc_o      , // F1 STAGE
-    output logic [31:0]       npc_o     ,
-    output logic [ 1:0]       valid_o   , // 2'b00 | 2'b01 | 2'b11 | 2'b10
-    output bpu_predict_t [1:0]predict_o ,
-    input  bpu_correct_t      correct_i
-  );
+  input  logic              clk       ,
+  input  logic              rst_n     ,
+  input  logic              rst_jmp   ,
+  input  logic [31:0]       rst_target,
+  input  logic              f_stall_i ,
+  output logic [31:0]       pc_o      , // F1 STAGE
+  output logic [31:0]       npc_o     ,
+  output logic [ 1:0]       valid_o   , // 2'b00 | 2'b01 | 2'b11 | 2'b10
+  output bpu_predict_t [1:0]predict_o ,
+  input  bpu_correct_t      correct_i
+);
   // PC: pc 寄存器，f1 流水级
   // NPC: 下一个 PC 值，f1 流水级前
   // PPC_RAS_Q: RAS 方式预测的下一个跳转地址
@@ -168,11 +168,11 @@ module core_npc (
   // 这一点已经足够使用了。
   //
   typedef struct packed {
-            logic [1:0] target_type; // 0 npc, 1 call, 2 return, 3 imm
-            logic conditional_jmp;   // 0 / 1 condition
-            logic [4:0] history;
-            logic [5:0] tag;
-          } branch_info_t;
+    logic [1:0] target_type; // 0 npc, 1 call, 2 return, 3 imm
+    logic conditional_jmp;   // 0 / 1 condition
+    logic [4:0] history;
+    logic [5:0] tag;
+  } branch_info_t;
   logic[8:0] btb_waddr,btb_raddr;
   logic[1:0] btb_we;
   logic[31:0] btb_wdata;
@@ -183,8 +183,8 @@ module core_npc (
   assign btb_wdata = correct_i.true_target;
   always_comb begin
     btb_we = '0;
-    btb_we[correct_i.pc[2]] = correct_i.need_update && 
-    (correct_i.true_target_type == `_BPU_TARGET_CALL ||correct_i.true_target_type == `_BPU_TARGET_IMM);
+    btb_we[correct_i.pc[2]] = correct_i.need_update &&
+      (correct_i.true_target_type == `_BPU_TARGET_CALL ||correct_i.true_target_type == `_BPU_TARGET_IMM);
   end
 
   logic[7:0] info_waddr,info_raddr;
@@ -218,37 +218,36 @@ module core_npc (
   end
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 创建两个 btb 和 info mem，用于写更新时区别开来。
-    simpleDualPortRamRE #(
-                          .DATA_WIDTH(30 ),
-                          .DATA_DEPTH  (512),
-                          .latency  (1  ),
-                          .readMuler(1  )
-                        ) btb_table (
-                          .clk     (clk       ),
-                          .rst_n   (rst_n     ),
-                          .addressA(btb_waddr ),
-                          .we      (btb_we[p] ),
-                          .addressB(btb_raddr ),
-                          .re      (!f_stall_i),
-                          .inData  (btb_wdata[31:2]),
-                          .outData (btb_rdata[p][31:2])
-                        );
+    syncDualPortRam #(
+      .DATA_WIDTH(30 ),
+      .DATA_DEPTH(512),
+      .BYTE_SIZE(30)
+    ) btb_table (
+      .clk     (clk       ),
+      .rst_n   (rst_n     ),
+      .waddr_i (btb_waddr ),
+      .we_i    (btb_we[p] ),
+      .raddr_i (btb_raddr ),
+      .re_i    (!f_stall_i),
+      .wdata_i (btb_wdata[31:2]),
+      .rdata_o (btb_rdata[p][31:2])
+    );
     assign btb_rdata[p][1:0] = '0;
     simpleDualPortLutRam #(
-                           .DATA_WIDTH($bits(branch_info_t)),
-                           .DATA_DEPTH  (256),
-                           .latency  (1  ),
-                           .readMuler(1  )
-                         ) info_table (
-                           .clk     (clk       ),
-                           .rst_n   (rst_n     ),
-                           .addressA(info_waddr),
-                           .we      (info_we[p] | !rst_n_q),
-                           .addressB(info_raddr ^ rst_addr_q),
-                           .re      (!f_stall_i),
-                           .inData  (winfo),
-                           .outData (rinfo_q[p])
-                         );
+      .DATA_WIDTH($bits(branch_info_t)),
+      .DATA_DEPTH(256                 ),
+      .latency   (1                   ),
+      .readMuler (1                   )
+    ) info_table (
+      .clk     (clk                    ),
+      .rst_n   (rst_n                  ),
+      .addressA(info_waddr             ),
+      .we      (info_we[p] | !rst_n_q  ),
+      .addressB(info_raddr ^ rst_addr_q),
+      .re      (!f_stall_i             ),
+      .inData  (winfo                  ),
+      .outData (rinfo_q[p]             )
+    );
   end
 
   // 预测逻辑
@@ -268,20 +267,20 @@ module core_npc (
   logic [1:0] tag_match;
   for(genvar p = 0 ; p < 2; p++) begin
     simpleDualPortLutRam #(
-                           .DATA_WIDTH(2 ),
-                           .DATA_DEPTH  (32),
-                           .latency  (0 ),
-                           .readMuler(1 )
-                         ) l2_table (
-                           .clk     (clk            ),
-                           .rst_n   (rst_n          ),
-                           .addressA(level2_waddr   ),
-                           .we      (level2_we      ),
-                           .addressB(level2_raddr[p]),
-                           .re      (1'b1           ),
-                           .inData  (level2_wdata   ),
-                           .outData (level2_cnt[p]  )
-                         );
+      .DATA_WIDTH(2 ),
+      .DATA_DEPTH  (32),
+      .latency  (0 ),
+      .readMuler(1 )
+    ) l2_table (
+      .clk     (clk            ),
+      .rst_n   (rst_n          ),
+      .addressA(level2_waddr   ),
+      .we      (level2_we      ),
+      .addressB(level2_raddr[p]),
+      .re      (1'b1           ),
+      .inData  (level2_wdata   ),
+      .outData (level2_cnt[p]  )
+    );
     assign level2_raddr[p] = rinfo_q[p].history;
     // 可以被综合成一个 lut6
     always_comb begin

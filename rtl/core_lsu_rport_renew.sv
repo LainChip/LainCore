@@ -3,36 +3,36 @@
 /*--JSON--{"module_name":"core_lsu_rport","module_ver":"2","module_type":"module"}--JSON--*/
 
 module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
-    input  wire          clk          ,
-    input  wire          rst_n        ,
-    input  wire [31:0]   ex_vaddr_i   ,
-    input  wire          ex_read_i    ,
-    input  wire [31:0]   m1_vaddr_i   ,
-    input  wire [31:0]   m1_paddr_i   ,
-    input  wire [ 3:0]   m1_strobe_i  ,
-    input  wire          m1_read_i    ,
-    input  wire          m1_uncached_i,
-    output wire          m1_busy_o    , // M1 级的 LSU 允许 stall
-    input  wire          m1_stall_i   ,
-    output wire [31:0]   m1_rdata_o   ,
-    output wire          m1_rvalid_o  , // 结果早出级
-    input  wire [31:0]   m2_vaddr_i   ,
-    input  wire [31:0]   m2_paddr_i   ,
-    input  wire [31:0]   m2_wdata_i   ,
-    input  wire [ 3:0]   m2_strobe_i  ,
-    input  wire [ 2:0]   m2_type_i    ,
-    input  wire          m2_valid_i   ,
-    input  wire          m2_uncached_i,
-    input  wire [ 1:0]   m2_size_i    , // uncached 专用
-    output reg           m2_busy_o    , // M2 级别的 LSU 允许 stall
-    input  wire          m2_stall_i   ,
-    input  wire [ 2:0]   m2_op_i      , // TODO: CONNECT ME
-    output wire [31:0]   m2_rdata_o   ,
-    output wire          m2_rvalid_o  , // 需要 fmt 的结果级
-    output rport_state_t rstate_o     ,
-    input  wport_state_t wstate_i     ,
-    input  wport_wreq_t  wreq_i         // 需要做 snoop
-  );
+  input  wire          clk          ,
+  input  wire          rst_n        ,
+  input  wire [31:0]   ex_vaddr_i   ,
+  input  wire          ex_read_i    ,
+  input  wire [31:0]   m1_vaddr_i   ,
+  input  wire [31:0]   m1_paddr_i   ,
+  input  wire [ 3:0]   m1_strobe_i  ,
+  input  wire          m1_read_i    ,
+  input  wire          m1_uncached_i,
+  output wire          m1_busy_o    , // M1 级的 LSU 允许 stall
+  input  wire          m1_stall_i   ,
+  output wire [31:0]   m1_rdata_o   ,
+  output wire          m1_rvalid_o  , // 结果早出级
+  input  wire [31:0]   m2_vaddr_i   ,
+  input  wire [31:0]   m2_paddr_i   ,
+  input  wire [31:0]   m2_wdata_i   ,
+  input  wire [ 3:0]   m2_strobe_i  ,
+  input  wire [ 2:0]   m2_type_i    ,
+  input  wire          m2_valid_i   ,
+  input  wire          m2_uncached_i,
+  input  wire [ 1:0]   m2_size_i    , // uncached 专用
+  output reg           m2_busy_o    , // M2 级别的 LSU 允许 stall
+  input  wire          m2_stall_i   ,
+  input  wire [ 2:0]   m2_op_i      , // TODO: CONNECT ME
+  output wire [31:0]   m2_rdata_o   ,
+  output wire          m2_rvalid_o  , // 需要 fmt 的结果级
+  output rport_state_t rstate_o     ,
+  input  wport_state_t wstate_i     ,
+  input  wport_wreq_t  wreq_i         // 需要做 snoop
+);
 
   // EX-M1
   // 实例化 bram lutram 存储 tag 以及 data
@@ -45,36 +45,36 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   assign raw_tag_raddr  = tramaddr(ex_vaddr_i);
   for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
     // 数据ram == 4k each
-    simpleDualPortRamByteen #(
-                              .DATA_WIDTH(32),
-                              .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
-                              .readMuler(1),
-                              .latency(1)
-                            ) data_ram (
-                              .clk,
-                              .rst_n,
-                              .addressA(wreq_i.data_waddr),
-                              .we(wreq_i.data_we[w]),
-                              .addressB(raw_data_raddr),
-                              .inData(wreq_i.data_wdata),
-                              .outData(raw_data_rdata[w])
-                            );
+    syncDualPortRam #(
+      .DATA_WIDTH(32),
+      .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
+      .BYTE_SIZE(8)
+    ) data_ram (
+      .clk,
+      .rst_n,
+      .waddr_i(wreq_i.data_waddr),
+      .we_i(wreq_i.data_we[w]),
+      .raddr_i(raw_data_raddr),
+      .re_i    (1'b1),
+      .wdata_i(wreq_i.data_wdata),
+      .rdata_o(raw_data_rdata[w])
+    );
     // tag ram
     simpleDualPortLutRam #(
-                           .DATA_WIDTH($bits(dcache_tag_t)),
-                           .DATA_DEPTH  (1 << 8             ),
-                           .latency  (1                  ),
-                           .readMuler(1                  )
-                         ) tag_ram (
-                           .clk     (clk             ),
-                           .rst_n   (rst_n           ),
-                           .addressA(wreq_i.tag_waddr),
-                           .we      (wreq_i.tag_we[w]),
-                           .addressB(raw_tag_raddr   ),
-                           .re      (~(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i))),
-                           .inData  (wreq_i.tag_wdata),
-                           .outData (raw_tag_rdata[w])
-                         );
+      .DATA_WIDTH($bits(dcache_tag_t)),
+      .DATA_DEPTH(1 << 8             ),
+      .latency   (1                  ),
+      .readMuler (1                  )
+    ) tag_ram (
+      .clk     (clk                                                            ),
+      .rst_n   (rst_n                                                          ),
+      .addressA(wreq_i.tag_waddr                                               ),
+      .we      (wreq_i.tag_we[w]                                               ),
+      .addressB(raw_tag_raddr                                                  ),
+      .re      (~(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i))),
+      .inData  (wreq_i.tag_wdata                                               ),
+      .outData (raw_tag_rdata[w]                                               )
+    );
   end
 
   logic m1_stall_q, m2_stall_q;
@@ -118,7 +118,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
           m1_data_rdata[w][7 + 8 * b -: 8] = wb_data_wdata[7 + 8 * b -: 8];
         end
         if(wreq_i.data_we[w][b] &&
-            wreq_i.data_waddr == dramaddr(m1_vaddr_i)) begin
+          wreq_i.data_waddr == dramaddr(m1_vaddr_i)) begin
           // 这个优先级更高
           m1_data_rdata[w][7 + 8 * b -: 8] = wreq_i.data_wdata[7 + 8 * b -: 8];
         end
@@ -190,15 +190,15 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
                 fsm       = S_REFILL_WRITE;
                 m2_busy_o = '1;
               end else if(m2_op_i == `_DCAHE_OP_DIRECT_INVWB || // 优化写法
-                  (m2_op_i   == `_DCAHE_OP_DIRECT_INV)) begin
+                (m2_op_i   == `_DCAHE_OP_DIRECT_INV)) begin
                 fsm       = S_CACHE_INVOP; // 直接无效化对应行的每一路，以降低复杂度
                 m2_busy_o = '1;
               end
             end
             else begin
               if(m2_op_i == `_DCAHE_OP_DIRECT_INVWB ||
-                  (m2_op_i   == `_DCAHE_OP_DIRECT_INV) ||
-                  (m2_op_i   == `_DCAHE_OP_HIT_INV)) begin
+                (m2_op_i   == `_DCAHE_OP_DIRECT_INV) ||
+                (m2_op_i   == `_DCAHE_OP_HIT_INV)) begin
                 fsm       = S_CACHE_INVOP; // 直接无效化对应行的每一路，以降低复杂度
                 m2_busy_o = '1;
               end
@@ -210,7 +210,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
               m2_busy_o = '1;
             end
             else if(m2_op_i == `_DCAHE_OP_WRITE &&
-                    !wstate_i.uncached_write_ready) begin
+              !wstate_i.uncached_write_ready) begin
               fsm       = S_UNCACHE_WRITE;
               m2_busy_o = '1;
             end
