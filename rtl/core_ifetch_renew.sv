@@ -179,8 +179,8 @@ module core_ifetch #(
 
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     simpleDualPortRam #(
-      .dataWidth(32),
-      .ramSize  (1 << 9),
+      .DATA_WIDTH(32),
+      .DATA_DEPTH  (1 << 9),
       .latency  (1),
       .readMuler(1)
     ) dram_0 (
@@ -193,8 +193,8 @@ module core_ifetch #(
       .outData (dram_rdata[w][0])
     );
     simpleDualPortRam #(
-      .dataWidth(32),
-      .ramSize  (1 << 9),
+      .DATA_WIDTH(32),
+      .DATA_DEPTH  (1 << 9),
       .latency  (1),
       .readMuler(1)
     ) dram_1 (
@@ -207,8 +207,8 @@ module core_ifetch #(
       .outData (dram_rdata[w][1])
     );
     simpleDualPortLutRam #(
-      .dataWidth($bits(i_tag_t)),
-      .ramSize  (1 << 8        ),
+      .DATA_WIDTH($bits(i_tag_t)),
+      .DATA_DEPTH  (1 << 8        ),
       .latency  (0             ),
       .readMuler(1             )
     ) tram (

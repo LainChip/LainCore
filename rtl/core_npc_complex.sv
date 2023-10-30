@@ -219,8 +219,8 @@ module core_npc (
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 创建两个 btb 和 info mem，用于写更新时区别开来。
     simpleDualPortRamRE #(
-                          .dataWidth(30 ),
-                          .ramSize  (512),
+                          .DATA_WIDTH(30 ),
+                          .DATA_DEPTH  (512),
                           .latency  (1  ),
                           .readMuler(1  )
                         ) btb_table (
@@ -235,8 +235,8 @@ module core_npc (
                         );
     assign btb_rdata[p][1:0] = '0;
     simpleDualPortLutRam #(
-                           .dataWidth($bits(branch_info_t)),
-                           .ramSize  (256),
+                           .DATA_WIDTH($bits(branch_info_t)),
+                           .DATA_DEPTH  (256),
                            .latency  (1  ),
                            .readMuler(1  )
                          ) info_table (
@@ -268,8 +268,8 @@ module core_npc (
   logic [1:0] tag_match;
   for(genvar p = 0 ; p < 2; p++) begin
     simpleDualPortLutRam #(
-                           .dataWidth(2 ),
-                           .ramSize  (32),
+                           .DATA_WIDTH(2 ),
+                           .DATA_DEPTH  (32),
                            .latency  (0 ),
                            .readMuler(1 )
                          ) l2_table (

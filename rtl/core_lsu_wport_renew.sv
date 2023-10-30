@@ -27,8 +27,8 @@ module core_lsu_wport #(
   logic dirty_wdata;
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     simpleDualPortLutRam #(
-                           .dataWidth(1),
-                           .ramSize  (1 << 8),
+                           .DATA_WIDTH(1),
+                           .DATA_DEPTH  (1 << 8),
                            .latency  (0),
                            .readMuler(1)
                          ) dirty_ram (

@@ -46,8 +46,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
     // 数据ram == 4k each
     simpleDualPortRamByteen #(
-                              .dataWidth(32),
-                              .ramSize(1 << (`_DIDX_LEN - 2)),
+                              .DATA_WIDTH(32),
+                              .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
                               .readMuler(1),
                               .latency(1)
                             ) data_ram (
@@ -61,8 +61,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
                             );
     // tag ram
     simpleDualPortLutRam #(
-                           .dataWidth($bits(dcache_tag_t)),
-                           .ramSize  (1 << 8             ),
+                           .DATA_WIDTH($bits(dcache_tag_t)),
+                           .DATA_DEPTH  (1 << 8             ),
                            .latency  (1                  ),
                            .readMuler(1                  )
                          ) tag_ram (
@@ -71,7 +71,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
                            .addressA(wreq_i.tag_waddr),
                            .we      (wreq_i.tag_we[w]),
                            .addressB(raw_tag_raddr   ),
-                           .re      (1'b1            ),
+                           .re      (~(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i))),
                            .inData  (wreq_i.tag_wdata),
                            .outData (raw_tag_rdata[w])
                          );
