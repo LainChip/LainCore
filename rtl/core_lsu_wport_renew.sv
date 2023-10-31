@@ -87,9 +87,13 @@ module core_lsu_wport #(
 
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      op_valid_q <= '0;
+      op_addr_q <= 'x;
+      refill_addr_q <= 'x;
       op_type_q <= '0;
+      op_size_q <= 'x;
+      op_valid_q <= '0;
       refill_sel_q <= '0;
+      oldtag_q <= 'x;
     end else begin
       op_addr_q <= op_addr;
       refill_addr_q <= refill_addr;
