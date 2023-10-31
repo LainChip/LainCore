@@ -21,6 +21,7 @@ module tlb_match_single #(
   always_ff @(posedge clk) begin
     if(ENABLE_RST && !rst_n) begin
       key_q.e <= '0;
+      is_4m_page_q <= 'x;
     end else begin
       if(update_i) begin
         key_q        <= update_key_i;
