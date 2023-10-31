@@ -1,6 +1,6 @@
 `include "common.svh"
 
-module core_top #(parameter bit ENABLE_TLB = 1'b0)(
+module core_top #(parameter bit ENABLE_TLB = 1'b1)(
   input           aclk,
   input           aresetn,
   (*mark_debug*) input    [ 7:0] intrpt,

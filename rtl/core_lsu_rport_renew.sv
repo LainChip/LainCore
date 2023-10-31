@@ -60,6 +60,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       .rdata_o(raw_data_rdata[w])
     );
     // tag ram
+    dcache_tag_t raw_tag_rdata_d;
     sync_regram #(
       .DATA_WIDTH($bits(dcache_tag_t)),
       .DATA_DEPTH(1 << 8             )
@@ -70,8 +71,11 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       .we_i   (wreq_i.tag_we[w]),
       .raddr_i(raw_tag_raddr   ),
       .wdata_i(wreq_i.tag_wdata),
-      .rdata_o(raw_tag_rdata[w])
+      .rdata_o(raw_tag_rdata_d)
     );
+    always_ff @(posedge clk) begin
+      raw_tag_rdata[w] <= raw_tag_rdata_d;
+    end
   end
 
   logic m1_stall_q, m2_stall_q;
