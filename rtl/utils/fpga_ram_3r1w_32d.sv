@@ -1,4 +1,6 @@
-module ram_3r1w_32d#(
+// THIS MODULE IS FPGA ONLY
+
+module fpga_ram_3r1w_32d#(
     parameter int WIDTH = 32
 )( 
     input                          clk,

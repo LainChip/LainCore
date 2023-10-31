@@ -71,8 +71,9 @@ module bank_mpregfiles_6r2w #(
     la_mux2 #(WIDTH + 6)write_mux1({wa1_i[4:0],wd1_i,we1_i},{wa0_i[4:0],wd0_i,we0_i},{wa_1,wd_1,we_1}, we0_i && wa0_i[0]);
     // FIX: 0 端口有更高的优先级
 
+    `ifdef _FPGA
     /* bank0 : manage even addr */
-    ram_3r1w_32d qram_b0_0(
+    fpga_ram_3r1w_32d qram_b0_0(
         .clk,
         .addr0(ra0_i[4:0]),
         .addr1(ra1_i[4:0]),
@@ -84,7 +85,7 @@ module bank_mpregfiles_6r2w #(
         .din((rst_n || !RESET_NEED) ? wd_0 : '0),
         .wea(we_0 || (~rst_n && RESET_NEED))
     );
-    ram_3r1w_32d qram_b0_1(
+    fpga_ram_3r1w_32d qram_b0_1(
         .clk,
         .addr0(ra3_i[4:0]),
         .addr1(ra4_i[4:0]),
@@ -98,7 +99,7 @@ module bank_mpregfiles_6r2w #(
     );
 
     /* bank1 : manage odd addr */
-    ram_3r1w_32d qram_b1_0(
+    fpga_ram_3r1w_32d qram_b1_0(
         .clk,
         .addr0(ra0_i[4:0]),
         .addr1(ra1_i[4:0]),
@@ -111,7 +112,7 @@ module bank_mpregfiles_6r2w #(
         .din((rst_n || !RESET_NEED) ? wd_1 : '0),
         .wea(we_1 || (~rst_n && RESET_NEED))
     );
-    ram_3r1w_32d qram_b1_1(
+    fpga_ram_3r1w_32d qram_b1_1(
         .clk,
         .addr0(ra3_i[4:0]),
         .addr1(ra4_i[4:0]),
@@ -123,5 +124,43 @@ module bank_mpregfiles_6r2w #(
         .din((rst_n || !RESET_NEED) ? wd_1 : '0),
         .wea(we_1 || (~rst_n && RESET_NEED))
     );
-
+    // ASIC AND VERILATOR SITUATION.
+    asic_ram_6r1w_16d #(WIDTH) ram_b0(
+        .clk,
+        .addr0(ra0_i[4:1]),
+        .addr1(ra1_i[4:1]),
+        .addr2(ra2_i[4:1]),
+        .addr3(ra3_i[4:1]),
+        .addr4(ra4_i[4:1]),
+        .addr5(ra5_i[4:1]),
+        .addrw(wa_0[4:1]),
+        .dout0(rd0_0),
+        .dout1(rd1_0),
+        .dout2(rd2_0),
+        .dout3(rd3_0),
+        .dout4(rd4_0),
+        .dout5(rd5_0),
+        .din(wd_0),
+        .wea(we_0 && !wa_0[0])
+    );
+    `else
+    asic_ram_6r1w_16d #(WIDTH) ram_b1(
+        .clk,
+        .addr0(ra0_i[4:1]),
+        .addr1(ra1_i[4:1]),
+        .addr2(ra2_i[4:1]),
+        .addr3(ra3_i[4:1]),
+        .addr4(ra4_i[4:1]),
+        .addr5(ra5_i[4:1]),
+        .addrw(wa_0[4:1]),
+        .dout0(rd0_1),
+        .dout1(rd1_1),
+        .dout2(rd2_1),
+        .dout3(rd3_1),
+        .dout4(rd4_1),
+        .dout5(rd5_1),
+        .din(wd_1),
+        .wea(we_1 && wa_1[0])
+    );
+    `endif
 endmodule
