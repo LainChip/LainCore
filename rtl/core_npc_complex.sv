@@ -128,6 +128,7 @@ module core_npc (
     if(!rst_n) begin
       ras_ptr_q <= 0;
       ras_w_ptr_q <= 1;
+      ras_q <= 'x;
     end
     else begin
       // TODO: check
