@@ -26,21 +26,20 @@ module core_lsu_wport #(
   logic[WAY_CNT - 1 : 0] dirty_we, dirty_rdata;
   logic dirty_wdata;
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    simpleDualPortLutRam #(
-                           .DATA_WIDTH(1),
-                           .DATA_DEPTH  (1 << 8),
-                           .latency  (0),
-                           .readMuler(1)
-                         ) dirty_ram (
-                           .clk      (clk        ),
-                           .rst_n    (rst_n      ),
-                           .addressA (dirty_waddr),
-                           .we       (dirty_we[w]),
-                           .addressB (dirty_raddr),
-                           .re       (1'b1       ),
-                           .inData   (dirty_wdata),
-                           .outData  (dirty_rdata[w])
-                         );
+    sync_regmem #(
+                  .DATA_WIDTH(1),
+                  .DATA_DEPTH  (1 << 8),
+                  .latency  (0),
+                  .readMuler(1)
+                ) dirty_ram (
+                  .clk      (clk        ),
+                  .rst_n    (rst_n      ),
+                  .waddr_i  (dirty_waddr),
+                  .we_i     (dirty_we[w]),
+                  .raddr_i  (dirty_raddr),
+                  .wdata_i  (dirty_wdata),
+                  .rdata_o  (dirty_rdata[w])
+                );
   end
 
   wport_wreq_t wport_req;

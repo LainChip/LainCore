@@ -218,7 +218,7 @@ module core_npc (
   end
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 创建两个 btb 和 info mem，用于写更新时区别开来。
-    syncDualPortRam #(
+    sync_dpram #(
       .DATA_WIDTH(30 ),
       .DATA_DEPTH(512),
       .BYTE_SIZE(30)
@@ -233,21 +233,22 @@ module core_npc (
       .rdata_o (btb_rdata[p][31:2])
     );
     assign btb_rdata[p][1:0] = '0;
-    simpleDualPortLutRam #(
+    branch_info_t raw_rinfo;
+    sync_regmem #(
       .DATA_WIDTH($bits(branch_info_t)),
-      .DATA_DEPTH(256                 ),
-      .latency   (1                   ),
-      .readMuler (1                   )
+      .DATA_DEPTH(256                 )
     ) info_table (
       .clk     (clk                    ),
       .rst_n   (rst_n                  ),
-      .addressA(info_waddr             ),
-      .we      (info_we[p] | !rst_n_q  ),
-      .addressB(info_raddr ^ rst_addr_q),
-      .re      (!f_stall_i             ),
-      .inData  (winfo                  ),
-      .outData (rinfo_q[p]             )
+      .waddr_i (info_waddr             ),
+      .we_i    (info_we[p] | !rst_n_q  ),
+      .raddr_i (info_raddr ^ rst_addr_q),
+      .wdata_i (winfo                  ),
+      .rdata_o (raw_rinfo              )
     );
+    always_ff @(posedge clk) begin
+      rinfo_q[p] <= raw_rinfo;
+    end
   end
 
   // 预测逻辑
@@ -266,20 +267,17 @@ module core_npc (
   logic [1:0] branch_need_jmp;
   logic [1:0] tag_match;
   for(genvar p = 0 ; p < 2; p++) begin
-    simpleDualPortLutRam #(
+    sync_regmem #(
       .DATA_WIDTH(2 ),
-      .DATA_DEPTH  (32),
-      .latency  (0 ),
-      .readMuler(1 )
+      .DATA_DEPTH(32)
     ) l2_table (
       .clk     (clk            ),
       .rst_n   (rst_n          ),
-      .addressA(level2_waddr   ),
-      .we      (level2_we      ),
-      .addressB(level2_raddr[p]),
-      .re      (1'b1           ),
-      .inData  (level2_wdata   ),
-      .outData (level2_cnt[p]  )
+      .waddr_i (level2_waddr   ),
+      .we_i    (level2_we      ),
+      .raddr_i (level2_raddr[p]),
+      .wdata_i (level2_wdata   ),
+      .rdata_o (level2_cnt[p]  )
     );
     assign level2_raddr[p] = rinfo_q[p].history;
     // 可以被综合成一个 lut6

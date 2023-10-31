@@ -5,6 +5,7 @@ module core_ifetch #(
   parameter int ATTACHED_INFO_WIDTH = 32        , // 用于捆绑bpu输出的信息，跟随指令流水
   parameter bit ENABLE_TLB          = 1'b1      ,
   parameter bit EARLY_BRAM          = 1'b0      , // 用于提前一级 BRAM 地址，降低关键路径延迟
+  parameter bit ENABLE_RESET_FLUSH  = 1'b1      ,
   parameter int WAY_CNT             = `_IWAY_CNT  // 指示cache的组相联度
 ) (
   input                                        clk            , // Clock
@@ -35,13 +36,18 @@ module core_ifetch #(
 
   logic rst_n_q;
   logic[7:0] rst_addr_q;
-  always_ff @(posedge clk) begin
-    rst_n_q <= rst_n;
-    if(rst_n) begin
-      rst_addr_q <= '0;
-    end else begin
-      rst_addr_q <= rst_addr_q + 1;
+  if(ENABLE_RESET_FLUSH) begin
+    always_ff @(posedge clk) begin
+      rst_n_q <= rst_n;
+      if(rst_n) begin
+        rst_addr_q <= '0;
+      end else begin
+        rst_addr_q <= rst_addr_q + 1;
+      end
     end
+  end else begin
+    assign rst_n_q = '1;
+    assign rst_addr_q = '0;
   end
 
   logic f1_stall_q,f2_stall_q;
@@ -65,7 +71,7 @@ module core_ifetch #(
   logic cacheop_valid_q; // 指示 F2 级别是 cacheop 指令
   logic[1:0] fetch_v_q;// 指示 F2 级别需要读的指令位置
   logic fetch_excp_q;
-  logic uncached_q; // 指示 F2 级别的取值需要是 uncached 类型的
+  logic uncached_q  ; // 指示 F2 级别的取值需要是 uncached 类型的
   logic[1:0] cacheop_q;  // 指示 F2 级别的 cacheop 类型
   logic[31:0] ppc_q,vpc_q;// 指示 F2 级别的 PC 地址
 
@@ -164,12 +170,12 @@ module core_ifetch #(
         if(dram_we[w] && (dram_waddr[9:1] == ppc_i[11:3]) && !dram_waddr[0]) begin
           f2_data[w][0] = dram_wdata; // 前递转发
         end else begin
-          f2_data[w][0] = f1_stall_q ? f1_skid_buf_q[w][0] : dram_rdata[w][0];
+          f2_data[w][0] = f1_stall_q?f1_skid_buf_q[w][0] : dram_rdata[w][0];
         end
         if(dram_we[w] && (dram_waddr[9:1] == ppc_i[11:3]) && dram_waddr[0]) begin
           f2_data[w][1] = dram_wdata; // 前递转发
         end else begin
-          f2_data[w][1] = f1_stall_q ? f1_skid_buf_q[w][1] : dram_rdata[w][1];
+          f2_data[w][1] = f1_stall_q?f1_skid_buf_q[w][1] : dram_rdata[w][1];
         end
       end
     end
@@ -178,7 +184,7 @@ module core_ifetch #(
   end
 
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    syncDualPortRam #(
+    sync_dpram #(
       .DATA_WIDTH(64),
       .DATA_DEPTH(1 << 9),
       .BYTE_SIZE(32)
@@ -193,20 +199,17 @@ module core_ifetch #(
       .wdata_i (dram_wdata),
       .rdata_o (dram_rdata[w])
     );
-    simpleDualPortLutRam #(
+    sync_regmem #(
       .DATA_WIDTH($bits(i_tag_t)),
-      .DATA_DEPTH(1 << 8        ),
-      .latency   (0             ),
-      .readMuler (1             )
+      .DATA_DEPTH(1 << 8        )
     ) tram (
-      .clk     (clk                    ),
-      .rst_n   (rst_n                  ),
-      .addressA(tram_waddr ^ rst_addr_q),
-      .we      (tram_we[w] | !rst_n_q  ),
-      .addressB(tram_raddr             ),
-      .re      (1'b1                   ),
-      .inData  (tram_wdata             ),
-      .outData (tram_rdata[w]          )
+      .clk    (clk                    ),
+      .rst_n  (rst_n                  ),
+      .waddr_i(tram_waddr ^ rst_addr_q),
+      .we_i   (tram_we[w] | !rst_n_q  ),
+      .raddr_i(tram_raddr             ),
+      .wdata_i(tram_wdata             ),
+      .rdata_o(tram_rdata[w]          )
     );
   end
 

@@ -2,7 +2,7 @@
 
 // New wrapper for FPGA / Verilator / ASIC
 // we_i also handle READ-WRITE contention in this module.
-module syncDualPortRam #(
+module sync_dpram #(
   parameter int  unsigned DATA_WIDTH = 32                    ,
   parameter int  unsigned DATA_DEPTH = 1024                  ,
   parameter int  unsigned BYTE_SIZE  = 32                    ,
@@ -76,11 +76,12 @@ module syncDualPortRam #(
 
 `ifdef _VERILATOR
   reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE:0] sim_ram[DATA_DEPTH-1:0];
-
+  wire[(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE:0] wdata;
+  assign wdata = wdata_i;
   for(genvar i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i += 1) begin
     always @(posedge clk) begin
       if (we_i[i]) begin
-        sim_ram[waddr_i[$clog2(DATA_DEPTH) - 1 : 0]][i] <= wdata_i[i];
+        sim_ram[waddr_i][i] <= wdata[i];
       end
     end
   end

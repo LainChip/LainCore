@@ -45,7 +45,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   assign raw_tag_raddr  = tramaddr(ex_vaddr_i);
   for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
     // 数据ram == 4k each
-    syncDualPortRam #(
+    sync_dpram #(
       .DATA_WIDTH(32),
       .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
       .BYTE_SIZE(8)
@@ -53,27 +53,24 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       .clk,
       .rst_n,
       .waddr_i(wreq_i.data_waddr),
-      .we_i(wreq_i.data_we[w]),
+      .we_i   (wreq_i.data_we[w]),
       .raddr_i(raw_data_raddr),
-      .re_i    (1'b1),
+      .re_i   (1'b1),
       .wdata_i(wreq_i.data_wdata),
       .rdata_o(raw_data_rdata[w])
     );
     // tag ram
-    simpleDualPortLutRam #(
+    sync_regmem #(
       .DATA_WIDTH($bits(dcache_tag_t)),
-      .DATA_DEPTH(1 << 8             ),
-      .latency   (1                  ),
-      .readMuler (1                  )
+      .DATA_DEPTH(1 << 8             )
     ) tag_ram (
-      .clk     (clk                                                            ),
-      .rst_n   (rst_n                                                          ),
-      .addressA(wreq_i.tag_waddr                                               ),
-      .we      (wreq_i.tag_we[w]                                               ),
-      .addressB(raw_tag_raddr                                                  ),
-      .re      (~(wreq_i.tag_we[w] && wreq_i.tag_waddr == tramaddr(m1_vaddr_i))),
-      .inData  (wreq_i.tag_wdata                                               ),
-      .outData (raw_tag_rdata[w]                                               )
+      .clk    (clk             ),
+      .rst_n  (rst_n           ),
+      .waddr_i(wreq_i.tag_waddr),
+      .we_i   (wreq_i.tag_we[w]),
+      .raddr_i(raw_tag_raddr   ),
+      .wdata_i(wreq_i.tag_wdata),
+      .rdata_o(raw_tag_rdata[w])
     );
   end
 
@@ -100,11 +97,6 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
     wb_data_waddr <= wreq_i.data_waddr;
     wb_data_wdata <= wreq_i.data_wdata;
   end
-  // always_ff @(posedge clk) begin
-  //   wb_tag_we    <= wreq_i.tag_we;
-  //   wb_tag_waddr <= wreq_i.tag_waddr;
-  //   wb_tag_wdata <= wreq_i.tag_wdata;
-  // end
 
   always_ff @(posedge clk) begin
     m1_data_rdata_q <= m1_data_rdata;
