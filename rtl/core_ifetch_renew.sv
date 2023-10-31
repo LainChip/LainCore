@@ -199,7 +199,7 @@ module core_ifetch #(
       .wdata_i (dram_wdata),
       .rdata_o (dram_rdata[w])
     );
-    sync_regmem #(
+    sync_regram #(
       .DATA_WIDTH($bits(i_tag_t)),
       .DATA_DEPTH(1 << 8        )
     ) tram (

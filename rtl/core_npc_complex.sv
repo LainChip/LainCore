@@ -234,7 +234,7 @@ module core_npc (
     );
     assign btb_rdata[p][1:0] = '0;
     branch_info_t raw_rinfo;
-    sync_regmem #(
+    sync_regram #(
       .DATA_WIDTH($bits(branch_info_t)),
       .DATA_DEPTH(256                 )
     ) info_table (
@@ -267,7 +267,7 @@ module core_npc (
   logic [1:0] branch_need_jmp;
   logic [1:0] tag_match;
   for(genvar p = 0 ; p < 2; p++) begin
-    sync_regmem #(
+    sync_regram #(
       .DATA_WIDTH(2 ),
       .DATA_DEPTH(32)
     ) l2_table (

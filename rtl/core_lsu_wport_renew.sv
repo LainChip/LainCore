@@ -26,11 +26,9 @@ module core_lsu_wport #(
   logic[WAY_CNT - 1 : 0] dirty_we, dirty_rdata;
   logic dirty_wdata;
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    sync_regmem #(
+    sync_regram #(
                   .DATA_WIDTH(1),
-                  .DATA_DEPTH  (1 << 8),
-                  .latency  (0),
-                  .readMuler(1)
+                  .DATA_DEPTH  (1 << 8)
                 ) dirty_ram (
                   .clk      (clk        ),
                   .rst_n    (rst_n      ),

@@ -60,7 +60,7 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
       .rdata_o(raw_data_rdata[w])
     );
     // tag ram
-    sync_regmem #(
+    sync_regram #(
       .DATA_WIDTH($bits(dcache_tag_t)),
       .DATA_DEPTH(1 << 8             )
     ) tag_ram (

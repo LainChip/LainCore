@@ -2,7 +2,7 @@
 
 // New wrapper for FPGA / Verilator / ASIC
 // regmem is 0-latency
-module sync_regmem #(
+module sync_regram #(
   parameter int unsigned DATA_WIDTH = 32  ,
   parameter int unsigned DATA_DEPTH = 1024
 ) (

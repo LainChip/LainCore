@@ -86,7 +86,7 @@ module sync_dpram #(
     end
   end
 
-  always @(posedge clkb) begin
+  always @(posedge clk) begin
     if(re) begin
       rdata <= sim_ram[raddr_i];
     end
