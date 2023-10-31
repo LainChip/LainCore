@@ -43,6 +43,10 @@ always_ff @(posedge clk) begin
       r_ptr_q[i] <= i[PTR_LEN : 0];
     end
     cnt_q <= '0;
+    write_ready_q <= 'x;
+    read_valid_q  <= 'x;
+    read_data_q   <= 'x;
+    data_q        <= 'x;
   end else begin
     w_ptr_q       <= w_ptr;
     r_ptr_q       <= r_ptr;
