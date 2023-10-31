@@ -131,7 +131,7 @@ module la_fifo_v3 #(
 
     always_ff @(posedge clk) begin
         if(~rst_n) begin
-            mem_q <= '0;
+            mem_q <= 'x;
         end else if (!gate_clock) begin
             mem_q <= mem_n;
         end
