@@ -75,8 +75,8 @@ module sync_dpram #(
 `endif
 
 `ifdef _VERILATOR
-  reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE:0] sim_ram[DATA_DEPTH-1:0];
-  wire[(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE:0] wdata;
+  reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE - 1:0] sim_ram[DATA_DEPTH-1:0];
+  wire[(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE - 1:0] wdata;
   assign wdata = wdata_i;
   for(genvar i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i += 1) begin
     always @(posedge clk) begin

@@ -124,6 +124,7 @@ module bank_mpregfiles_6r2w #(
         .din((rst_n || !RESET_NEED) ? wd_1 : '0),
         .wea(we_1 || (~rst_n && RESET_NEED))
     );
+    `else
     // ASIC AND VERILATOR SITUATION.
     asic_ram_6r1w_16d #(WIDTH) ram_b0(
         .clk,
@@ -143,7 +144,6 @@ module bank_mpregfiles_6r2w #(
         .din(wd_0),
         .wea(we_0 && !wa_0[0])
     );
-    `else
     asic_ram_6r1w_16d #(WIDTH) ram_b1(
         .clk,
         .addr0(ra0_i[4:1]),
@@ -152,7 +152,7 @@ module bank_mpregfiles_6r2w #(
         .addr3(ra3_i[4:1]),
         .addr4(ra4_i[4:1]),
         .addr5(ra5_i[4:1]),
-        .addrw(wa_0[4:1]),
+        .addrw(wa_1[4:1]),
         .dout0(rd0_1),
         .dout1(rd1_1),
         .dout2(rd2_1),

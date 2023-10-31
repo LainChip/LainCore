@@ -140,7 +140,7 @@ module bank_mpregfiles_4r2w #(
         .addr1(ra1_i[4:1]),
         .addr2(ra2_i[4:1]),
         .addr3(ra3_i[4:1]),
-        .addrw(wa_0[4:1]),
+        .addrw(wa_1[4:1]),
         .dout0(rd0_1),
         .dout1(rd1_1),
         .dout2(rd2_1),

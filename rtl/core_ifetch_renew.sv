@@ -196,7 +196,7 @@ module core_ifetch #(
           dram_we[w] && !dram_waddr[0]}),
       .raddr_i (dram_raddr),
       .re_i    (1'b1),
-      .wdata_i (dram_wdata),
+      .wdata_i ({dram_wdata, dram_wdata}),
       .rdata_o (dram_rdata[w])
     );
     sync_regram #(
