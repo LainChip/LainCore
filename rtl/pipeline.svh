@@ -245,12 +245,12 @@ typedef struct packed {
   logic [31:0] tid      ;
   logic [31:0] tcfg     ;
   logic [31:0] tval     ;
-  logic [31:0] cntc     ;
+  // logic [31:0] cntc     ;
   logic [31:0] ticlr    ;
   logic [31:2] llbctl   ;
   logic        llbit    ;
   logic [31:0] tlbrentry;
-  logic [31:0] ctag     ;
+  // logic [31:0] ctag     ;
   logic [31:0] dmw0     ;
   logic [31:0] dmw1     ;
 }csr_t;

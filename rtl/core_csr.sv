@@ -318,11 +318,11 @@ logic [31:0] save3_q    ;
 logic [31:0] tid_q      ;
 logic [31:0] tcfg_q     ;
 logic [31:0] tval_q     ;
-logic [31:0] cntc_q     ;
+// logic [31:0] cntc_q     ;
 logic [31:0] ticlr_q    ;
 logic [31:2] llbctl_q   ;
 logic [31:0] tlbrentry_q;
-logic [31:0] ctag_q     ;
+// logic [31:0] ctag_q     ;
 logic [31:0] dmw0_q     ;
 logic [31:0] dmw1_q     ;
 
@@ -373,7 +373,8 @@ logic prmd_we,prmd_re;
 assign prmd_we = csr_we && (csr_w_addr_i == `_CSR_PRMD);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    prmd_q[31:0] <= '0;
+    prmd_q[2:0] <= 'x;
+    prmd_q[31:3] <= '0;
   end
   else begin
     if (excp_valid) begin
@@ -436,11 +437,14 @@ end
 assign estat_we = csr_we && (csr_w_addr_i == `_CSR_ESTAT);
 
 always_ff @(posedge clk) begin
+  estat_q[9:2] <= int_q;
   if (!rst_n) begin
     estat_q[1:0]   <= 2'b0;
     estat_q[10]    <= 1'b0;
     estat_q[12]    <= 1'b0;
     estat_q[15:13] <= 3'b0;
+    estat_q[`_ESTAT_ECODE]    <= 'x;
+    estat_q[`_ESTAT_ESUBCODE] <= 'x;
     estat_q[31]    <= 1'b0;
 
     timer_en <= 1'b0;
@@ -456,11 +460,6 @@ always_ff @(posedge clk) begin
     else if (/*timer_intr_q && m1_commit_i_q && */timer_en && (tval_q == '0) && (!m2_stall_i | '1)) begin
       estat_q[11] <= 1'b1;
       timer_en    <= tcfg_q[`_TCFG_PERIODIC];
-    end
-
-    // estat_q[9:2] <= int_i;
-    if(/* m1_commit_i_q && */'1) begin
-      estat_q[9:2] <= int_q;
     end
     if (excp_valid) begin
       estat_q[`_ESTAT_ECODE]    <= ecode;
@@ -499,7 +498,7 @@ logic era_we,era_re;
 assign era_we = csr_we && (csr_w_addr_i == `_CSR_ERA);
 always_ff @(posedge clk) begin
   if (!rst_n) begin
-    era_q <= '0;  // need not
+    era_q <= 'x;  // need not
   end
   else begin
     if (excp_valid) begin
@@ -517,7 +516,7 @@ logic badv_we,badv_re;
 assign badv_we = csr_we && (csr_w_addr_i == `_CSR_BADV);
 always_ff @(posedge clk) begin
   if (!rst_n) begin
-    badv_q <= '0; // need not
+    badv_q <= 'x; // need not
   end
   else begin
     if (va_error) begin
@@ -536,6 +535,7 @@ assign eentry_we = csr_we && (csr_w_addr_i == `_CSR_EENTRY);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
     eentry_q[5:0] <= 6'b0;
+    eentry_q[31:6] <= 'x;
   end
   else begin
     if(eentry_we) begin
@@ -551,9 +551,11 @@ assign tlbidx_we = csr_we && (csr_w_addr_i == `_CSR_TLBIDX);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
+      tlbidx_q[`_TLBIDX_INDEX] <= 'x;
       tlbidx_q[23:5]           <= 19'b0;
+      tlbidx_q[`_TLBIDX_PS]    <= 'x;
       tlbidx_q[30]             <= 1'b0;
-      tlbidx_q[`_TLBIDX_INDEX] <= '0;
+      tlbidx_q[`_TLBIDX_NE]    <= 'x;
     end
     else begin
       if(tlbidx_we) begin
@@ -592,7 +594,8 @@ assign tlbehi_we = csr_we && (csr_w_addr_i == `_CSR_TLBEHI);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      tlbehi_q <= /*DEFAULT VALUE*/'0;
+      tlbehi_q[12:0] <= /*DEFAULT VALUE*/'0;
+      tlbehi_q[31:13] <= 'x;
     end
     else begin
       if(tlbehi_we) begin
@@ -621,7 +624,14 @@ assign tlbelo0_we = csr_we && (csr_w_addr_i == `_CSR_TLBELO0);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      tlbelo0_q <= /*DEFAULT VALUE*/'0;
+      tlbelo0_q[`_TLBELO_TLB_V]   <= 'x;
+      tlbelo0_q[`_TLBELO_TLB_D]   <= 'x;
+      tlbelo0_q[`_TLBELO_TLB_PLV] <= 'x;
+      tlbelo0_q[`_TLBELO_TLB_MAT] <= 'x;
+      tlbelo0_q[`_TLBELO_TLB_G]   <= 'x;
+      tlbelo0_q[7]                <= '0;
+      tlbelo0_q[`_TLBELO_TLB_PPN] <= 'x;
+      tlbelo0_q[31:28]            <= '0;
     end
     else begin
       if(tlbelo0_we) begin
@@ -662,7 +672,14 @@ assign tlbelo1_we = csr_we && (csr_w_addr_i == `_CSR_TLBELO1);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      tlbelo1_q <= /*DEFAULT VALUE*/'0;
+      tlbelo1_q[`_TLBELO_TLB_V]   <= 'x;
+      tlbelo1_q[`_TLBELO_TLB_D]   <= 'x;
+      tlbelo1_q[`_TLBELO_TLB_PLV] <= 'x;
+      tlbelo1_q[`_TLBELO_TLB_MAT] <= 'x;
+      tlbelo1_q[`_TLBELO_TLB_G]   <= 'x;
+      tlbelo1_q[7]                <= '0;
+      tlbelo1_q[`_TLBELO_TLB_PPN] <= 'x;
+      tlbelo1_q[31:28]            <= '0;
     end
     else begin
       if(tlbelo1_we) begin
@@ -703,6 +720,7 @@ assign asid_we = csr_we && (csr_w_addr_i == `_CSR_ASID);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
+      asid_q[9:0] <= 'x;
       asid_q[31:10] <= /*DEFAULT VALUE*/22'h280;
     end
     else begin
@@ -732,7 +750,8 @@ assign pgdl_we = csr_we && (csr_w_addr_i == `_CSR_PGDL);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      pgdl_q <= /*DEFAULT VALUE*/'0;
+      pgdl_q[11:0] <= /*DEFAULT VALUE*/'0;
+      pgdl_q[`_PGD_BASE] <= 'x;
     end
     else begin
       if(pgdl_we) begin
@@ -752,7 +771,8 @@ assign pgdh_we = csr_we && (csr_w_addr_i == `_CSR_PGDH);
 if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
-      pgdh_q <= /*DEFAULT VALUE*/'0;
+      pgdh_q[11:0] <= /*DEFAULT VALUE*/'0;
+      pgdh_q[`_PGD_BASE] <= 'x;
     end
     else begin
       if(pgdh_we) begin
@@ -786,7 +806,7 @@ logic save0_we,save0_re;
 assign save0_we = csr_we && (csr_w_addr_i == `_CSR_SAVE0);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    save0_q <= /*DEFAULT VALUE*/'0;
+    save0_q <= /*DEFAULT VALUE*/'x;
   end
   else begin
     if(save0_we) begin
@@ -799,7 +819,7 @@ logic save1_we,save1_re;
 assign save1_we = csr_we && (csr_w_addr_i == `_CSR_SAVE1);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    save1_q <= /*DEFAULT VALUE*/'0;
+    save1_q <= /*DEFAULT VALUE*/'x;
   end
   else begin
     if(save1_we) begin
@@ -812,7 +832,7 @@ logic save2_we,save2_re;
 assign save2_we = csr_we && (csr_w_addr_i == `_CSR_SAVE2);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    save2_q <= /*DEFAULT VALUE*/'0;
+    save2_q <= /*DEFAULT VALUE*/'x;
   end
   else begin
     if(save2_we) begin
@@ -825,7 +845,7 @@ logic save3_we,save3_re;
 assign save3_we = csr_we && (csr_w_addr_i == `_CSR_SAVE3);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    save3_q <= /*DEFAULT VALUE*/'0;
+    save3_q <= /*DEFAULT VALUE*/'x;
   end
   else begin
     if(save3_we) begin
@@ -840,7 +860,7 @@ logic tid_we,tid_re;
 assign tid_we = csr_we && (csr_w_addr_i == `_CSR_TID);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    tid_q <= /*DEFAULT VALUE*/'0;
+    tid_q <= /*DEFAULT VALUE*/'x;
   end
   else begin
     if(tid_we) begin
@@ -855,6 +875,8 @@ assign tcfg_we = csr_we && (csr_w_addr_i == `_CSR_TCFG);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
     tcfg_q[`_TCFG_EN] <= /*DEFAULT VALUE*/'0;
+    tcfg_q[`_TCFG_PERIODIC] <= 'x;
+    tcfg_q[`_TCFG_INITVAL]  <= 'x;
   end
   else begin
     if(tcfg_we) begin
@@ -871,7 +893,7 @@ logic tval_we,tval_re;
 assign tval_we = csr_we && (csr_w_addr_i == `_CSR_TVAL);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    tval_q <= /*DEFAULT VALUE*/'0;
+    tval_q <= /*DEFAULT VALUE*/'x;
   end
   else begin
     if(tcfg_we) begin
@@ -890,19 +912,19 @@ end
 assign csr_o.tval = tval_q;
 
 //cntc
-logic cntc_we,cntc_re;
-assign cntc_we = csr_we && (csr_w_addr_i == `_CSR_CNTC);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    cntc_q <= /*DEFAULT VALUE*/'0;
-  end
-  else begin
-    if(cntc_we) begin
-      cntc_q <= csr_w_data;
-    end
-  end
-end
-assign csr_o.cntc = cntc_q;
+// logic cntc_we,cntc_re;
+// assign cntc_we = csr_we && (csr_w_addr_i == `_CSR_CNTC);
+// always_ff @(posedge clk) begin
+//   if(!rst_n) begin
+//     cntc_q <= /*DEFAULT VALUE*/'0;
+//   end
+//   else begin
+//     // if(cntc_we) begin
+//     //   cntc_q <= csr_w_data;
+//     // end
+//   end
+// end
+// assign csr_o.cntc = cntc_q;
 
 assign ticlr_we = csr_we && (csr_w_addr_i == `_CSR_TICLR);
 always_ff @(posedge clk) begin
@@ -926,9 +948,8 @@ assign llbctl_we = csr_we && (csr_w_addr_i == `_CSR_LLBCTL);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
     llbctl_q[`_LLBCT_KLO] <= /*DEFAULT VALUE*/'0;
-    llbctl_q[31:3]        <= 29'b0;
-    llbctl_q[`_LLBCT_WCLLB] <= 1'b0;
-    llbit_q               <= 1'b0;
+    llbctl_q[31:3]        <= 'x;
+    llbit_q               <= 'x;
   end
   else begin
     if (ertn_valid) begin
@@ -960,6 +981,7 @@ if(ENABLE_TLB) begin
   always_ff @(posedge clk) begin
     if(!rst_n) begin
       tlbrentry_q[5:0] <= /*DEFAULT VALUE*/'0;
+      tlbrentry_q[`_TLBRENTRY_PA] <= 'x;
     end
     else begin
       if(tlbrentry_we) begin
@@ -974,26 +996,33 @@ end
 assign csr_o.tlbrentry = tlbrentry_q;
 
 //ctag
-logic ctag_we,ctag_re;
-assign ctag_we = csr_we && (csr_w_addr_i == `_CSR_CTAG);
-always_ff @(posedge clk) begin
-  if(!rst_n) begin
-    ctag_q <= /*DEFAULT VALUE*/'0;
-  end
+// logic ctag_we,ctag_re;
+// assign ctag_we = csr_we && (csr_w_addr_i == `_CSR_CTAG);
+// always_ff @(posedge clk) begin
+//   if(!rst_n) begin
+//     ctag_q <= /*DEFAULT VALUE*/'0;
+//   end
   // else begin
   //   if(ctag_we) begin
   //     ctag_q <= csr_w_data;
   //   end
   // end
-end
-assign csr_o.ctag = ctag_q;
+// end
+// assign csr_o.ctag = ctag_q;
 
 //dmw0
 logic dmw0_we,dmw0_re;
 assign dmw0_we = csr_we && (csr_w_addr_i == `_CSR_DMW0);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    dmw0_q <= /*DEFAULT VALUE*/'0;
+    dmw0_q[`_DMW_PLV0] <= '0;
+    dmw0_q[2:1]        <= '0;
+    dmw0_q[`_DMW_PLV3] <= '0;
+    dmw0_q[`_DMW_MAT]  <= 'x;
+    dmw0_q[24:6]       <= '0;
+    dmw0_q[`_DMW_PSEG] <= 'x;
+    dmw0_q[28]         <= '0;
+    dmw0_q[`_DMW_VSEG] <= 'x;
   end
   else begin
     if(dmw0_we) begin
@@ -1012,7 +1041,14 @@ logic dmw1_we,dmw1_re;
 assign dmw1_we = csr_we && (csr_w_addr_i == `_CSR_DMW1);
 always_ff @(posedge clk) begin
   if(!rst_n) begin
-    dmw1_q <= /*DEFAULT VALUE*/'0;
+    dmw1_q[`_DMW_PLV0] <= '0;
+    dmw1_q[2:1]        <= '0;
+    dmw1_q[`_DMW_PLV3] <= '0;
+    dmw1_q[`_DMW_MAT]  <= 'x;
+    dmw1_q[24:6]       <= '0;
+    dmw1_q[`_DMW_PSEG] <= 'x;
+    dmw1_q[28]         <= '0;
+    dmw1_q[`_DMW_VSEG] <= 'x;
   end
   else begin
     if(dmw1_we) begin
@@ -1064,10 +1100,10 @@ assign save3_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_SAVE3;
 assign tid_re       = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TID;
 assign tcfg_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TCFG;
 assign tval_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TVAL;
-assign cntc_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CNTC;
+// assign cntc_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CNTC;
 assign ticlr_re     = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_TICLR;
 assign llbctl_re    = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_LLBCTL;
-assign ctag_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CTAG;
+// assign ctag_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_CTAG;
 assign dmw0_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_DMW0;
 assign dmw1_re      = rdcnt_i == '0 && csr_r_addr_i[8:0] == `_CSR_DMW1;
 logic cntid_re,cntl_re,cnth_re;
@@ -1149,9 +1185,9 @@ always_ff @(posedge clk) begin
     if(tval_re) begin
       csr_r_data_o <= tval_q;
     end
-    if(cntc_re) begin
-      csr_r_data_o <= cntc_q;
-    end
+    // if(cntc_re) begin
+    //   csr_r_data_o <= cntc_q;
+    // end
     if(ticlr_re) begin
       csr_r_data_o <= ticlr_q;
     end
@@ -1161,9 +1197,9 @@ always_ff @(posedge clk) begin
     if(tlbrentry_re) begin
       csr_r_data_o <= tlbrentry_q;
     end
-    if(ctag_re) begin
-      csr_r_data_o <= ctag_q;
-    end
+    // if(ctag_re) begin
+    //   csr_r_data_o <= ctag_q;
+    // end
     if(dmw0_re) begin
       csr_r_data_o <= dmw0_q;
     end

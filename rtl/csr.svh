@@ -40,7 +40,7 @@
 `define _TLBELO_TLB_PLV    3:2
 `define _TLBELO_TLB_MAT    5:4
 `define _TLBELO_TLB_G      6
-`define _TLBELO_TLB_PPN    31:8
+`define _TLBELO_TLB_PPN    27:8
 `define _TLBELO_TLB_PPN_EN 27:8   //todo
 //ASID
 `define _ASID  9:0
