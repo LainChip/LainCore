@@ -22,7 +22,7 @@ module sync_dpram #(
 
   wire contention;
   assign contention = re_i && (waddr_i == raddr_i);
-  assign re = re_i && !contention;
+  assign re = re_i && (waddr_i != raddr_i);
   // rdata may have 1-3ns~ delay
   dataType rdata_q;
 
