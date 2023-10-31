@@ -2,6 +2,7 @@
 
 // New wrapper for FPGA / Verilator / ASIC
 // we_i also handle READ-WRITE contention in this module.
+// Behavior is WRITE-FIRST.
 module sync_dpram #(
   parameter int  unsigned DATA_WIDTH = 32                    ,
   parameter int  unsigned DATA_DEPTH = 1024                  ,
@@ -19,22 +20,19 @@ module sync_dpram #(
   output dataType                           rdata_o
 );
 
-  logic contention, contention_re_q;
-  assign contention = re_i && (|we_i) && (waddr_i == raddr_i);
+  wire contention;
+  assign contention = re_i && (waddr_i == raddr_i);
   assign re = re_i && !contention;
   // rdata may have 1-3ns~ delay
-  dataType wdata_q, rdata;
-  always_ff @(posedge clk) begin
-    if(re_i && contention) begin
-      wdata_q <= wdata_i;
-    end
-    contention_re_q <= re_i && contention;
-  end
+  dataType rdata_q;
 
   // rdata_o may have 3ns~ delay
-  assign rdata_o = contention_re_q ? wdata_q : rdata;
+  assign rdata_o = rdata_q;
 
 `ifdef _FPGA
+  wire[(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE - 1:0] wdata_split, rdata_split_raw, rdata_split_q;
+  assign wdata_split = wdata_i;
+  assign rdata_q = rdata_split_q;
   xpm_memory_sdpram #(
     .ADDR_WIDTH_A       ($clog2(DATA_DEPTH)     ),
     .ADDR_WIDTH_B       ($clog2(DATA_DEPTH)     ),
@@ -63,32 +61,43 @@ module sync_dpram #(
     .raddr         (raddr_i),
     .rstb          (~rst_n ),
     .wdata         (wdata_i),
-    .doutb         (rdata  ),
+    .doutb         (rdata_split_raw),
     .wea           (we_i   ),
-    .enb           (re     ),
+    .enb           (1'b1   ),
     .ena           (1'b1   ),
     .sleep         (1'b0   ),
     .injectsbiterra(1'b0   ),
     .injectdbiterra(1'b0   ),
     .regceb        (1'b1   )
   );
+  for(genvar i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i += 1) begin
+    reg [BYTE_SIZE - 1:0] wdata_q;
+    reg sel_q;
+    always @(posedge clk) begin
+      sel_q <= !re && we_i[i];
+      wdata_q <= wdata_split[i];
+    end
+    assign rdata_split_q[i] = sel_q ? wdata_q : rdata_split_raw[i];
+  end
 `endif
 
 `ifdef _VERILATOR
   reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE - 1:0] sim_ram[DATA_DEPTH-1:0];
-  wire[(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE - 1:0] wdata;
-  assign wdata = wdata_i;
+  wire[(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE - 1:0] wdata_split, rdata_split_q;
+  assign wdata_split = wdata_i;
+  assign rdata_q = rdata_split_q;
   for(genvar i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i += 1) begin
     always @(posedge clk) begin
       if (we_i[i]) begin
-        sim_ram[waddr_i][i] <= wdata[i];
+        sim_ram[waddr_i][i] <= wdata_split[i];
       end
     end
-  end
-
-  always @(posedge clk) begin
-    if(re) begin
-      rdata <= sim_ram[raddr_i];
+    always @(posedge clk) begin
+      if(re || !we_i[i]) begin
+        rdata_split_q[i] <= sim_ram[raddr_i][i];
+      end else begin
+        rdata_split_q[i] <= wdata_split[i];
+      end
     end
   end
 `endif
