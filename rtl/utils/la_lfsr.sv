@@ -271,7 +271,7 @@ if (CipherLayers > unsigned'(0)) begin : g_cipher_layers
 
     always_ff @(posedge clk) begin : p_regs
       if (!rst_n) begin
-        out_q <= '0;
+        out_q <= 'x;
       end else begin
         out_q <= out_d;
       end
