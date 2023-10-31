@@ -151,6 +151,16 @@ module core_addr_trans #(
     dmw_miss = ~(dmw0_hit | dmw1_hit);
   end
 
+  // MAY-TODO: LATCH TIME BORROWING?
+  // always_latch begin
+  //   if(clk && (!m1_stall_i || flush_i || jmp_i)) begin
+  //     trans_result_o <= da_mode ? da_fake_tlb : (
+  //       dmw_miss ? tlb_result : (
+  //         dmw0_hit ? dmw0_fake_tlb : dmw1_fake_tlb
+  //       )
+  //     );
+  //   end
+  // end
   always_ff @(posedge clk) begin
     if(!m1_stall_i || flush_i || jmp_i) begin
       trans_result_o <= da_mode ? da_fake_tlb : (
