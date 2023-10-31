@@ -108,11 +108,16 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
     end
     else if(frontend_resp_i.icache_op_valid) begin
       icacheop_valid <= '1;
-      icacheop       <= frontend_resp_i.icache_op;
-      icacheop_addr  <= frontend_resp_i.icacheop_addr;
     end
     else if(icacheop_ready) begin
       icacheop_valid <= '0;
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    if(frontend_resp_i.icache_op_valid) begin
+      icacheop       <= frontend_resp_i.icache_op;
+      icacheop_addr  <= frontend_resp_i.icacheop_addr;
     end
   end
 
