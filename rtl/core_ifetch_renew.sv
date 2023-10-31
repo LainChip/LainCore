@@ -76,12 +76,21 @@ module core_ifetch #(
   logic[31:0] ppc_q,vpc_q;// 指示 F2 级别的 PC 地址
 
   always_ff @(posedge clk) begin
-    if(!rst_n || flush_i) begin
+    if(!rst_n) begin
       cacheop_valid_q <= '0;
       fetch_v_q       <= '0;
+      uncached_q      <= 'x;
       fetch_excp_q    <= '0;
+      cacheop_q       <= 'x;
+      ppc_q           <= 'x;
+      vpc_q           <= 'x;
     end else begin
-      if(!f2_stall_i) begin
+      if(flush_i) begin
+        cacheop_valid_q <= '0;
+        fetch_v_q       <= '0;
+        fetch_excp_q    <= '0;
+      end
+      else if(!f2_stall_i) begin
         if(cacheop_valid_i && ENABLE_TLB) begin
           cacheop_valid_q <= '1;
           fetch_v_q       <= '0;
