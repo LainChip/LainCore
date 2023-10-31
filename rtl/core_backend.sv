@@ -720,17 +720,25 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
             is_skid_q       <= '0;
             ex_skid_ready_q <= '1;
           end
-          pipeline_data_skid_q <= pipeline_data_skid_fwd;
         end
         else begin
           if(ex_skid_valid & ~ex_ready) begin
             is_skid_q       <= '1;
             ex_skid_ready_q <= '0;
           end
-          pipeline_data_skid_q <= pipeline_data_is_fwd;
         end
       end
     end
+
+    always_ff @(posedge clk) begin
+      if(is_skid_q) begin
+        pipeline_data_skid_q <= pipeline_data_skid_fwd;
+      end
+      else begin
+        pipeline_data_skid_q <= pipeline_data_is_fwd;
+      end
+    end
+
     always_ff @(posedge clk) begin
       if(!is_skid_q) begin
         pipeline_ctrl_skid_q <= pipeline_ctrl_is;
