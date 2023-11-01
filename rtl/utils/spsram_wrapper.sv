@@ -10,7 +10,7 @@ module spsram_wrapper #(
   input                                     en_i   ,
   input        [(DATA_WIDTH/BYTE_SIZE)-1:0] we_i   ,
   input  logic [            DATA_WIDTH-1:0] wdata_i,
-  output logic [            DATA_WIDTH-1:0] rdata_o,
+  output logic [            DATA_WIDTH-1:0] rdata_o
 );
 
 `ifdef _FPGA
