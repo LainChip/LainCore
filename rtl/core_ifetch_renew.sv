@@ -193,20 +193,18 @@ module core_ifetch #(
   end
 
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
-    sync_dpram #(
+    sync_spram #(
       .DATA_WIDTH(64),
       .DATA_DEPTH(1 << 9),
       .BYTE_SIZE(32)
     ) dram_bank (
       .clk     (clk       ),
       .rst_n   (rst_n     ),
-      .waddr_i (dram_waddr[9:1]),
+      .addr_i  (refill_valid_q ? dram_waddr[9:1] : dram_raddr),
       .we_i    ({dram_we[w] && dram_waddr[0],
-          dram_we[w] && !dram_waddr[0]}),
-      .raddr_i (dram_raddr),
-      .re_i    (1'b1),
-      .wdata_i ({dram_wdata, dram_wdata}),
-      .rdata_o (dram_rdata[w])
+                 dram_we[w] && !dram_waddr[0]}),
+      .rdata_o (dram_rdata[w]),
+      .wdata_i ({dram_wdata, dram_wdata})
     );
     sync_regram #(
       .DATA_WIDTH($bits(i_tag_t)),
