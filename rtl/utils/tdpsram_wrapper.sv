@@ -113,7 +113,6 @@ module tdpsram_wrapper #(
         $finish;
     end
   end
-
 `endif
 
 endmodule
