@@ -142,9 +142,14 @@ module core_ifetch #(
 
   logic[7:0] tram_raddr;
   i_tag_t[WAY_CNT - 1 : 0] tram_rdata;
-  logic[7:0] tram_waddr;
-  logic[WAY_CNT - 1 : 0] tram_we;
-  i_tag_t tram_wdata;
+  logic[7:0] tram_waddr, tram_waddr_q;
+  logic[WAY_CNT - 1 : 0] tram_we, tram_we_q;
+  i_tag_t tram_wdata, tram_wdata_q;
+  always_ff @(posedge clk) begin
+    tram_we_q <= tram_we;
+    tram_waddr_q <= tram_waddr;
+    tram_wdata_q <= tram_wdata;
+  end
 
   logic[ 9:0] refill_addr_q;
   logic[ 1:0] refill_addr_q_q;
@@ -158,6 +163,8 @@ module core_ifetch #(
     assign dram_raddr = vpc_i[11:3];
   end
   assign tram_raddr = (cacheop_valid_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : vpc_i[11:4];
+
+  // assign tram_raddr = (cacheop_valid_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : (vpc_i[11:4] : npc_i[11:4]);
 
   logic[WAY_CNT - 1 : 0][1:0][31:0] f2_data_q;
   if(EARLY_BRAM) begin
@@ -210,13 +217,13 @@ module core_ifetch #(
       .DATA_WIDTH($bits(i_tag_t)),
       .DATA_DEPTH(1 << 8        )
     ) tram (
-      .clk    (clk                    ),
-      .rst_n  (rst_n                  ),
-      .waddr_i(tram_waddr ^ rst_addr_q),
-      .we_i   (tram_we[w] | !rst_n_q  ),
-      .raddr_i(tram_raddr             ),
-      .wdata_i(tram_wdata             ),
-      .rdata_o(tram_rdata[w]          )
+      .clk    (clk                      ),
+      .rst_n  (rst_n                    ),
+      .waddr_i(tram_waddr_q ^ rst_addr_q),
+      .we_i   (tram_we_q[w] | !rst_n_q  ),
+      .raddr_i(tram_raddr               ),
+      .wdata_i(tram_wdata_q             ),
+      .rdata_o(tram_rdata[w]            )
     );
   end
 
@@ -376,7 +383,7 @@ module core_ifetch #(
         end
       end
       FSM_RECVER : begin
-        fsm            = FSM_NORMAL;
+        fsm            = FSM_WAITBUS;
         f2_op_finished = 1'b1;
       end
       FSM_RFADDR : begin
