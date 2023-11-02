@@ -26,13 +26,6 @@ module bank_mpregfiles_4r2w #(
     output wire conflict_o
 );
 
-    // `ifndef _FPGA
-    //     initial begin
-    //     	$dumpfile("logs/vlt_dump.vcd");
-    //     	$dumpvars();
-    //     end
-    // `endif
-
     logic[4:0] wa_0,wa_1;
     logic[WIDTH - 1 : 0] rd0_0,rd1_0,rd2_0,rd3_0;
     logic[WIDTH - 1 : 0] rd0_1,rd1_1,rd2_1,rd3_1;
@@ -65,7 +58,7 @@ module bank_mpregfiles_4r2w #(
     la_mux2 #(WIDTH + 6)write_mux1({wa1_i[4:0],wd1_i,we1_i},{wa0_i[4:0],wd0_i,we0_i},{wa_1,wd_1,we_1}, we0_i && wa0_i[0]);
     // FIX: 0 端口有更高的优先级
 
-    `ifdef _FPGA
+    `ifdef _LUT_REG
     /* bank0 : manage even addr */
     fpga_ram_3r1w_32d #(WIDTH) qram_b0_0(
         .clk,
