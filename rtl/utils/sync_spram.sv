@@ -11,6 +11,7 @@ module sync_spram #(
   input                                     rst_n  ,
   input  logic [    $clog2(DATA_DEPTH)-1:0] addr_i ,
   input  logic [(DATA_WIDTH/BYTE_SIZE)-1:0] we_i   ,
+  input  logic                              en_i   ,
   input  logic [            DATA_WIDTH-1:0] wdata_i,
   output logic [            DATA_WIDTH-1:0] rdata_o
 );
@@ -23,7 +24,7 @@ module sync_spram #(
     .clk    (clk    ),
     .rst_n  (rst_n  ),
     .addr_i (addr_i ),
-    .en_i   ('1     ),
+    .en_i   (en_i   ),
     .we_i   (we_i   ),
     .wdata_i(wdata_i),
     .rdata_o(rdata_o)

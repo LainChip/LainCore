@@ -5,12 +5,13 @@ module core_ifetch #(
   parameter int ATTACHED_INFO_WIDTH = 32        , // 用于捆绑bpu输出的信息，跟随指令流水
   parameter bit ENABLE_TLB          = 1'b1      ,
   parameter bit EARLY_BRAM          = 1'b0      , // 用于提前一级 BRAM 地址，降低关键路径延迟
-  parameter bit ENABLE_RESET_FLUSH  = 1'b1      ,
+  parameter bit ENABLE_RESET_FLUSH  = 1'b0      ,
   parameter int WAY_CNT             = `_IWAY_CNT  // 指示cache的组相联度
 ) (
   input                                        clk            , // Clock
   input                                        rst_n          , // Asynchronous reset active low
   input  logic [                    1:0]       cacheop_i      , // 输入两位的cache控制信号
+  input  logic                                 cacheop_valid_early_i, // 提前一周期输入的cache控制信号有效
   input  logic                                 cacheop_valid_i, // 输入的cache控制信号有效
   input  logic [                   31:0]       cacheop_paddr_i,
   input  logic [                    1:0]       valid_i        , // F1 级别的有效信息
@@ -144,11 +145,13 @@ module core_ifetch #(
   i_tag_t[WAY_CNT - 1 : 0] tram_rdata;
   logic[7:0] tram_waddr, tram_waddr_q;
   logic[WAY_CNT - 1 : 0] tram_we, tram_we_q;
+  logic tram_wvalid_q;
   i_tag_t tram_wdata, tram_wdata_q;
   always_ff @(posedge clk) begin
     tram_we_q <= tram_we;
     tram_waddr_q <= tram_waddr;
     tram_wdata_q <= tram_wdata;
+    tram_wvalid_q <= (fsm_q == FSM_RECVER || fsm_q == FSM_RFADDR);
   end
 
   logic[ 9:0] refill_addr_q;
@@ -162,9 +165,7 @@ module core_ifetch #(
   end else begin
     assign dram_raddr = vpc_i[11:3];
   end
-  assign tram_raddr = (cacheop_valid_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : vpc_i[11:4];
-
-  // assign tram_raddr = (cacheop_valid_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : (vpc_i[11:4] : npc_i[11:4]);
+  assign tram_raddr = (cacheop_valid_early_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : (f2_stall_req_o ? vpc_i[11:4] : npc_i);
 
   logic[WAY_CNT - 1 : 0][1:0][31:0] f2_data_q;
   if(EARLY_BRAM) begin
@@ -204,24 +205,27 @@ module core_ifetch #(
       .DATA_WIDTH(64),
       .DATA_DEPTH(1 << 9),
       .BYTE_SIZE(32)
-    ) dram_bank (
+    ) dram (
       .clk     (clk       ),
       .rst_n   (rst_n     ),
       .addr_i  (refill_valid_q ? dram_waddr[9:1] : dram_raddr),
       .we_i    ({dram_we[w] && dram_waddr[0],
                  dram_we[w] && !dram_waddr[0]}),
+      .en_i    (1'b1      ),
       .rdata_o (dram_rdata[w]),
       .wdata_i ({dram_wdata, dram_wdata})
     );
-    sync_regram #(
+    logic[7:0] tram_addr;
+    assign tram_addr = tram_wvalid_q ? tram_waddr_q : tram_raddr;
+    sync_spram #(
       .DATA_WIDTH($bits(i_tag_t)),
       .DATA_DEPTH(1 << 8        )
     ) tram (
       .clk    (clk                      ),
       .rst_n  (rst_n                    ),
-      .waddr_i(tram_waddr_q ^ rst_addr_q),
+      .addr_i (tram_addr ^ rst_addr_q   ),
       .we_i   (tram_we_q[w] | !rst_n_q  ),
-      .raddr_i(tram_raddr               ),
+      .en_i   (1'b1                     ),
       .wdata_i(tram_wdata_q             ),
       .rdata_o(tram_rdata[w]            )
     );

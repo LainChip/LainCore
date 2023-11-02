@@ -170,6 +170,7 @@ module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
                 .clk            (clk                     ),
                 .rst_n          (rst_n                   ),
                 .cacheop_i      (icacheop                ),
+                .cacheop_valid_early_i(frontend_resp_i.icache_op_valid),
                 .cacheop_valid_i(icacheop_valid          ),
                 .cacheop_paddr_i(icacheop_addr           ), // 注意：这个是物理地址
                 .valid_i        (f1_valid                ),
