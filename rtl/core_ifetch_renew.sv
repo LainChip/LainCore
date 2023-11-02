@@ -219,7 +219,8 @@ module core_ifetch #(
     assign tram_addr = tram_wvalid_q ? tram_waddr_q : tram_raddr;
     sync_spram #(
       .DATA_WIDTH($bits(i_tag_t)),
-      .DATA_DEPTH(1 << 8        )
+      .DATA_DEPTH(1 << 8        ),
+      .BYTE_SIZE ($bits(i_tag_t))
     ) tram (
       .clk    (clk                      ),
       .rst_n  (rst_n                    ),
