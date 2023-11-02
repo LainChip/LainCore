@@ -3,9 +3,9 @@
 `define _COMMON_HEADER
 
 `define _DIFFTEST_ENABLE
-`define _FPGA
+`define _VERILATOR
+// `define _FPGA
 // `define _LUT_REG
-// `define _VERILATOR
 
 `define _CACHE_BUS_DATA_LEN (32)
 `define _AXI_BURST_SIZE (4'b0011)

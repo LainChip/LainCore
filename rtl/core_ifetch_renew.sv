@@ -165,7 +165,7 @@ module core_ifetch #(
   end else begin
     assign dram_raddr = vpc_i[11:3];
   end
-  assign tram_raddr = (cacheop_valid_early_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : (f2_stall_req_o ? vpc_i[11:4] : npc_i);
+  assign tram_raddr = (cacheop_valid_early_i && ENABLE_TLB) ? cacheop_paddr_i[11:4] : ((f1_stall_i && !flush_i) ? vpc_i[11:4] : npc_i[11:4]);
 
   logic[WAY_CNT - 1 : 0][1:0][31:0] f2_data_q;
   if(EARLY_BRAM) begin
