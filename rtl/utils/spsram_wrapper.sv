@@ -14,12 +14,16 @@ module spsram_wrapper #(
 );
 
 `ifdef _FPGA
+logic [(DATA_WIDTH/BYTE_SIZE)-1:0][(BYTE_SIZE/8)-1:0]ext_we;
+for(genvar i = 0 ; i < (DATA_WIDTH/BYTE_SIZE); i++) begin
+  assign ext_we[i] = we_i[i] ? '1 : '0;
+end
   xpm_memory_tdpram #(
     .ADDR_WIDTH_A       ($clog2(DATA_DEPTH)     ),
     .ADDR_WIDTH_B       ($clog2(DATA_DEPTH)     ),
     .AUTO_SLEEP_TIME    (0                      ), // DECIMAL
-    .BYTE_WRITE_WIDTH_A (BYTE_SIZE              ),
-    .BYTE_WRITE_WIDTH_B (BYTE_SIZE              ),
+    .BYTE_WRITE_WIDTH_A (DATA_WIDTH == BYTE_SIZE ? DATA_WIDTH : 8),
+    .BYTE_WRITE_WIDTH_B (DATA_WIDTH == BYTE_SIZE ? DATA_WIDTH : 8),
     .CASCADE_HEIGHT     (0                      ), // DECIMAL
     .CLOCKING_MODE      ("common_clock"         ),
     .ECC_MODE           ("no_ecc"               ),
@@ -30,7 +34,6 @@ module spsram_wrapper #(
     .MEMORY_PRIMITIVE   ("auto"                 ), // String
     .MEMORY_SIZE        (DATA_WIDTH * DATA_DEPTH),
     .MESSAGE_CONTROL    (0                      ), // DECIMAL
-    .RAM_DECOMP         ("auto"                 ), // String
     .READ_DATA_WIDTH_A  (DATA_WIDTH             ),
     .READ_DATA_WIDTH_B  (DATA_WIDTH             ),
     .READ_LATENCY_A     (1                      ), // DECIMAL
@@ -61,7 +64,7 @@ module spsram_wrapper #(
     .rsta          (~rst_n          ),
     .rstb          ('0              ),
     .sleep         ('0              ),
-    .wea           (we_i            ),
+    .wea           (DATA_WIDTH == BYTE_SIZE ? we_i : ext_we),
     .web           ('0              )
   );
 `endif
