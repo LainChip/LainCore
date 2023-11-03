@@ -51,6 +51,7 @@ module core_fetch #(
   endfunction
 
   // F2 CACHE CONTROLL REGISTERS
+  logic [ 1:0] fetch_valid_q  ;
   logic [ 1:0] cacheop_q      ;
   logic [31:0] cacheop_paddr_q;
   logic        cacheop_valid_q;
@@ -58,14 +59,24 @@ module core_fetch #(
     if(f1_f2_clken_o) begin
       cacheop_q       <= cacheop_i;
       cacheop_paddr_q <= cacheop_paddr_i;
-      cacheop_valid_q <= cacheop_valid_i;
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      cacheop_valid_q <= '0;
+      fetch_valid_q   <= '0;
+    end else begin
+      if(f1_f2_clken_o) begin
+        cacheop_valid_q <= cacheop_valid_i;
+        fetch_valid_q   <= valid_i;
+      end
     end
   end
 
   logic skid_busy_q;
 
   logic[31:0] sram_raddr, sram_waddr, sram_addr;
-  logic  sram_wreq                                      ;
+  logic sram_wreq;
   assign sram_addr = sram_wreq ? sram_waddr : sram_raddr;
 
   logic[31:0] f1_sram_raddr, f2_sram_raddr_q;
@@ -80,9 +91,10 @@ module core_fetch #(
   i_tag_t [WAY_CNT-1:0] sram_tags;
   i_tag_t               sram_wtag;
   logic[WAY_CNT - 1 : 0][63:0] sram_datas;
-  logic [       63:0] sram_wdata ;
-  logic [       63:0] sel_data   ;
-  logic [WAY_CNT-1:0] sram_tag_we, sram_data_we;
+  logic [       63:0] sram_wdata  ;
+  logic [       63:0] sel_data    ;
+  logic [WAY_CNT-1:0] sram_tag_we ;
+  logic [WAY_CNT-1:0] sram_data_we;
   logic[WAY_CNT - 1 : 0] hits;
   logic hit;
   for(genvar i = 0; i < WAY_CNT ; i++) begin
@@ -98,15 +110,50 @@ module core_fetch #(
     end
   end
 
-  // SKID BUF
-  logic              f2_need_skid        ;
-  logic              skid_uncache_q      ;
-  logic              skid_cacheop_valid_q;
-  logic [ 1:0]       skid_hit_q          ;
-  logic [ 1:0]       skid_valid_q        ;
-  logic [ 1:0]       skid_cacheop_q      ;
-  logic [31:0]       skid_op_addr_q      ;
-  logic [ 1:0][31:0] skid_data_q         ;
+  // SKID FLUSHABLE SIGNAL
+  logic [1:0] skid_valid_q;
+  always_ff @(posedge clk) begin
+    if(flush_i) begin
+      skid_valid_q <= '0;
+    end else begin
+      if(!skid_busy_q) begin
+        skid_valid_q <= fetch_valid_q;
+      end
+    end
+  end
+
+  logic [WAY_CNT-1:0] rnd_way_sel_q;
+  always_ff @(posedge clk) begin
+    if(!rst_n) begin
+      rnd_way_sel_q[0]           <= '1;
+      rnd_way_sel_q[WAY_CNT-1:1] <= '0;
+    end else begin
+      rnd_way_sel_q <= {rnd_way_sel_q[WAY_CNT - 2 : 0], rnd_way_sel_q[WAY_CNT - 1]};
+    end
+  end
+
+  // SKID NON-FLUSHABLE SIGNAL
+  logic [WAY_CNT-1:0] skid_way_sel_q      ;
+  logic               f2_need_skid        ;
+  logic               skid_uncache_q      ;
+  logic               skid_cacheop_valid_q;
+  logic [        1:0] skid_hit_q          ;
+  logic [        1:0] skid_cacheop_q      ;
+  logic [       31:0] skid_op_addr_q      ;
+  always_ff @(posedge clk) begin
+    if(!skid_busy_q) begin
+      skid_uncache_q       <= uncache_i;
+      skid_cacheop_valid_q <= cacheop_valid_q;
+      skid_hit_q           <= hits;
+      skid_cacheop_q       <= cacheop_q;
+      skid_op_addr_q       <= cacheop_valid_q ? cacheop_paddr_q : ppc_i;
+      skid_way_sel_q       <= rnd_way_sel_q;
+    end
+  end
+
+  // SKID GEN SINGNAL
+  logic [1:0]       refill_cnt_q;
+  logic [1:0][31:0] skid_data_q ;
 
   // MAIN FSM
   typedef logic[9:0] icache_fsm_t;
@@ -121,10 +168,26 @@ module core_fetch #(
   localparam   FSM_WAITBUS = 10'b0100000000;
   localparam   FSM_RECOVER = 10'b1000000000;
   icache_fsm_t fsm_q                       ;
+
+  assign sram_wdata   = {bus_resp_i.r_data, bus_resp_i.r_data};
+  assign sram_wreq    = (fsm_q == FSM_CACOP || fsm_q == FSM_RFDATA);
+  assign sram_data_we = skid_way_sel_q & {WAY_CNT{(bus_resp_i.data_ok && (fsm_q == FSM_RFDATA))}};
+  assign sram_waddr   = {skid_op_addr_q[31:4], refill_cnt_q, 2'b00};
+  assign sram_tag_we  = {WAY_CNT{(fsm_q == FSM_CACOP)}} |
+    (skid_way_sel_q & {WAY_CNT{(fsm_q == FSM_RFDATA)}});
+  assign sram_wtag.tag = itagaddr(skid_op_addr_q);
+
+  always_ff @( posedge clk ) begin
+    if(fsm_q == FSM_RFADDR) begin
+      refill_cnt_q <= '0;
+    end else begin
+      refill_cnt_q <= refill_cnt_q + bus_resp_i.data_ok;
+    end
+  end
   always_ff @( posedge clk ) begin : skid_fsm
     if(!rst_n) begin
-      fsm_q          <= FSM_NORMAL;
-      skid_busy_q    <= '0;
+      fsm_q       <= FSM_NORMAL;
+      skid_busy_q <= '0;
     end else begin
       if(skid_busy_q) begin
         case (fsm_q)
@@ -145,14 +208,46 @@ module core_fetch #(
             end
           end
           FSM_RFDATA : begin
-            if((&skid_op_addr_q[3:2]) && refill_valid_q) begin
+            if((&refill_cnt_q) && bus_resp_i.data_ok) begin
               fsm_q <= FSM_RECOVER;
             end
+          end
+          FSM_PTADDR0 : begin
+            if(bus_resp_i.ready) begin
+              fsm_q <= FSM_PTDATA0;
+            end
+          end
+          FSM_PTDATA0 : begin
+            if(bus_resp_i.data_ok) begin
+              fsm_q <= skid_valid_q[1] ? FSM_PTADDR1 : FSM_RECOVER;
+            end
+          end
+          FSM_PTADDR1 : begin
+            if(bus_resp_i.ready) begin
+              fsm_q <= FSM_PTDATA1;
+            end
+          end
+          FSM_PTDATA1 : begin
+            if(bus_resp_i.data_ok) begin
+              fsm_q <= FSM_RECOVER;
+            end
+          end
+          FSM_RECOVER : begin
+            fsm_q <= FSM_NORMAL;
+            skid_busy_q <= '0;
+          end
+          FSM_WAITBUS : begin
+            if(!bus_busy_i) begin
+                fsm_q <= FSM_NORMAL;
+              end 
+          end
+          FSM_CACOP : begin
+            fsm_q <= FSM_RECOVER;
           end
         endcase
       end else begin
         if(f2_need_skid) begin
-          skid_busy_q    <= '1;
+          skid_busy_q <= '1;
         end
       end
     end
