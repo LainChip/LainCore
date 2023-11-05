@@ -355,4 +355,36 @@ module core_fetch #(
   assign cacheop_ready_o = !skid_busy_q;
   assign f2_need_skid    = !flush_i && (((|fetch_valid_q) && (!ready_i || uncache_i || !hit)) || (cacheop_valid_q));
 
+  // BUS CONTROLL
+  always_comb begin
+    bus_req_o.valid      = 1'b0;
+    bus_req_o.write      = 1'b0;
+    bus_req_o.burst_size = 4'b0011;
+    bus_req_o.cached     = 1'b0;
+    bus_req_o.data_size  = 2'b10;
+    bus_req_o.addr       = {skid_op_addr_q[31:4], 4'd0};
+
+    bus_req_o.data_ok     = 1'b0;
+    bus_req_o.data_last   = 1'b0;
+    bus_req_o.data_strobe = 4'b0000;
+    bus_req_o.w_data      = '0;
+    if(fsm_q == FSM_RFADDR) begin
+      bus_req_o.valid  = 1'b1;
+      bus_req_o.cached = 1'b1;
+    end
+    else if(fsm_q == FSM_RFDATA || fsm_q == FSM_PTDATA0 || fsm_q == FSM_PTDATA1) begin
+      bus_req_o.data_ok = 1'b1;
+    end
+    else if(fsm_q == FSM_PTADDR0 || fsm_q == FSM_PTADDR1) begin
+      bus_req_o.valid      = 1'b1;
+      bus_req_o.burst_size = 4'b0000;
+      if(fsm_q == FSM_PTADDR1) begin
+        bus_req_o.addr = {skid_op_addr_q[31:3],3'b100};
+      end
+      else begin
+        bus_req_o.addr = {skid_op_addr_q[31:3],3'b000};
+      end
+    end
+  end
+
 endmodule
