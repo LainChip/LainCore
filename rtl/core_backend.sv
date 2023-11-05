@@ -563,12 +563,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .FETCH_ADDR('0)
       ) core_daddr_trans_inst (
         .clk             (clk                    ),
+        .clken_i         (!m1_stall              ),
         .rst_n           (rst_n                  ),
         .valid_i         (ex_addr_trans_valid[p] ),
         .vaddr_i         (ex_mem_vaddr[p]        ),
-        .m1_stall_i      (m1_stall               ),
-        .jmp_i           ('0                     ),
-        .flush_i         ('0                     ),
         .ready_o         (m1_addr_trans_ready[p] ),
         .csr_i           (csr_value              ),
         .tlb_update_req_i(tlb_update_req         ),
