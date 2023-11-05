@@ -26,6 +26,7 @@ module core_fetch #(
   output logic                                    f1_f2_clken_o  ,
   // F2 STAGE
   input  logic                                    uncache_i      ,
+  input  logic                                    excp_i         ,
   input  logic [F2_ATTACHED_INFO_WIDTH-1:0]       f2_attached_i  ,
   input  logic [                      31:0]       ppc_i          ,
   output logic [F2_ATTACHED_INFO_WIDTH-1:0]       f2_attached_o  ,
@@ -69,12 +70,19 @@ module core_fetch #(
     end
   end
   always_ff @(posedge clk) begin
-    if(!rst_n || flush_i) begin
+    if(!rst_n) begin
       cacheop_valid_q <= '0;
-      fetch_valid_q   <= '0;
     end else begin
       if(f1_f2_clken_o) begin
         cacheop_valid_q <= cacheop_valid_i;
+      end
+    end
+  end
+  always_ff @(posedge clk) begin
+    if(!rst_n || flush_i) begin
+      fetch_valid_q   <= '0;
+    end else begin
+      if(f1_f2_clken_o) begin
         fetch_valid_q   <= valid_i & {!cacheop_valid_i, !cacheop_valid_i};
       end
     end
@@ -344,7 +352,7 @@ module core_fetch #(
   // OUTPUT
   assign attached_o    = skid_busy_q ? skid_attached_q : attached_q;
   assign pc_o          = skid_busy_q ? skid_vpc_q : vpc_q;
-  assign valid_o       = skid_busy_q ? skid_data_valid_q : ((hit && !uncache_i) ? fetch_valid_q : '0);
+  assign valid_o       = skid_busy_q ? skid_data_valid_q : (((hit || excp_i) && !uncache_i) ? fetch_valid_q : '0);
   assign inst_o        = skid_busy_q ? skid_data_q : sel_data;
   assign f2_attached_o = skid_busy_q ? skid_f2_attached_q : f2_attached_i;
 
@@ -352,7 +360,7 @@ module core_fetch #(
   assign f1_f2_clken_o   = !skid_busy_q;
   assign npc_ready_o     = !skid_busy_q && !cacheop_valid_i;
   assign cacheop_ready_o = !skid_busy_q;
-  assign f2_need_skid    = !flush_i && (((|fetch_valid_q) && (!ready_i || uncache_i || !hit)) || (cacheop_valid_q));
+  assign f2_need_skid    = !flush_i && (((|fetch_valid_q) && (!ready_i || uncache_i || !(hit || excp_i))) || (cacheop_valid_q));
 
   // BUS CONTROLL
   always_comb begin

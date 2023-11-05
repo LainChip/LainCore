@@ -175,6 +175,7 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     .f1_f2_clken_o  (f1_f2_clken                         ),
     
     .uncache_i      (f2_uncached                         ),
+    .excp_i         (|f2_excp                            ),
     .f2_attached_i  (f2_excp                             ),
     .ppc_i          (f2_ppc                              ),
     .f2_attached_o  (ifetch_excp                         ),
