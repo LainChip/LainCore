@@ -58,22 +58,23 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
 );
 
   // NPC 模块
-  logic idle_stall;
+  logic idle_stall, addr_trans_stall;
   logic npc_ready ; // FROM ICACHE -> NPC
   logic[31:0] f1_pc;
   logic[1:0] f1_valid;
   bpu_predict_t [1:0] f1_predict;
+  assign addr_trans_stall = frontend_resp_i.addr_trans_stall;
   core_npc npc_inst (
-    .clk       (clk                           ),
-    .rst_n     (rst_n                         ),
-    .rst_jmp   (frontend_resp_i.rst_jmp       ),
-    .rst_target(frontend_resp_i.rst_jmp_target),
-    .f_stall_i (!npc_ready || idle_stall      ),
-    .pc_o      (f1_pc                         ),
-    .npc_o     (/* NC */                      ),
-    .valid_o   (f1_valid                      ),
-    .predict_o (f1_predict                    ),
-    .correct_i (frontend_resp_i.bpu_correct   )
+    .clk       (clk                                         ),
+    .rst_n     (rst_n                                       ),
+    .rst_jmp   (frontend_resp_i.rst_jmp                     ),
+    .rst_target(frontend_resp_i.rst_jmp_target              ),
+    .f_stall_i (!npc_ready || idle_stall || addr_trans_stall),
+    .pc_o      (f1_pc                                       ),
+    .npc_o     (/* NC */                                    ),
+    .valid_o   (f1_valid                                    ),
+    .predict_o (f1_predict                                  ),
+    .correct_i (frontend_resp_i.bpu_correct                 )
   );
 
   logic[1:0] f1_icacheop;
@@ -145,34 +146,34 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     .ATTACHED_INFO_WIDTH   (2*$bits(bpu_predict_t)),
     .F2_ATTACHED_INFO_WIDTH($bits(fetch_excp_t)   )
   ) core_fetch_inst (
-    .clk            (clk                                 ),
-    .rst_n          (rst_n                               ),
-    .flush_i        (frontend_resp_i.rst_jmp             ),
-    .bus_busy_i     (frontend_resp_i.bus_busy            ),
-    .bus_req_o      (bus_req_o                           ),
-    .bus_resp_i     (bus_resp_i                          ),
+    .clk            (clk                     ),
+    .rst_n          (rst_n                   ),
+    .flush_i        (frontend_resp_i.rst_jmp ),
+    .bus_busy_i     (frontend_resp_i.bus_busy),
+    .bus_req_o      (bus_req_o               ),
+    .bus_resp_i     (bus_resp_i              ),
     
-    .npc_ready_o    (npc_ready                           ),
-    .valid_i        (f1_valid& {!idle_stall, !idle_stall}),
-    .cacheop_ready_o(f1_icacheop_ready                   ),
-    .cacheop_valid_i(f1_icacheop_valid                   ),
-    .cacheop_i      (f1_icacheop                         ),
-    .cacheop_paddr_i(f1_icacheop_addr                    ),
-    .vpc_i          (f1_pc                               ),
-    .attached_i     (f1_predict                          ),
+    .npc_ready_o    (npc_ready               ),
+    .valid_i        (f1_valid                ),
+    .cacheop_ready_o(f1_icacheop_ready       ),
+    .cacheop_valid_i(f1_icacheop_valid       ),
+    .cacheop_i      (f1_icacheop             ),
+    .cacheop_paddr_i(f1_icacheop_addr        ),
+    .vpc_i          (f1_pc                   ),
+    .attached_i     (f1_predict              ),
     
-    .f1_f2_clken_o  (f1_f2_clken                         ),
+    .f1_f2_clken_o  (f1_f2_clken             ),
     
-    .uncache_i      (f2_uncached                         ),
-    .excp_i         (|f2_excp                            ),
-    .f2_attached_i  (f2_excp                             ),
-    .ppc_i          (f2_ppc                              ),
-    .f2_attached_o  (ifetch_excp                         ),
-    .attached_o     (ifetch_predict                      ),
-    .pc_o           (ifetch_pc                           ),
-    .valid_o        (ifetch_valid                        ),
-    .inst_o         (ifetch_inst                         ),
-    .ready_i        (decode_ready                        )
+    .uncache_i      (f2_uncached             ),
+    .excp_i         (|f2_excp                ),
+    .f2_attached_i  (f2_excp                 ),
+    .ppc_i          (f2_ppc                  ),
+    .f2_attached_o  (ifetch_excp             ),
+    .attached_o     (ifetch_predict          ),
+    .pc_o           (ifetch_pc               ),
+    .valid_o        (ifetch_valid            ),
+    .inst_o         (ifetch_inst             ),
+    .ready_i        (decode_ready            )
   );
 
   // DECODER
