@@ -96,7 +96,7 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
   always_ff @(posedge clk) begin
     if(frontend_resp_i.icache_op_valid) begin
       f1_icacheop      <= frontend_resp_i.icache_op;
-      f1_icacheop_addr <= frontend_resp_i.f1_icacheop_addr;
+      f1_icacheop_addr <= frontend_resp_i.icacheop_addr;
     end
   end
 
@@ -122,8 +122,8 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
   assign f2_uncached = f2_trans_result.value.mat != 2'b01;
   always_comb begin
     f2_excp      = '0;
-    f2_excp.adef = (|f2_ppc[1:0]) || (f2_trans_result.dmw ? '0 :
-      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f1_pc[31]));
+    f2_excp.adef = (|f2_vpc[1:0]) || (f2_trans_result.dmw ? '0 :
+      ((frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3) && f2_vpc[31]));
     f2_excp.tlbr = (!f2_excp) && !f2_trans_result.found;
     f2_excp.pif  = (!f2_excp) && !f2_trans_result.value.v;
     f2_excp.ppi  = (!f2_excp) && (f2_trans_result.value.plv == 2'd0 && frontend_resp_i.csr_reg.crmd[`PLV] == 2'd3);
@@ -146,33 +146,33 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     .ATTACHED_INFO_WIDTH   (2*$bits(bpu_predict_t)),
     .F2_ATTACHED_INFO_WIDTH($bits(fetch_excp_t)   )
   ) core_fetch_inst (
-    .clk            (clk                                         ),
-    .rst_n          (rst_n                                       ),
-    .flush_i        (frontend_resp_i.rst_jmp                     ),
-    .bus_busy_i     (frontend_resp_i.bus_busy                    ),
-    .bus_req_o      (bus_req_o                                   ),
-    .bus_resp_i     (bus_resp_i                                  ),
+    .clk            (clk                                 ),
+    .rst_n          (rst_n                               ),
+    .flush_i        (frontend_resp_i.rst_jmp             ),
+    .bus_busy_i     (frontend_resp_i.bus_busy            ),
+    .bus_req_o      (bus_req_o                           ),
+    .bus_resp_i     (bus_resp_i                          ),
     
-    .npc_ready_o    (npc_ready                                   ),
-    .valid_i        (f1_valid                                    ),
-    .cacheop_ready_o(f1_icacheop_ready                           ),
-    .cacheop_valid_i(f1_icacheop_valid & {idle_stall, idle_stall}),
-    .cacheop_i      (f1_icacheop                                 ),
-    .cacheop_paddr_i(f1_icacheop_addr                            ),
-    .vpc_i          (f1_pc                                       ),
-    .attached_i     (f1_predict                                  ),
+    .npc_ready_o    (npc_ready                           ),
+    .valid_i        (f1_valid& {!idle_stall, !idle_stall}),
+    .cacheop_ready_o(f1_icacheop_ready                   ),
+    .cacheop_valid_i(f1_icacheop_valid                   ),
+    .cacheop_i      (f1_icacheop                         ),
+    .cacheop_paddr_i(f1_icacheop_addr                    ),
+    .vpc_i          (f1_pc                               ),
+    .attached_i     (f1_predict                          ),
     
-    .f1_f2_clken_o  (f1_f2_clken                                 ),
+    .f1_f2_clken_o  (f1_f2_clken                         ),
     
-    .uncache_i      (f2_uncached                                 ),
-    .f2_attached_i  (f2_excp                                     ),
-    .ppc_i          (f2_ppc                                      ),
-    .f2_attached_o  (ifetch_excp                                 ),
-    .attached_o     (ifetch_predict                              ),
-    .pc_o           (ifetch_pc                                   ),
-    .valid_o        (ifetch_valid                                ),
-    .inst_o         (ifetch_inst                                 ),
-    .ready_i        (decode_ready                                )
+    .uncache_i      (f2_uncached                         ),
+    .f2_attached_i  (f2_excp                             ),
+    .ppc_i          (f2_ppc                              ),
+    .f2_attached_o  (ifetch_excp                         ),
+    .attached_o     (ifetch_predict                      ),
+    .pc_o           (ifetch_pc                           ),
+    .valid_o        (ifetch_valid                        ),
+    .inst_o         (ifetch_inst                         ),
+    .ready_i        (decode_ready                        )
   );
 
   // DECODER
@@ -182,11 +182,19 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
   fetch_excp_t        decode_excp_q   ;
   bpu_predict_t [ 1:0]       decode_predict_q;
   always_ff @(posedge clk) begin
+    if(!rst_n || frontend_resp_i.rst_jmp) begin
+      decode_valid_q <= '0;
+    end else begin
+      if(decode_ready) begin
+        decode_valid_q <= ifetch_valid;
+      end
+    end
+  end
+  always_ff @(posedge clk) begin
     if(decode_ready) begin
       decode_excp_q    <= ifetch_excp;
       decode_predict_q <= ifetch_predict;
       decode_pc_q      <= ifetch_pc;
-      decode_valid_q   <= ifetch_valid;
       decode_inst_q    <= ifetch_inst;
     end
   end
@@ -203,8 +211,8 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
       decoder_inst_package[p].imm_domain = decode_inst_q[p][25:0];
       decoder_inst_package[p].reg_info = get_register_info(issue_package,decode_inst_q[p]);
       decoder_inst_package[p].bpu_predict = decode_predict_q[p];
-      decoder_inst_package[p].fetch_excp = decode_excp_q[p];
-      decoder_inst_package[p].pc = decode_pc_q[p];
+      decoder_inst_package[p].fetch_excp = decode_excp_q;
+      decoder_inst_package[p].pc = {decode_pc_q[31:3],p[0],decode_pc_q[1:0]};
     end
   end
   // ISSUE FIFO

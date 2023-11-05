@@ -113,8 +113,8 @@ module core_fetch #(
       .clk     (clk       ),
       .rst_n   (rst_n     ),
       .addr_i  (idramaddr(sram_addr)),
-      .we_i    ({sram_data_we[w] & !sram_waddr[2],
-          sram_data_we[w] &  sram_waddr[2]}),
+      .we_i    ({sram_data_we[w] &  sram_waddr[2],
+                 sram_data_we[w] & !sram_waddr[2]}),
       .en_i    (f1_f2_clken_o || skid_busy_q),
       .rdata_o (sram_datas[w]),
       .wdata_i (sram_wdata)
@@ -134,7 +134,7 @@ module core_fetch #(
     );
   end
   for(genvar i = 0; i < WAY_CNT ; i++) begin
-    assign hits[i] = icache_hit(sram_tags[i], cacheop_valid_q ? cacheop_paddr_q : ppc_i);
+    assign hits[i] = icache_hit(sram_tags[i], /*cacheop_valid_q ? cacheop_paddr_q :*/ ppc_i);
   end
   assign hit = |hits;
   always_comb begin
@@ -344,7 +344,7 @@ module core_fetch #(
   // OUTPUT
   assign attached_o    = skid_busy_q ? skid_attached_q : attached_q;
   assign pc_o          = skid_busy_q ? skid_vpc_q : vpc_q;
-  assign valid_o       = skid_busy_q ? skid_data_valid_q : (hit ? fetch_valid_q : '0);
+  assign valid_o       = skid_busy_q ? skid_data_valid_q : ((hit && !uncache_i) ? fetch_valid_q : '0);
   assign inst_o        = skid_busy_q ? skid_data_q : sel_data;
   assign f2_attached_o = skid_busy_q ? skid_f2_attached_q : f2_attached_i;
 
