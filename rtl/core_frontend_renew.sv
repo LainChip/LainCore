@@ -76,17 +76,6 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     .correct_i (frontend_resp_i.bpu_correct   )
   );
 
-  // ICACHE 指令
-  logic rnd_stall;
-  assign rnd_stall = '0;
-  // tests_random_stall # (
-  //   .PERCETAGE(75)
-  // )
-  // tests_random_stall_inst (
-  //   .clk(clk),
-  //   .rst_n(rst_n),
-  //   .stall_o(rnd_stall)
-  // );
   logic[1:0] f1_icacheop;
   logic[31:0] f1_icacheop_addr;
   logic f1_icacheop_ready, f1_icacheop_valid;
@@ -183,7 +172,7 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     .pc_o           (ifetch_pc                           ),
     .valid_o        (ifetch_valid                        ),
     .inst_o         (ifetch_inst                         ),
-    .ready_i        (decode_ready && !rnd_stall          )
+    .ready_i        (decode_ready                        )
   );
 
   // DECODER
