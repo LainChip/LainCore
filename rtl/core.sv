@@ -24,7 +24,7 @@ module core #(parameter bit ENABLE_TLB = 1'b0)(
                   .resp_o({dbus_resp,ibus_resp})
                 );
 
-  core_frontend #(
+  core_frontend_renew #(
     .ENABLE_TLB(ENABLE_TLB)
   ) core_frontend_inst (
                    .clk(clk),

@@ -48,7 +48,7 @@ function reg_info_t get_register_info(
   return ret;
 endfunction
 
-module core_frontend #(parameter bit ENABLE_TLB = 1'b1) (
+module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
   input  logic            clk            ,
   input  logic            rst_n          ,
   output frontend_req_t   frontend_req_o ,
