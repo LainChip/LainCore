@@ -185,7 +185,7 @@ tdpram_wrapper = '''module tdpsram_wrapper #(
         for(integer i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i++) begin
             if(we0_i[i]) begin
                 rdata0_split_q[i] <= wdata0_split[i];
-                sim_ram[addr0_i][i] <= wdata0_split[i];
+                // sim_ram[addr0_i][i] <= wdata0_split[i]; ONLY 1 PORT IS FOR WRITE.
             end else begin
                 rdata0_split_q[i] <= sim_ram[addr0_i][i];
             end
@@ -278,7 +278,8 @@ for ram in smic_tdpram_config:
 tdpram_wrapper += """
     else begin
       initial begin
-        $display("Not support tdpram type.");
+        $display("Not support tdpram type %d %d %d", DATA_WIDTH, DATA_DEPTH, BYTE_SIZE);
+        #100
         $stop;
       end
     end

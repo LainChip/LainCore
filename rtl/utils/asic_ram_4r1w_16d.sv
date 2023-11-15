@@ -1,9 +1,12 @@
 // THIS MODULE IS ASIC & SIMULATOR ONLY
 
 module asic_ram_4r1w_16d #(
-    parameter int WIDTH = 32
+    parameter int WIDTH = 32,
+    parameter bit RESET_NEED = 1'b1,
+    parameter bit ONLY_RESET_ZERO = 1'b1
 )( 
     input                          clk,
+    input                          rst_n,
     input  [3 : 0] addr0,
     input  [3 : 0] addr1,
     input  [3 : 0] addr2,
@@ -22,9 +25,13 @@ module asic_ram_4r1w_16d #(
     assign dout1 = ram[addr1];
     assign dout2 = ram[addr2];
     assign dout3 = ram[addr3];
-    always @(posedge clk) begin
-        if(wea) begin
-            ram[addrw] <= din;
+    for(genvar i = 0 ; i < 16; i+=1) begin
+        always @(posedge clk) begin
+            if(RESET_NEED && (!ONLY_RESET_ZERO || i == 0) && !rst_n) begin
+                ram[i[3:0]] <= '0;
+            end else if(wea && i[3:0] == addrw) begin
+                ram[i[3:0]] <= din;
+            end
         end
     end
 

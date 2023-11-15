@@ -113,8 +113,9 @@ module bank_mpregfiles_4r2w #(
     );
     `else
     // ASIC AND VERILATOR SITUATION.
-    asic_ram_4r1w_16d #(WIDTH) ram_b0(
+    asic_ram_4r1w_16d #(WIDTH,RESET_NEED,ONLY_RESET_ZERO) ram_b0(
         .clk,
+        .rst_n,
         .addr0(ra0_i[4:1]),
         .addr1(ra1_i[4:1]),
         .addr2(ra2_i[4:1]),
@@ -127,8 +128,9 @@ module bank_mpregfiles_4r2w #(
         .din(wd_0),
         .wea(we_0 && !wa_0[0])
     );
-    asic_ram_4r1w_16d #(WIDTH) ram_b1(
+    asic_ram_4r1w_16d #(WIDTH,RESET_NEED,ONLY_RESET_ZERO) ram_b1(
         .clk,
+        .rst_n,
         .addr0(ra0_i[4:1]),
         .addr1(ra1_i[4:1]),
         .addr2(ra2_i[4:1]),
