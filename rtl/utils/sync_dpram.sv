@@ -34,15 +34,17 @@ module sync_dpram #(
     .DATA_DEPTH(DATA_DEPTH),
     .BYTE_SIZE (BYTE_SIZE )
   ) tdpsram (
-    .clk               ,
-    .rst_n             ,
     // PORT 0 FOR READ
+    .clk0    (clk     ),
+    .rst_n0  (rst_n   ),
     .addr0_i (raddr_i ),
     .en0_i   (re      ),
     .we0_i   (1'b0    ),
     .wdata0_i('0      ),
     .rdata0_o(rdata0_q),
     // PORT 1 FOR WRITE
+    .clk1    (clk     ),
+    .rst_n1  (rst_n   ),
     .addr1_i (waddr_i ),
     .en1_i   (1'b1    ),
     .we1_i   (we_i    ),

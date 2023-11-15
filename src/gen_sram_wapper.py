@@ -1,3 +1,4 @@
+#!/bin/python3
 # -*- coding: utf-8 -*-
 # @Time    : 2023/11/6 下午6:48
 # @Author  : Yang Su
@@ -75,35 +76,38 @@ smic_tdpram_config = [
 ]
 
 # 按照words和bits的值去重
-unique_configs = []
-seen_configs = set()
+# unique_configs = []
+# seen_configs = set()
 
-for config in smic_tdpram_config:
-    config_tuple = (config['words'], config['bits'])  # 创建一个只包含 'words' 和 'bits' 的元组
-    if config_tuple not in seen_configs and config['bit_write']:  # 如果这个元组之前没有出现过且bit_write为True
-        seen_configs.add(config_tuple)  # 将这个元组添加到已经看到的集合中
-        unique_configs.append(config)  # 将当前的字典元素添加到结果列表中
+# for config in smic_tdpram_config:
+#     config_tuple = (config['words'], config['bits'])  # 创建一个只包含 'words' 和 'bits' 的元组
+#     if config_tuple not in seen_configs and config['bit_write']:  # 如果这个元组之前没有出现过且bit_write为True
+#         seen_configs.add(config_tuple)  # 将这个元组添加到已经看到的集合中
+#         unique_configs.append(config)  # 将当前的字典元素添加到结果列表中
 
-for config in smic_tdpram_config:
-    config_tuple = (config['words'], config['bits'])  # 创建一个只包含 'words' 和 'bits' 的元组
-    if config_tuple not in seen_configs and not config['bit_write']:  # 如果这个元组之前没有出现过且bit_write为False
-        seen_configs.add(config_tuple)  # 将这个元组添加到已经看到的集合中
-        unique_configs.append(config)  # 将当前的字典元素添加到结果列表中
+# for config in smic_tdpram_config:
+#     config_tuple = (config['words'], config['bits'])  # 创建一个只包含 'words' 和 'bits' 的元组
+#     if config_tuple not in seen_configs and not config['bit_write']:  # 如果这个元组之前没有出现过且bit_write为False
+#         seen_configs.add(config_tuple)  # 将这个元组添加到已经看到的集合中
+#         unique_configs.append(config)  # 将当前的字典元素添加到结果列表中
 
-smic_tdpram_config = unique_configs
+# smic_tdpram_config = unique_configs
 
 tdpram_wrapper = '''module tdpsram_wrapper #(
   parameter int unsigned DATA_WIDTH = 32  ,
   parameter int unsigned DATA_DEPTH = 1024,
   parameter int unsigned BYTE_SIZE  = 32
 ) (
-  input                                     clk     ,
-  input                                     rst_n   ,
+  input                                     clk0    ,
+  input                                     rst_n0  ,
   input  wire  [    $clog2(DATA_DEPTH)-1:0] addr0_i ,
   input                                     en0_i   ,
   input        [(DATA_WIDTH/BYTE_SIZE)-1:0] we0_i   ,
   input  logic [            DATA_WIDTH-1:0] wdata0_i,
   output logic [            DATA_WIDTH-1:0] rdata0_o,
+
+  input                                     clk1    ,
+  input                                     rst_n1  ,
   input  wire  [    $clog2(DATA_DEPTH)-1:0] addr1_i ,
   input  wire                               en1_i   ,
   input        [(DATA_WIDTH/BYTE_SIZE)-1:0] we1_i   ,
@@ -148,8 +152,8 @@ tdpram_wrapper = '''module tdpsram_wrapper #(
     .doutb         (rdata1_o),
     .addra         (addr0_i ),
     .addrb         (addr1_i ),
-    .clka          (clk     ),
-    .clkb          (clk     ),
+    .clka          (clk0    ),
+    .clkb          (clk1    ),
     .dina          (wdata0_i),
     .dinb          (wdata1_i),
     .ena           (en0_i   ),
@@ -160,8 +164,8 @@ tdpram_wrapper = '''module tdpsram_wrapper #(
     .injectsbiterrb('0      ),
     .regcea        ('1      ),
     .regceb        ('1      ),
-    .rsta          (~rst_n  ), 
-    .rstb          (~rst_n  ),
+    .rsta          (~rst_n0  ), 
+    .rstb          (~rst_n1  ),
     .sleep         ('0      ),
     .wea           (DATA_WIDTH == BYTE_SIZE ? we0_i : ext_we0),
     .web           (DATA_WIDTH == BYTE_SIZE ? we1_i : ext_we1)
@@ -176,7 +180,7 @@ tdpram_wrapper = '''module tdpsram_wrapper #(
   assign rdata0_o = rdata0_split_q;
   assign rdata1_o = rdata1_split_q;
   // PORT A
-  always_ff @(posedge clk) begin
+  always_ff @(posedge clk0) begin
     if(en0_i) begin
         for(integer i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i++) begin
             if(we0_i[i]) begin
@@ -190,7 +194,7 @@ tdpram_wrapper = '''module tdpsram_wrapper #(
   end
 
   // PORT B
-  always_ff @(posedge clk) begin
+  always_ff @(posedge clk1) begin
     if(en1_i) begin
         for(integer i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i++) begin
             if(we1_i[i]) begin
@@ -204,19 +208,16 @@ tdpram_wrapper = '''module tdpsram_wrapper #(
   end
 
   // CHECK CONFLICT OF MEM ADDR
-  always_ff @(posedge clk) begin
-    if(rst_n && en0_i && en1_i && addr0_i == addr1_i) begin
-        $display("Conflict of mem adddr.");
-        $finish;
-    end
-  end
+  // always_ff @(posedge clk) begin
+  //   if(rst_n && en0_i && en1_i && addr0_i == addr1_i) begin
+  //       $display("Conflict of mem adddr.");
+  //       $finish;
+  //   end
+  // end
 `endif
 
-`ifdef _SMIC
+`ifdef _ASIC
   generate
-'''
-
-bit_wen = '''  
       wire [DATA_WIDTH-1:0] bwena, bwenb;
       for (genvar i = 0; i < DATA_WIDTH/BYTE_SIZE; i++) begin
         assign bwena[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
@@ -227,25 +228,25 @@ bit_wen = '''
 name_format = "{HEAD}_RAM_DP_W{W}_B{B}_M{M}"
 
 head = 'S018DP'
+prefix = ''
 
 for ram in smic_tdpram_config:
     name = name_format.format(HEAD=head, W=ram['words'], B=ram['bits'], M=ram['mux'])
     if ram['bit_write']:
         name += '_BW'
         tdpram_wrapper += f"""
-    if (DATA_WIDTH == {ram['words']} && DATA_DEPTH == {ram['bits']}) begin
-      {bit_wen}
-      {name} {name} (
+    {prefix}if (DATA_DEPTH == {ram['words']} && DATA_WIDTH == {ram['bits']} && BYTE_SIZE != DATA_WIDTH) begin
+      {name} {name}_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
       .CLKA    (clk),
       .CLKB    (clk),
-      .CENA    (en0_i),
-      .CENB    (en1_i),
-      .WENA    (|we0_i),
-      .WENB    (|we1_i),
-      .BWENA   (bwena),
-      .BWENB   (bwenb),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~en0_i),
+      .WENB    (~en1_i),
+      .BWENA   (~bwena),
+      .BWENB   (~bwenb),
       .AA      (addr0_i),
       .AB      (addr1_i),
       .DA      (wdata0_i),
@@ -255,16 +256,16 @@ for ram in smic_tdpram_config:
 """
     else:
         tdpram_wrapper += f"""
-    if (DATA_WIDTH == {ram['words']} && DATA_DEPTH == {ram['bits']}) begin
-      {name} {name} (
+    {prefix}if (DATA_DEPTH == {ram['words']} && DATA_WIDTH == {ram['bits']} && BYTE_SIZE == DATA_WIDTH) begin
+      {name} {name}_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
       .CLKA    (clk),
       .CLKB    (clk),
-      .CENA    (en0_i),
-      .CENB    (en1_i),
-      .WENA    (|we0_i),
-      .WENB    (|we1_i),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
       .AA      (addr0_i),
       .AB      (addr1_i),
       .DA      (wdata0_i),
@@ -272,16 +273,24 @@ for ram in smic_tdpram_config:
       );
     end
 """
+    prefix = 'else '
 
 tdpram_wrapper += """
+    else begin
+      initial begin
+        $display("Not support tdpram type.");
+        $stop;
+      end
+    end
   endgenerate
 
-endmodule
+`endif
 
+endmodule
 """
 
 # print(tdpram_wrapper)
 
 # 写入文件
-with open('./tdpram_wapper.sv', 'w') as file:
+with open('../rtl/utils/tdpsram_wrapper.sv', 'w') as file:
     file.write(tdpram_wrapper)

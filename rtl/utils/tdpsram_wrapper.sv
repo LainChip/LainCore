@@ -1,16 +1,18 @@
-
 module tdpsram_wrapper #(
   parameter int unsigned DATA_WIDTH = 32  ,
   parameter int unsigned DATA_DEPTH = 1024,
   parameter int unsigned BYTE_SIZE  = 32
 ) (
-  input                                     clk     ,
-  input                                     rst_n   ,
+  input                                     clk0    ,
+  input                                     rst_n0  ,
   input  wire  [    $clog2(DATA_DEPTH)-1:0] addr0_i ,
   input                                     en0_i   ,
   input        [(DATA_WIDTH/BYTE_SIZE)-1:0] we0_i   ,
   input  logic [            DATA_WIDTH-1:0] wdata0_i,
   output logic [            DATA_WIDTH-1:0] rdata0_o,
+
+  input                                     clk1    ,
+  input                                     rst_n1  ,
   input  wire  [    $clog2(DATA_DEPTH)-1:0] addr1_i ,
   input  wire                               en1_i   ,
   input        [(DATA_WIDTH/BYTE_SIZE)-1:0] we1_i   ,
@@ -55,8 +57,8 @@ module tdpsram_wrapper #(
     .doutb         (rdata1_o),
     .addra         (addr0_i ),
     .addrb         (addr1_i ),
-    .clka          (clk     ),
-    .clkb          (clk     ),
+    .clka          (clk0    ),
+    .clkb          (clk1    ),
     .dina          (wdata0_i),
     .dinb          (wdata1_i),
     .ena           (en0_i   ),
@@ -67,8 +69,8 @@ module tdpsram_wrapper #(
     .injectsbiterrb('0      ),
     .regcea        ('1      ),
     .regceb        ('1      ),
-    .rsta          (~rst_n  ), 
-    .rstb          (~rst_n  ),
+    .rsta          (~rst_n0  ), 
+    .rstb          (~rst_n1  ),
     .sleep         ('0      ),
     .wea           (DATA_WIDTH == BYTE_SIZE ? we0_i : ext_we0),
     .web           (DATA_WIDTH == BYTE_SIZE ? we1_i : ext_we1)
@@ -83,7 +85,7 @@ module tdpsram_wrapper #(
   assign rdata0_o = rdata0_split_q;
   assign rdata1_o = rdata1_split_q;
   // PORT A
-  always_ff @(posedge clk) begin
+  always_ff @(posedge clk0) begin
     if(en0_i) begin
         for(integer i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i++) begin
             if(we0_i[i]) begin
@@ -97,7 +99,7 @@ module tdpsram_wrapper #(
   end
 
   // PORT B
-  always_ff @(posedge clk) begin
+  always_ff @(posedge clk1) begin
     if(en1_i) begin
         for(integer i = 0 ; i < (DATA_WIDTH/BYTE_SIZE) ; i++) begin
             if(we1_i[i]) begin
@@ -111,12 +113,227 @@ module tdpsram_wrapper #(
   end
 
   // CHECK CONFLICT OF MEM ADDR
-  always_ff @(posedge clk) begin
-    if(rst_n && en0_i && en1_i && addr0_i == addr1_i) begin
-        $display("Conflict of mem adddr.");
-        $finish;
+  // always_ff @(posedge clk) begin
+  //   if(rst_n && en0_i && en1_i && addr0_i == addr1_i) begin
+  //       $display("Conflict of mem adddr.");
+  //       $finish;
+  //   end
+  // end
+`endif
+
+`ifdef _ASIC
+  generate
+      wire [DATA_WIDTH-1:0] bwena, bwenb;
+      for (genvar i = 0; i < DATA_WIDTH/BYTE_SIZE; i++) begin
+        assign bwena[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
+        assign bwenb[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
+      end
+
+    if (DATA_DEPTH == 1024 && DATA_WIDTH == 32 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B32_M4 S018DP_RAM_DP_W1024_B32_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
     end
-  end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 32 && BYTE_SIZE != DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B32_M4_BW S018DP_RAM_DP_W1024_B32_M4_BW_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~en0_i),
+      .WENB    (~en1_i),
+      .BWENA   (~bwena),
+      .BWENB   (~bwenb),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 64 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B64_M4 S018DP_RAM_DP_W1024_B64_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 64 && BYTE_SIZE != DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B64_M4_BW S018DP_RAM_DP_W1024_B64_M4_BW_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~en0_i),
+      .WENB    (~en1_i),
+      .BWENA   (~bwena),
+      .BWENB   (~bwenb),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 128 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B128_M4 S018DP_RAM_DP_W1024_B128_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 128 && BYTE_SIZE != DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B128_M4_BW S018DP_RAM_DP_W1024_B128_M4_BW_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~en0_i),
+      .WENB    (~en1_i),
+      .BWENA   (~bwena),
+      .BWENB   (~bwenb),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 256 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B256_M4 S018DP_RAM_DP_W1024_B256_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 256 && BYTE_SIZE != DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B256_M4_BW S018DP_RAM_DP_W1024_B256_M4_BW_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~en0_i),
+      .WENB    (~en1_i),
+      .BWENA   (~bwena),
+      .BWENB   (~bwenb),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 512 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B512_M4 S018DP_RAM_DP_W1024_B512_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 512 && BYTE_SIZE != DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B512_M4_BW S018DP_RAM_DP_W1024_B512_M4_BW_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~en0_i),
+      .WENB    (~en1_i),
+      .BWENA   (~bwena),
+      .BWENB   (~bwenb),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else if (DATA_DEPTH == 1024 && DATA_WIDTH == 1024 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W1024_B1024_M4 S018DP_RAM_DP_W1024_B1024_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
+    else begin
+      initial begin
+        $display("Not support tdpram type.");
+        $stop;
+      end
+    end
+  endgenerate
+
 `endif
 
 endmodule
