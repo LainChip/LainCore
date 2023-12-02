@@ -93,7 +93,9 @@ smic_tdpram_config = [
 
 # smic_tdpram_config = unique_configs
 
-tdpram_wrapper = '''module tdpsram_wrapper #(
+tdpram_wrapper = '''`include "common.svh"
+
+module tdpsram_wrapper #(
   parameter int unsigned DATA_WIDTH = 32  ,
   parameter int unsigned DATA_DEPTH = 1024,
   parameter int unsigned BYTE_SIZE  = 32

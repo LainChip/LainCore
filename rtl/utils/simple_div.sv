@@ -21,11 +21,23 @@ module simple_div (
   logic[63:0] sub_result;
   assign sub_result = {31'd0, dividend_q} - divisor_q[62:0];
   always_ff @(posedge clk) begin
+    if(!rst_n || start) begin
+      timer <= 6'd32;
+      busy <= '1;
+    end else begin
+      if(start) begin
+      end else if(timer != 0) begin
+        if(timer == 6'd1) begin
+          busy <= '0;
+        end
+        timer <= timer - 6'd1;
+      end
+    end
+  end
+  always_ff @(posedge clk) begin
     if(start) begin
       dividend_q <= a_abs;
       divisor_q <= {b_abs, 31'd0};
-      timer <= 6'd32;
-      busy <= '1;
       neg_rem_q <= A[31] && sign;
       neg_quo_q <= (A[31] != B[31]) && sign;
     end
@@ -38,15 +50,8 @@ module simple_div (
         else begin
           quo_q <= {quo_q[30:0], 1'b0};
         end
-        timer <= timer - 6'd1;
         divisor_q <= {'0, divisor_q[62:1]};
-        if(timer == 6'd1) begin
-          busy <= '0;
-        end
       end
-      // else begin
-      //   busy <= '0;
-      // end
     end
   end
   assign rem = neg_rem_q ? -dividend_q[31:0] : dividend_q[31:0];

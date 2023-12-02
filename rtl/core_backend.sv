@@ -138,21 +138,56 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       end
     end
 
-
-    // 流水线处理
-    for(genvar p = 0 ; p < 2 ;p ++) begin : PIPELINE_MANAGE
-      // SKID
-      always_ff @(posedge clk) begin
-        if(~rst_n) begin
-          exc_skid_q[p] <= '0;
+    /* SKID BUF */
+    // SKID 数据前递部分（EX、WB） 不完全。
+    // 输入是 pipeline_ctrl_skid_q，输出 pipeline_ctrl_skid_fwd
+    // SKID BUF 对于 scoreboard 来说应该是透明的，使用 valid-ready 握手
+    // assign ex_skid_ready_q = ~is_skid_q;
+    logic       ex_skid_ready_q,ex_skid_valid;
+    logic       ex_ready;
+    always_ff @(posedge clk) begin
+      if(~rst_n/* || ex_invalidate*/) begin
+        is_skid_q       <= '0;
+        ex_skid_ready_q <= '1;
+      end
+      else begin
+        if(is_skid_q) begin
+          if(ex_ready) begin
+            is_skid_q       <= '0;
+            ex_skid_ready_q <= '1;
+          end
         end
         else begin
-          if(!is_skid_q) begin
-            exc_skid_q[p] <= exc_is[p];
-          end else begin
+          if(ex_skid_valid & ~ex_ready) begin
+            is_skid_q       <= '1;
+            ex_skid_ready_q <= '0;
+          end
+        end
+      end
+    end
+
+    for(genvar p = 0 ; p < 2 ;p++) begin : PIPELINE_MANAGE
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_skid_q[p].need_commit <= '0;
+        end
+        else begin
+          if(is_skid_q) begin
             if(ex_invalidate) begin
               exc_skid_q[p].need_commit <= '0;
             end
+          end else begin
+            exc_skid_q[p].need_commit <= exc_is[p].need_commit;
+          end
+        end
+      end
+      always_ff @(posedge clk) begin
+        if(~rst_n) begin
+          exc_skid_q[p].valid_inst <= '0;
+        end
+        else begin
+          if(!is_skid_q) begin
+            exc_skid_q[p].valid_inst <= exc_is[p].valid_inst;
           end
         end
       end
@@ -163,10 +198,10 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         else begin
           if(!ex_stall) begin
             if(ex_invalidate) begin
-              exc_ex_q[p].valid_inst <= is_skid_q?exc_skid_q[p].valid_inst : exc_is[p].valid_inst;
+              exc_ex_q[p].valid_inst <= is_skid_q ? exc_skid_q[p].valid_inst : exc_is[p].valid_inst;
               exc_ex_q[p].need_commit <= '0;
             end else begin
-              exc_ex_q[p] <= is_skid_q?exc_skid_q[p] : exc_is[p];
+              exc_ex_q[p] <= is_skid_q ? exc_skid_q[p] : exc_is[p];
             end
           end else begin
             if(ex_invalidate) begin
@@ -335,7 +370,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
           pipeline_data_ex_q[p] <= pipeline_data_ex_fwd[p];
         end
         else begin
-          pipeline_data_ex_q[p] <= is_skid_q?pipeline_data_skid_fwd[p] : pipeline_data_is_fwd[p];
+          pipeline_data_ex_q[p] <= is_skid_q ? pipeline_data_skid_fwd[p] : pipeline_data_is_fwd[p];
         end
       end
       core_fwd_unit #(2) m1_fwd(
@@ -401,7 +436,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     logic[1:0][31:0] m1_mem_rdata,m2_mem_rdata;
     logic[1:0][31:0] m2_mem_wdata;
     logic[1:0][2:0] m2_mem_op;
-    for(genvar p = 0 ; p < 2 ; p ++) begin : lsu_pm_block
+    for(genvar p = 0 ; p < 2 ; p++) begin : lsu_pm_block
       core_lsu_rport # (
         .WAY_CNT(2)
       )
@@ -655,7 +690,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     // ISSUE 级别：
     // 判定来自前段的指令能否发射
     logic       is_ready       ;
-    logic       ex_skid_ready_q,ex_skid_valid;
     logic [1:0] issue          ;
     inst_t[1:0] is_inst_pack;
     assign is_inst_pack = frontend_req_i.inst;
@@ -698,35 +732,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
   );
 
     // 产生 EX 级的流水线信号 x 2
-    logic ex_ready;
     assign ex_ready = !ex_stall;
     // IS 数据前递部分（EX、WB），输入是 pipeline_ctrl_is ，输出 pipeline_ctrl_is_fwd 不完全。
-
-    /* SKID BUF */
-    // SKID 数据前递部分（EX、WB） 不完全。
-    // 输入是 pipeline_ctrl_skid_q，输出 pipeline_ctrl_skid_fwd
-    // SKID BUF 对于 scoreboard 来说应该是透明的，使用 valid-ready 握手
-    // assign ex_skid_ready_q = ~is_skid_q;
-    always_ff @(posedge clk) begin
-      if(~rst_n/* || ex_invalidate*/) begin
-        is_skid_q       <= '0;
-        ex_skid_ready_q <= '1;
-      end
-      else begin
-        if(is_skid_q) begin
-          if(ex_ready) begin
-            is_skid_q       <= '0;
-            ex_skid_ready_q <= '1;
-          end
-        end
-        else begin
-          if(ex_skid_valid & ~ex_ready) begin
-            is_skid_q       <= '1;
-            ex_skid_ready_q <= '0;
-          end
-        end
-      end
-    end
 
     always_ff @(posedge clk) begin
       if(is_skid_q) begin
@@ -740,7 +747,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     always_ff @(posedge clk) begin
       if(!is_skid_q) begin
         pipeline_ctrl_skid_q <= pipeline_ctrl_is;
-        // exc_skid_q           <= exc_is;
       end
     end
     /* SKID BUF 结束*/

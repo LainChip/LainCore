@@ -43,6 +43,8 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   assign raw_data_raddr = wstate_i.dram_take_over ? wstate_i.data_raddr : dramaddr(ex_vaddr_i);
   assign rstate_o.rdata = raw_data_rdata;
   assign m1_busy_o = '0;
+  assign m1_rvalid_o = '0;
+  assign m1_rdata_o = '0;
   assign raw_tag_raddr  = tramaddr(ex_vaddr_i);
   for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
     // 数据ram == 4k each

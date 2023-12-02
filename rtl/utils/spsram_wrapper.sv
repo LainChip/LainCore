@@ -1,3 +1,4 @@
+`include "common.svh"
 
 module spsram_wrapper #(
   parameter int unsigned DATA_WIDTH = 32  ,

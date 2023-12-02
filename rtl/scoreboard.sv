@@ -128,7 +128,7 @@ module scoreboard (
   // 当周期，正在发射的信号不用撤回，避免组合逻辑链过长。
   logic hit_wait_tgt;
 
-  logic[2:0] wait_id_q,waid_id;
+  logic[2:0] wait_id_q;
   assign hit_wait_tgt = (wait_id_q == wb_w_id_i[2:0]) && |wb_valid_i;
   always_ff @(posedge clk) begin
     if(!rst_n) begin

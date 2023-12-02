@@ -1,3 +1,5 @@
+`include "common.svh"
+
 module tdpsram_wrapper #(
   parameter int unsigned DATA_WIDTH = 32  ,
   parameter int unsigned DATA_DEPTH = 1024,
