@@ -5,10 +5,10 @@ import json
 try_chiplab_home = os.getenv('CHIPLAB_HOME')
 try_fpga_home = os.getenv('FPGA_DIST')
 target_path = '../dist'
-if try_chiplab_home != '' and try_chiplab_home is not None:
-    target_path = try_chiplab_home + '/IP/myCPU/'
 if try_fpga_home != '' and try_fpga_home is not None:
     target_path = try_fpga_home
+if try_chiplab_home != '' and try_chiplab_home is not None:
+    target_path = try_chiplab_home + '/IP/myCPU/'
 print("target_path: " + target_path)
 
 module_def = {}

@@ -25,8 +25,7 @@ module simple_div (
       timer <= 6'd32;
       busy <= '1;
     end else begin
-      if(start) begin
-      end else if(timer != 0) begin
+      if(timer != 0) begin
         if(timer == 6'd1) begin
           busy <= '0;
         end

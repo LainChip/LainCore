@@ -117,10 +117,12 @@ typedef struct packed{
   logic       w_valid;
 } write_flow_t;
 // 控制流，目前未进行精简。
-typedef struct packed {
-  logic valid_inst ; // 标记指令是否有效（包含推测执行 / 确定执行） ::: 需要被 rst clr
-  logic need_commit; // 标记指令是否可提交，在 M2 级才是确定值     ::: 需要被 rst clr && 被跳转信号 clr
-} exc_flow_t;
+// 12.3: 此结构体将被拆散为 valid_inst 及 need_commit 两个独立信号
+// 拆解原因: VCS 存在兼容性 bug， vivado 不支持多处赋值同一个 structure
+// typedef struct packed {
+//   logic valid_inst ; // 标记指令是否有效（包含推测执行 / 确定执行） ::: 需要被 rst clr
+//   logic need_commit; // 标记指令是否可提交，在 M2 级才是确定值     ::: 需要被 rst clr && 被跳转信号 clr
+// } exc_flow_t;
 
 // 异常流
 typedef struct packed {
