@@ -31,53 +31,54 @@ module core_lsu_rport #(parameter int WAY_CNT = `_DWAY_CNT) (
   output wire          m2_rvalid_o  , // 需要 fmt 的结果级
   output rport_state_t rstate_o     ,
   input  wport_state_t wstate_i     ,
-  input  wport_wreq_t  wreq_i         // 需要做 snoop
+  input  wport_wreq_t  wreq_i       , // 需要做 snoop
+
+  input  logic[WAY_CNT - 1 : 0][31:0] raw_data_rdata, // TODO: CHECK ME
+  input  dcache_tag_t [WAY_CNT-1:0] raw_tag_rdata    // TODO: CHECK ME
 );
 
   // EX-M1
   // 实例化 bram lutram 存储 tag 以及 data
-  logic[`_DIDX_LEN - 1 : 2] raw_data_raddr;    // TODO: CHECK ME
-  logic[WAY_CNT - 1 : 0][31:0] raw_data_rdata; // TODO: CHECK ME
-  logic[7:0] raw_tag_raddr;                    // TODO: CHECK ME
-  dcache_tag_t [WAY_CNT-1:0] raw_tag_rdata;    // TODO: CHECK ME
-  assign raw_data_raddr = wstate_i.dram_take_over ? wstate_i.data_raddr : dramaddr(ex_vaddr_i);
+  // logic[`_DIDX_LEN - 1 : 2] raw_data_raddr;    // TODO: CHECK ME
+  // logic[7:0] raw_tag_raddr;                    // TODO: CHECK ME
+  // assign raw_data_raddr = wstate_i.dram_take_over ? wstate_i.data_raddr : dramaddr(ex_vaddr_i);
   assign rstate_o.rdata = raw_data_rdata;
   assign m1_busy_o = '0;
   assign m1_rvalid_o = '0;
   assign m1_rdata_o = '0;
-  assign raw_tag_raddr  = tramaddr(ex_vaddr_i);
-  for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
+  // assign raw_tag_raddr  = tramaddr(ex_vaddr_i);
+  // for(genvar w = 0 ; w < WAY_CNT ; w ++) begin
     // 数据ram == 4k each
-    sync_dpram #(
-      .DATA_WIDTH(32),
-      .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
-      .BYTE_SIZE(8)
-    ) data_ram (
-      .clk,
-      .rst_n,
-      .waddr_i(wreq_i.data_waddr),
-      .we_i   (wreq_i.data_we[w]),
-      .raddr_i(raw_data_raddr),
-      .re_i   (1'b1),
-      .wdata_i(wreq_i.data_wdata),
-      .rdata_o(raw_data_rdata[w])
-    );
-    // tag ram
-    sync_dpram #(
-      .DATA_WIDTH($bits(dcache_tag_t)),
-      .DATA_DEPTH(1 << 8             ),
-      .BYTE_SIZE($bits(dcache_tag_t))
-    ) tag_ram (
-      .clk    (clk             ),
-      .rst_n  (rst_n           ),
-      .waddr_i(wreq_i.tag_waddr),
-      .we_i   (wreq_i.tag_we[w]),
-      .raddr_i(raw_tag_raddr   ),
-      .re_i   (1'b1),
-      .wdata_i(wreq_i.tag_wdata),
-      .rdata_o(raw_tag_rdata[w])
-    );
-  end
+    // sync_dpram #(
+    //   .DATA_WIDTH(32),
+    //   .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
+    //   .BYTE_SIZE(8)
+    // ) data_ram (
+    //   .clk,
+    //   .rst_n,
+    //   .waddr_i(wreq_i.data_waddr),
+    //   .we_i   (wreq_i.data_we[w]),
+    //   .raddr_i(raw_data_raddr),
+    //   .re_i   (1'b1),
+    //   .wdata_i(wreq_i.data_wdata),
+    //   .rdata_o(raw_data_rdata[w])
+    // );
+    // // tag ram
+    // sync_dpram #(
+    //   .DATA_WIDTH($bits(dcache_tag_t)),
+    //   .DATA_DEPTH(1 << 8             ),
+    //   .BYTE_SIZE($bits(dcache_tag_t))
+    // ) tag_ram (
+    //   .clk    (clk             ),
+    //   .rst_n  (rst_n           ),
+    //   .waddr_i(wreq_i.tag_waddr),
+    //   .we_i   (wreq_i.tag_we[w]),
+    //   .raddr_i(raw_tag_raddr   ),
+    //   .re_i   (1'b1),
+    //   .wdata_i(wreq_i.tag_wdata),
+    //   .rdata_o(raw_tag_rdata[w])
+    // );
+  // end
 
   logic m1_stall_q, m2_stall_q;
   always_ff @(posedge clk) begin

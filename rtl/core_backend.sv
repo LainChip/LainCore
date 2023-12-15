@@ -455,6 +455,47 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     logic[1:0][31:0] m1_mem_rdata,m2_mem_rdata;
     logic[1:0][31:0] m2_mem_wdata;
     logic[1:0][2:0] m2_mem_op;
+
+    logic[`_DIDX_LEN - 1 : 2] raw_data_raddr;    // TODO: CHECK ME
+    logic[7:0] raw_tag_raddr;                    // TODO: CHECK ME
+    logic[1:0] ex_addr_trans_valid; // TODO: CHECK ME
+    assign raw_data_raddr = wstate[1].dram_take_over ? wstate[1].data_raddr : 
+    (ex_addr_trans_valid[1] ? dramaddr(ex_mem_vaddr[1]) : dramaddr(ex_mem_vaddr[0]));
+    assign raw_data_raddr = ex_addr_trans_valid[1] ? tramaddr(ex_mem_vaddr[1]) : tramaddr(ex_mem_vaddr[0]);
+    logic[1:0][31:0] raw_data_rdata; // TODO: CHECK ME
+    dcache_tag_t [1:0] raw_tag_rdata;    // TODO: CHECK ME
+    for(genvar w = 0 ; w < 2 ; w ++) begin
+      // 数据ram == 4k each
+      sync_dpram #(
+        .DATA_WIDTH(32),
+        .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
+        .BYTE_SIZE(8)
+      ) data_ram (
+        .clk,
+        .rst_n,
+        .waddr_i(wport_req.data_waddr),
+        .we_i   (wport_req.data_we[w]),
+        .raddr_i(raw_data_raddr),
+        .re_i   (1'b1),
+        .wdata_i(wport_req.data_wdata),
+        .rdata_o(raw_data_rdata[w])
+      );
+      // tag ram
+      sync_dpram #(
+        .DATA_WIDTH($bits(dcache_tag_t)),
+        .DATA_DEPTH(1 << 8             ),
+        .BYTE_SIZE($bits(dcache_tag_t))
+      ) tag_ram (
+        .clk    (clk             ),
+        .rst_n  (rst_n           ),
+        .waddr_i(wport_req.tag_waddr),
+        .we_i   (wport_req.tag_we[w]),
+        .raddr_i(raw_tag_raddr   ),
+        .re_i   (1'b1),
+        .wdata_i(wport_req.tag_wdata),
+        .rdata_o(raw_tag_rdata[w])
+      );
+    end
     for(genvar p = 0 ; p < 2 ; p++) begin : lsu_pm_block
       core_lsu_rport # (
         .WAY_CNT(2)
@@ -491,7 +532,9 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         // .dm_snoop_i(dm_snoop)
         .rstate_o(rstate[p]),
         .wstate_i(wstate[p]),
-        .wreq_i(wport_req) // 需要做 snoop
+        .wreq_i(wport_req), // 需要做 snoop
+        .raw_data_rdata(raw_data_rdata),
+        .raw_tag_rdata(raw_tag_rdata)
       );
     end
     // MUL 端口实例化
@@ -602,7 +645,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     // CSR STALL
 
     assign frontend_resp_o.csr_reg = csr_value;
-    logic[1:0] ex_addr_trans_valid; // TODO: CHECK ME
     logic[1:0] addr_tlb_req_valid,addr_tlb_req_ready; // TODO: CHECK ME
     tlb_s_resp_t[1:0] addr_tlb_resp;
     tlb_s_resp_t[1:0] m1_addr_trans_result;
