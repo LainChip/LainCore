@@ -942,7 +942,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       // 接入 addr-trans 模块
       assign ex_mem_read[p] = decode_info.mem_read && exc_ex_q_need_commit[p];
       assign ex_mem_vaddr[p]        = vaddr;
-      assign ex_addr_trans_valid[p] = decode_info.need_lsu;
+      assign ex_addr_trans_valid[p] = decode_info.need_lsu && exc_ex_q_need_commit[p];;
 
       // 接入 mul
       always_comb begin
