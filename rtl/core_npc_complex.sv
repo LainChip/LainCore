@@ -234,22 +234,24 @@ module core_npc (
       .rdata_o (btb_rdata[p][31:2])
     );
     assign btb_rdata[p][1:0] = '0;
-    branch_info_t raw_rinfo;
-    sync_regram #(
+    // branch_info_t raw_rinfo;
+    sync_dpram #(
       .DATA_WIDTH($bits(branch_info_t)),
-      .DATA_DEPTH(256                 )
+      .DATA_DEPTH(256                 ),
+      .BYTE_SIZE ($bits(branch_info_t))
     ) info_table (
       .clk     (clk                    ),
       .rst_n   (rst_n                  ),
       .waddr_i (info_waddr             ),
       .we_i    (info_we[p] | !rst_n_q  ),
       .raddr_i (info_raddr ^ rst_addr_q),
+      .re_i    ('1                     ),
       .wdata_i (winfo                  ),
-      .rdata_o (raw_rinfo              )
+      .rdata_o (rinfo_q[p]           )
     );
-    always_ff @(posedge clk) begin
-      rinfo_q[p] <= raw_rinfo;
-    end
+    // always_ff @(posedge clk) begin
+    //   rinfo_q[p] <= raw_rinfo;
+    // end
   end
 
   // 预测逻辑

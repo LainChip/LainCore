@@ -2,9 +2,9 @@
 `ifndef _COMMON_HEADER
 `define _COMMON_HEADER
 
-`define _DIFFTEST_ENABLE
-`define _VERILATOR
-// `define _FPGA
+// `define _DIFFTEST_ENABLE
+// `define _VERILATOR
+`define _FPGA
 // `define _LUT_REG
 // `define _ASIC
 
