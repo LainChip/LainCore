@@ -461,7 +461,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     logic[1:0] ex_addr_trans_valid; // TODO: CHECK ME
     assign raw_data_raddr = wstate[1].dram_take_over ? wstate[1].data_raddr : 
     (ex_addr_trans_valid[1] ? dramaddr(ex_mem_vaddr[1]) : dramaddr(ex_mem_vaddr[0]));
-    assign raw_data_raddr = ex_addr_trans_valid[1] ? tramaddr(ex_mem_vaddr[1]) : tramaddr(ex_mem_vaddr[0]);
+    assign raw_tag_raddr = ex_addr_trans_valid[1] ? tramaddr(ex_mem_vaddr[1]) : tramaddr(ex_mem_vaddr[0]);
     logic[1:0][31:0] raw_data_rdata; // TODO: CHECK ME
     dcache_tag_t [1:0] raw_tag_rdata;    // TODO: CHECK ME
     for(genvar w = 0 ; w < 2 ; w ++) begin
