@@ -11,65 +11,17 @@ smic_tdpram_config = [
         'words': 1024,
         'bits': 32,
         'mux': 4,
-        'bit_write': False
-    },
-    {
-        'words': 1024,
-        'bits': 32,
-        'mux': 4,
         'bit_write': True
     },
     {
-        'words': 1024,
-        'bits': 64,
+        'words': 512,
+        'bits': 30,
         'mux': 4,
         'bit_write': False
     },
     {
-        'words': 1024,
-        'bits': 64,
-        'mux': 4,
-        'bit_write': True
-    },
-    {
-        'words': 1024,
-        'bits': 128,
-        'mux': 4,
-        'bit_write': False
-    },
-    {
-        'words': 1024,
-        'bits': 128,
-        'mux': 4,
-        'bit_write': True
-    },
-    {
-        'words': 1024,
-        'bits': 256,
-        'mux': 4,
-        'bit_write': False
-    },
-    {
-        'words': 1024,
-        'bits': 256,
-        'mux': 4,
-        'bit_write': True
-    },
-    {
-        'words': 1024,
-        'bits': 512,
-        'mux': 4,
-        'bit_write': False
-    },
-    {
-        'words': 1024,
-        'bits': 512,
-        'mux': 4,
-        'bit_write': True
-    },
-    {
-        'words': 1024,
-        'bits': 1024,
+        'words': 256,
+        'bits': 21,
         'mux': 4,
         'bit_write': False
     }
