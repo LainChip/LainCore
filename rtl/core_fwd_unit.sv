@@ -13,7 +13,7 @@ module dyn_fwd_single#(
   output logic r_ready_o
 );
 
-function logic[32:0] oh_waysel(input logic[SRC_NUM - 1 : 0] way_sel, input logic[SRC_NUM - 1 : 0][32:0] data);
+function automatic logic[32:0] oh_waysel(input logic[SRC_NUM - 1 : 0] way_sel, input logic[SRC_NUM - 1 : 0][32:0] data);
   oh_waysel = 0;
   for(integer i = 0 ; i < SRC_NUM ; i++) begin
     oh_waysel |= (way_sel[i] & data[i][32]) ? data[i] : '0;

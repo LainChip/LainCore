@@ -1,7 +1,7 @@
 `include "pipeline.svh"
 `include "lsu.svh"
 // 这个function应该放在前端，在fetch阶段和写入fifo阶段之间，合成inst_t的阶段进行。
-function reg_info_t get_register_info(
+function automatic reg_info_t get_register_info(
     input is_t decode_info,
     input logic[31:0] inst
   );
@@ -217,6 +217,8 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     end
   end
   // ISSUE FIFO
+  wire [1:0] multi_channel_fifo_write_num = decode_valid_q[0] + decode_valid_q[1];
+  wire [1:0] multi_channel_fifo_read_num  = frontend_resp_i.issue[0] + frontend_resp_i.issue[1];
   multi_channel_fifo #(
     .DATA_WIDTH($bits(inst_t)),
     .DEPTH     (4            ),
@@ -231,13 +233,13 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     
     .write_valid_i(1'b1                                               ),
     .write_ready_o(decode_ready                                       ),
-    .write_num_i  (decode_valid_q[0] + decode_valid_q[1]              ),
+    .write_num_i  (multi_channel_fifo_write_num             ),
     .write_data_i ({decoder_inst_package[1],                          
                    decode_valid_q[0] ? decoder_inst_package[0] : decoder_inst_package[1]}), 
     
     .read_valid_o (frontend_req_o.inst_valid                          ),
     .read_ready_i (1'b1                                               ),
-    .read_num_i   (frontend_resp_i.issue[0] + frontend_resp_i.issue[1]),
+    .read_num_i   (multi_channel_fifo_read_num              ),
     .read_data_o  (frontend_req_o.inst                                )
   );
 

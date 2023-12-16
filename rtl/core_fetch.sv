@@ -41,16 +41,16 @@ module core_fetch #(
     logic valid;
     logic[`_ITAG_LEN - 1 : 0] tag;
   } i_tag_t;
-  function logic[`_ITAG_LEN - 1 : 0] itagaddr(input logic[31:0] va);
+  function automatic logic[`_ITAG_LEN - 1 : 0] itagaddr(input logic[31:0] va);
     return va[`_ITAG_LEN + `_IIDX_LEN - 1: `_IIDX_LEN];
   endfunction
-  function logic[7 : 0] itramaddr(input logic[31:0] va);
+  function automatic logic[7 : 0] itramaddr(input logic[31:0] va);
     return va[`_IIDX_LEN - 1 -: 8];
   endfunction
-  function logic[`_IIDX_LEN - 1 : 3] idramaddr(input logic[31:0] va);
+  function automatic logic[`_IIDX_LEN - 1 : 3] idramaddr(input logic[31:0] va);
     return va[`_IIDX_LEN - 1 : 3];
   endfunction
-  function logic icache_hit(input i_tag_t tag,input logic[31:0] pa);
+  function automatic logic icache_hit(input i_tag_t tag,input logic[31:0] pa);
     return tag.valid && (itagaddr(pa) == tag.tag);
   endfunction
 

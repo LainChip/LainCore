@@ -20,7 +20,7 @@ module core_jmp(
   logic address_correct,direction_correct;
   logic true_taken;
   logic predict_miss;
-  assign address_correct = bpu_predict_i.predict_pc === target_i;
+  assign address_correct = (bpu_predict_i.predict_pc == target_i);
   assign direction_correct = (
            bpu_predict_i.taken
           //  && bpu_predict_i.pc_off == pc_i[2]

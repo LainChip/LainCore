@@ -114,7 +114,7 @@ class decoder_parser:
         for i in range(0, len(self.stage_order)-1):
             from_stage = self.stage_order[i]; to_stage = self.stage_order[i+1]
             # function [type]
-            str_builder += 'function ' + to_stage + '_t '
+            str_builder += 'function automatic ' + to_stage + '_t '
             # [name]([type] [value])
             str_builder += 'get_' + to_stage + '_from_' + from_stage + '(input ' + from_stage + '_t ' + from_stage + ');\n' 
             # <statement>

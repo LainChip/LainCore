@@ -411,7 +411,7 @@ typedef struct packed {
     invalid_inst_t invalid_inst;
 } decoder_info_t;
 
-function is_t get_is_from_decoder_info(decoder_info_t decoder_info);
+function automatic is_t get_is_from_decoder_info(decoder_info_t decoder_info);
     is_t ret;
     ret.debug_inst = decoder_info.debug_inst;
     ret.reg_type_w = decoder_info.reg_type_w;
@@ -466,7 +466,7 @@ function is_t get_is_from_decoder_info(decoder_info_t decoder_info);
     return ret;
 endfunction
 
-function ex_t get_ex_from_is(is_t is);
+function automatic ex_t get_ex_from_is(is_t is);
     ex_t ret;
     ret.debug_inst = is.debug_inst;
     ret.mem_type = is.mem_type;
@@ -516,7 +516,7 @@ function ex_t get_ex_from_is(is_t is);
     return ret;
 endfunction
 
-function m1_t get_m1_from_ex(ex_t ex);
+function automatic m1_t get_m1_from_ex(ex_t ex);
     m1_t ret;
     ret.debug_inst = ex.debug_inst;
     ret.mem_type = ex.mem_type;
@@ -559,7 +559,7 @@ function m1_t get_m1_from_ex(ex_t ex);
     return ret;
 endfunction
 
-function m2_t get_m2_from_m1(m1_t m1);
+function automatic m2_t get_m2_from_m1(m1_t m1);
     m2_t ret;
     ret.debug_inst = m1.debug_inst;
     ret.mem_type = m1.mem_type;
@@ -589,7 +589,7 @@ function m2_t get_m2_from_m1(m1_t m1);
     return ret;
 endfunction
 
-function wb_t get_wb_from_m2(m2_t m2);
+function automatic wb_t get_wb_from_m2(m2_t m2);
     wb_t ret;
     ret.debug_inst = m2.debug_inst;
     ret.need_div = m2.need_div;

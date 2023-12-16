@@ -36,7 +36,7 @@ module mycpu_mega_top(
     output          awvalid,
     input           awready,
     //write data
-    // output   [ 3:0] wid,
+    output   [ 3:0] wid,
     output   [31:0] wdata,
     output   [ 3:0] wstrb,
     output          wlast,
@@ -55,7 +55,7 @@ module mycpu_mega_top(
 
     assign global_reset = ~aresetn;
     (*mark_debug = "true"*)wire[4:0] debug0_wb_rf_wnum_nc;
-    (*mark_debug = "true"*)wire debug0_wb_rf_we_nc;
+    (*mark_debug = "true"*)wire[3:0] debug0_wb_rf_wen_nc;
     core_top #(1'b1) core_wrap(
         .aclk(aclk),
         .aresetn(aresetn),
@@ -86,7 +86,7 @@ module mycpu_mega_top(
         .awprot(awprot),
         .awvalid(awvalid),
         .awready(awready),
-        .wid(nc),
+        .wid(wid),
         .wdata(wdata),
         .wstrb(wstrb),
         .wlast(wlast),
@@ -97,7 +97,7 @@ module mycpu_mega_top(
         .bvalid(bvalid),
         .bready(bready),
         .debug0_wb_pc(debug_wb_pc),
-        .debug0_wb_rf_wen(debug0_wb_rf_we_nc),
+        .debug0_wb_rf_wen(debug0_wb_rf_wen_nc),
         .debug0_wb_rf_wnum(debug0_wb_rf_wnum_nc),
         .debug0_wb_rf_wdata(debug_wb_rf_wdata),
         .debug0_wb_inst(debug_wb_instr)
