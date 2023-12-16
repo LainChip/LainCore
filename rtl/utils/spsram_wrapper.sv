@@ -90,4 +90,34 @@ end
   end
 `endif
 
+`ifdef _ASIC
+  generate
+      wire [DATA_WIDTH-1:0] bwen;
+      for (genvar i = 0; i < DATA_WIDTH/BYTE_SIZE; i++) begin
+        assign bwen[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we_i[i]}};
+      end
+
+
+    if (DATA_DEPTH == 512 && DATA_WIDTH == 64 && BYTE_SIZE != DATA_WIDTH) begin
+      S018SP_RAM_SP_W512_B64_M4_BW S018SP_RAM_SP_W512_B64_M4_BW_INST (
+      .Q(rdata_o ),
+      .CLK(clk   ),
+      .CEN(~en_i ),
+      .BWEN(~bwen),
+      .A(addr_i  ),
+      .D(wdata_i )
+    );
+    end
+
+    else begin
+      initial begin
+        $display("Not support spram type %d %d %d", DATA_WIDTH, DATA_DEPTH, BYTE_SIZE);
+        #100
+        $stop;
+      end
+    end
+  endgenerate
+
+`endif
+
 endmodule
