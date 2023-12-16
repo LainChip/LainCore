@@ -1,14 +1,15 @@
 `include "common.svh"
 `include "pipeline.svh"
 `include "lsu.svh"
+`include "decoder.svh"
 
-function fwd_data_t mkfwddata(input pipeline_wdata_t in);
+function automatic fwd_data_t mkfwddata(input pipeline_wdata_t in);
 mkfwddata.valid = in.w_flow.w_valid;
 mkfwddata.id = in.w_flow.w_id[2:0];
 mkfwddata.data = in.w_data;
 endfunction
 
-  function logic[1:0] mkmemsize(input logic[2:0] sel);
+  function automatic logic[1:0] mkmemsize(input logic[2:0] sel);
     case(sel[1:0])
       default : mkmemsize = 2'b11;
       2'b10   : mkmemsize = 2'b01;
@@ -16,7 +17,7 @@ endfunction
     endcase
   endfunction
 
-  function logic[27:0] mkimm_addr(input logic[1:0] addr_imm_type, input logic[25:0] raw_imm);
+  function automatic logic[27:0] mkimm_addr(input logic[1:0] addr_imm_type, input logic[25:0] raw_imm);
     case (addr_imm_type)
       default : /*`_ADDR_IMM_S12:*/
         begin
@@ -34,7 +35,7 @@ endfunction
     endcase
   endfunction
 
-  function logic[31:0] mkimm_data(input logic[2:0] data_imm_type, input logic[25:0] raw_imm);
+  function automatic logic[31:0] mkimm_data(input logic[2:0] data_imm_type, input logic[25:0] raw_imm);
     // !!! CAUTIOUS !!! : DOESN'T SUPPORT IMM U16 | IMM S21 FOR NOW
     case(data_imm_type[1:0])
       // default/*IMM U5*/: begin
@@ -723,7 +724,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       .csr_w_data_i    (csr_w_data                     ),
       .badv_i          (csr_badv                       ),
       .tlb_op_vaddr_i  (pipeline_data_m1_q[0].r_data[0]),
-      .tlb_op_asid_i   (pipeline_data_m1_q[0].r_data[1]),
+      .tlb_op_asid_i   (pipeline_data_m1_q[0].r_data[1][9:0]),
       .tlb_op_i        (tlb_op                         ),
       .tlb_inv_op_i    (ctlb_opcode                    ),
       .tlb_update_req_o(tlb_update_req                 ),
@@ -1212,26 +1213,26 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       excp_flow_t excp_flow;
       assign excp_flow = pipeline_ctrl_m2_q[p].excp_flow;
       // MUL 结果复用 ALU 传回
-    core_detachable_alu #(
-      .USE_LI (0),
-      .USE_INT(0),
-      .USE_MUL(1),
-      .USE_SFT(1),
-      .USE_CMP(0)
-    ) m2_alu (
-      .clk       (clk                            ),
-      .rst_n     (rst_n                          ),
-      .grand_op_i(decode_info.alu_grand_op       ),
-      .op_i      (decode_info.alu_op             ),
-      
-      .mul_i     (mul_result[p]                  ),
-      // .div_i     (div_result                     ),
-      .r0_i      (pipeline_data_m2_q[p].r_data[0]),
-      .r1_i      (pipeline_data_m2_q[p].r_data[1]),
-      .pc_i      (pipeline_ctrl_m2_q[p].pc       ),
-      
-      .res_o     (alu_result                     )
-    );
+      core_detachable_alu #(
+        .USE_LI (0),
+        .USE_INT(0),
+        .USE_MUL(1),
+        .USE_SFT(1),
+        .USE_CMP(0)
+      ) m2_alu (
+        .clk       (clk                            ),
+        .rst_n     (rst_n                          ),
+        .grand_op_i(decode_info.alu_grand_op       ),
+        .op_i      (decode_info.alu_op             ),
+        
+        .mul_i     (mul_result[p]                  ),
+        // .div_i     (div_result                     ),
+        .r0_i      (pipeline_data_m2_q[p].r_data[0]),
+        .r1_i      (pipeline_data_m2_q[p].r_data[1]),
+        .pc_i      (pipeline_ctrl_m2_q[p].pc       ),
+        
+        .res_o     (alu_result                     )
+      );
 
       // M2 的额外部分
       // CSR 修改相关指令的执行，如写 CSR、写 TLB、缓存控制均在此处执行。
@@ -1400,8 +1401,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
 
       // WAIT 指令接入
       if(p == 0) begin
-        assign frontend_resp_o.wait_inst  = ENABLE_TLB && decode_info.wait_inst && exc_m2_q_need_commit[p];
         assign frontend_resp_o.int_detect = ENABLE_TLB && csr_m1_int;
+        assign frontend_resp_o.wait_inst  = ENABLE_TLB && decode_info.wait_inst && exc_m2_q_need_commit[p];
       end
     end
     // CSR 控制接线，一定在流水线级1
