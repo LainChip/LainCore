@@ -96,7 +96,7 @@ typedef logic [31:0] debug_inst_t;
 typedef logic invalid_inst_t;
 
 `define _ALU_GTYPE_BW (2'd0)
-`define _ALU_GTYPE_MUL (2'd1)
+`define _ALU_GTYPE_MUL (2'd3)
 `define _ALU_GTYPE_LI (2'd1)
 `define _ALU_GTYPE_INT (2'd1)
 `define _ALU_GTYPE_CMP (2'd3)
@@ -327,6 +327,7 @@ typedef struct packed {
     latest_r1_wb_t latest_r1_wb;
     latest_r0_wb_t latest_r0_wb;
     tlbsrch_en_t tlbsrch_en;
+    wait_inst_t wait_inst;
     mem_cacop_t mem_cacop;
     tlbwr_en_t tlbwr_en;
     csr_op_en_t csr_op_en;
@@ -581,6 +582,7 @@ function m2_t get_m2_from_m1(m1_t m1);
     ret.csr_op_en = m1.csr_op_en;
     ret.tlbwr_en = m1.tlbwr_en;
     ret.mem_cacop = m1.mem_cacop;
+    ret.wait_inst = m1.wait_inst;
     ret.tlbsrch_en = m1.tlbsrch_en;
     ret.latest_r0_wb = m1.latest_r0_wb;
     ret.latest_r1_wb = m1.latest_r1_wb;
