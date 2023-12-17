@@ -39,7 +39,7 @@ module sync_dpram #(
     .rst_n0  (rst_n   ),
     .addr0_i (raddr_i ),
     .en0_i   (re      ),
-    .we0_i   (1'b0    ),
+    .we0_i   ('0      ),
     .wdata0_i('0      ),
     .rdata0_o(rdata0_q),
     // PORT 1 FOR WRITE
