@@ -4,9 +4,8 @@
 
 // `define _DIFFTEST_ENABLE
 // `define _VERILATOR
-`define _FPGA
 // `define _LUT_REG
-// `define _ASIC
+`define _ASIC
 
 `define _CACHE_BUS_DATA_LEN (32)
 `define _AXI_BURST_SIZE (4'b0011)
