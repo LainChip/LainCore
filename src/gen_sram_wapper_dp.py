@@ -175,7 +175,7 @@ module tdpsram_wrapper #(
       wire [DATA_WIDTH-1:0] bwena, bwenb;
       for (genvar i = 0; i < DATA_WIDTH/BYTE_SIZE; i++) begin
         assign bwena[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
-        assign bwenb[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
+        assign bwenb[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we1_i[i]}};
       end
 '''
 

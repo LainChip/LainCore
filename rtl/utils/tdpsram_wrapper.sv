@@ -80,7 +80,7 @@ module tdpsram_wrapper #(
 `endif
 
 `ifdef _VERILATOR
-  bit [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE-1:0] sim_ram[DATA_DEPTH-1:0];
+  reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE-1:0] sim_ram[DATA_DEPTH-1:0];
   reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE-1:0] rdata0_split_q,rdata1_split_q,wdata0_split,wdata1_split;
   assign wdata0_split = wdata0_i;
   assign wdata1_split = wdata1_i;
@@ -128,7 +128,7 @@ module tdpsram_wrapper #(
       wire [DATA_WIDTH-1:0] bwena, bwenb;
       for (genvar i = 0; i < DATA_WIDTH/BYTE_SIZE; i++) begin
         assign bwena[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
-        assign bwenb[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we0_i[i]}};
+        assign bwenb[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we1_i[i]}};
       end
 
     if (DATA_DEPTH == 1024 && DATA_WIDTH == 32 && BYTE_SIZE != DATA_WIDTH) begin
