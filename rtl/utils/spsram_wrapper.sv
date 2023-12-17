@@ -110,6 +110,17 @@ end
     );
     end
 
+    else if (DATA_DEPTH == 256 && DATA_WIDTH == 21 && BYTE_SIZE == DATA_WIDTH) begin
+      S018SP_RAM_SP_W256_B21_M4 S018SP_RAM_SP_W256_B21_M4_INST (
+      .Q(rdata_o),
+      .CLK(clk  ),
+      .CEN(~en_i),
+      .WEN(~we_i),
+      .A(addr_i ),
+      .D(wdata_i)
+    );
+    end
+
     else begin
       initial begin
         $display("Not support spram type %d %d %d", DATA_WIDTH, DATA_DEPTH, BYTE_SIZE);

@@ -184,6 +184,23 @@ module tdpsram_wrapper #(
       );
     end
 
+    else if (DATA_DEPTH == 256 && DATA_WIDTH == 14 && BYTE_SIZE == DATA_WIDTH) begin
+      S018DP_RAM_DP_W256_B14_M4 S018DP_RAM_DP_W256_B14_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
+      .CLKA    (clk),
+      .CLKB    (clk),
+      .CENA    (~en0_i),
+      .CENB    (~en1_i),
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
+      );
+    end
+
     else begin
       initial begin
         $display("Not support tdpram type %d %d %d", DATA_WIDTH, DATA_DEPTH, BYTE_SIZE);

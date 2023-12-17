@@ -12,6 +12,12 @@ smic_spram_config = [
         'bits': 64,
         'mux': 4,
         'bit_write': True
+    },
+    {
+        'words': 256,
+        'bits': 21,
+        'mux': 4,
+        'bit_write': False
     }
 ]
 

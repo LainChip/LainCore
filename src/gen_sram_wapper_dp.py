@@ -24,6 +24,12 @@ smic_tdpram_config = [
         'bits': 21,
         'mux': 4,
         'bit_write': False
+    },
+    {
+        'words': 256,
+        'bits': 14,
+        'mux': 4,
+        'bit_write': False
     }
 ]
 
