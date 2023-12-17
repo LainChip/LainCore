@@ -199,8 +199,8 @@ for ram in smic_tdpram_config:
       {name} {name}_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
-      .CLKA    (clk),
-      .CLKB    (clk),
+      .CLKA    (clk0    ),
+      .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
       .WENA    (~en0_i),
@@ -220,8 +220,8 @@ for ram in smic_tdpram_config:
       {name} {name}_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
-      .CLKA    (clk),
-      .CLKB    (clk),
+      .CLKA    (clk0    ),
+      .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
       .WENA    (~we0_i),

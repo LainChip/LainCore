@@ -135,8 +135,8 @@ module tdpsram_wrapper #(
       S018DP_RAM_DP_W1024_B32_M4_BW S018DP_RAM_DP_W1024_B32_M4_BW_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
-      .CLKA    (clk),
-      .CLKB    (clk),
+      .CLKA    (clk0    ),
+      .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
       .WENA    (~en0_i),
@@ -154,8 +154,8 @@ module tdpsram_wrapper #(
       S018DP_RAM_DP_W512_B30_M4 S018DP_RAM_DP_W512_B30_M4_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
-      .CLKA    (clk),
-      .CLKB    (clk),
+      .CLKA    (clk0    ),
+      .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
       .WENA    (~we0_i),
@@ -171,8 +171,8 @@ module tdpsram_wrapper #(
       S018DP_RAM_DP_W256_B21_M4 S018DP_RAM_DP_W256_B21_M4_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
-      .CLKA    (clk),
-      .CLKB    (clk),
+      .CLKA    (clk0    ),
+      .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
       .WENA    (~we0_i),
@@ -188,8 +188,8 @@ module tdpsram_wrapper #(
       S018DP_RAM_DP_W256_B14_M4 S018DP_RAM_DP_W256_B14_M4_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
-      .CLKA    (clk),
-      .CLKB    (clk),
+      .CLKA    (clk0    ),
+      .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
       .WENA    (~we0_i),
