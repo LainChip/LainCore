@@ -80,7 +80,7 @@ module tdpsram_wrapper #(
 `endif
 
 `ifdef _VERILATOR
-  reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE-1:0] sim_ram[DATA_DEPTH-1:0];
+  bit [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE-1:0] sim_ram[DATA_DEPTH-1:0];
   reg [(DATA_WIDTH/BYTE_SIZE)-1:0][BYTE_SIZE-1:0] rdata0_split_q,rdata1_split_q,wdata0_split,wdata1_split;
   assign wdata0_split = wdata0_i;
   assign wdata1_split = wdata1_i;

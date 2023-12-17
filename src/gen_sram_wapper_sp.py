@@ -131,6 +131,7 @@ for ram in smic_spram_config:
       .Q(rdata_o ),
       .CLK(clk   ),
       .CEN(~en_i ),
+      .WEN(~en_i ),
       .BWEN(~bwen),
       .A(addr_i  ),
       .D(wdata_i )
