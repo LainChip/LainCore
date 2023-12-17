@@ -117,7 +117,7 @@ end
   generate
       wire [DATA_WIDTH-1:0] bwen;
       for (genvar i = 0; i < DATA_WIDTH/BYTE_SIZE; i++) begin
-        assign bwen[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {DATA_WIDTH/BYTE_SIZE{we_i[i]}};
+        assign bwen[(i+1)*BYTE_SIZE - 1:i*BYTE_SIZE] = {BYTE_SIZE{we_i[i]}};
       end
 
 '''
