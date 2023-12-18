@@ -470,7 +470,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       sync_dpram #(
         .DATA_WIDTH(32),
         .DATA_DEPTH(1 << (`_DIDX_LEN - 2)),
-        .BYTE_SIZE(8)
+        .BYTE_SIZE(8),
+        .AUTO_RESET(0)
       ) data_ram (
         .clk,
         .rst_n,
@@ -485,7 +486,8 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
       sync_dpram #(
         .DATA_WIDTH($bits(dcache_tag_t)),
         .DATA_DEPTH(1 << 8             ),
-        .BYTE_SIZE($bits(dcache_tag_t))
+        .BYTE_SIZE($bits(dcache_tag_t)),
+        .AUTO_RESET(0)
       ) tag_ram (
         .clk    (clk             ),
         .rst_n  (rst_n           ),

@@ -45,7 +45,8 @@ module core_npc (
   output logic [31:0]       npc_o     ,
   output logic [ 1:0]       valid_o   , // 2'b00 | 2'b01 | 2'b11 | 2'b10
   output bpu_predict_t [1:0]predict_o ,
-  input  bpu_correct_t      correct_i
+  input  bpu_correct_t      correct_i ,
+  output logic              ready_o
 );
   // PC: pc 寄存器，f1 流水级
   // NPC: 下一个 PC 值，f1 流水级前
@@ -203,7 +204,7 @@ module core_npc (
   logic[7:0] rst_addr_q;
   logic rst_n_q;
   always_comb begin
-    winfo.target_type = rst_n_q ? correct_i.true_target_type : `_BPU_TARGET_NPC;
+    winfo.target_type = correct_i.true_target_type;
     winfo.conditional_jmp = correct_i.true_conditional_jmp;
     winfo.history = {correct_i.history[3:0], correct_i.true_taken};
     winfo.tag = get_tag(correct_i.pc);
@@ -217,12 +218,15 @@ module core_npc (
       rst_addr_q <= rst_addr_q + 1;
     end
   end
+  wire [1:0]btb_ready;
+  assign ready_o = btb_ready[1];
   for(genvar p = 0 ; p < 2 ; p++) begin
     // 创建两个 btb 和 info mem，用于写更新时区别开来。
     sync_dpram #(
       .DATA_WIDTH(30 ),
       .DATA_DEPTH(512),
-      .BYTE_SIZE(30)
+      .BYTE_SIZE(30),
+      .AUTO_RESET(1)
     ) btb_table (
       .clk     (clk       ),
       .rst_n   (rst_n     ),
@@ -231,20 +235,22 @@ module core_npc (
       .raddr_i (btb_raddr ),
       .re_i    (!f_stall_i),
       .wdata_i (btb_wdata[31:2]),
-      .rdata_o (btb_rdata[p][31:2])
+      .rdata_o (btb_rdata[p][31:2]),
+      .ready_o (btb_ready[p])
     );
     assign btb_rdata[p][1:0] = '0;
     // branch_info_t raw_rinfo;
     sync_dpram #(
       .DATA_WIDTH($bits(branch_info_t)),
       .DATA_DEPTH(256                 ),
-      .BYTE_SIZE ($bits(branch_info_t))
+      .BYTE_SIZE ($bits(branch_info_t)),
+      .AUTO_RESET(1)
     ) info_table (
       .clk     (clk                    ),
       .rst_n   (rst_n                  ),
       .waddr_i (info_waddr             ),
-      .we_i    (info_we[p] | !rst_n_q  ),
-      .raddr_i (info_raddr ^ rst_addr_q),
+      .we_i    (info_we[p]             ),
+      .raddr_i (info_raddr             ),
       .re_i    ('1                     ),
       .wdata_i (winfo                  ),
       .rdata_o (rinfo_q[p]           )
@@ -272,7 +278,8 @@ module core_npc (
   for(genvar p = 0 ; p < 2; p++) begin
     sync_regram #(
       .DATA_WIDTH(2 ),
-      .DATA_DEPTH(32)
+      .DATA_DEPTH(32),
+      .NEED_RESET(1)
     ) l2_table (
       .clk     (clk            ),
       .rst_n   (rst_n          ),

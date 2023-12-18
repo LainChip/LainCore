@@ -62,6 +62,7 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
   logic npc_ready ; // FROM ICACHE -> NPC
   logic[31:0] f1_pc;
   logic[1:0] f1_valid;
+  wire btb_ready;
   bpu_predict_t [1:0] f1_predict;
   assign addr_trans_stall = frontend_resp_i.addr_trans_stall;
   core_npc npc_inst (
@@ -69,12 +70,13 @@ module core_frontend_renew #(parameter bit ENABLE_TLB = 1'b1) (
     .rst_n     (rst_n                                       ),
     .rst_jmp   (frontend_resp_i.rst_jmp                     ),
     .rst_target(frontend_resp_i.rst_jmp_target              ),
-    .f_stall_i (!npc_ready || idle_stall || addr_trans_stall),
+    .f_stall_i (!npc_ready || idle_stall || addr_trans_stall || !btb_ready),
     .pc_o      (f1_pc                                       ),
     .npc_o     (/* NC */                                    ),
     .valid_o   (f1_valid                                    ),
     .predict_o (f1_predict                                  ),
-    .correct_i (frontend_resp_i.bpu_correct                 )
+    .correct_i (frontend_resp_i.bpu_correct                 ),
+    .ready_o   (btb_ready)
   );
 
   logic[1:0] f1_icacheop;

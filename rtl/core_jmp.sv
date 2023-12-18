@@ -67,11 +67,11 @@ module core_jmp(
 
     bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr;
     bpu_correct_o.ras_miss_type = '0;
-    if(true_target_type == `_BPU_TARGET_CALL && miss_target_type) begin
+    if(true_target_type == `_BPU_TARGET_CALL && miss_target_type && valid_i) begin
       bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr + 1;
       bpu_correct_o.ras_miss_type = '1;
     end
-    if(true_target_type == `_BPU_TARGET_RETURN && miss_target_type) begin
+    if(true_target_type == `_BPU_TARGET_RETURN && miss_target_type && valid_i) begin
       bpu_correct_o.ras_ptr = bpu_predict_i.ras_ptr - 1;
       bpu_correct_o.ras_miss_type = '1;
     end

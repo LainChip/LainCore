@@ -28,7 +28,8 @@ module core_lsu_wport #(
   for(genvar w = 0 ; w < WAY_CNT ; w++) begin
     sync_regram #(
                   .DATA_WIDTH(1),
-                  .DATA_DEPTH(1 << 8)
+                  .DATA_DEPTH(1 << 8),
+                  .NEED_RESET(0)
                 ) dirty_ram (
                   .clk      (clk        ),
                   .rst_n    (rst_n      ),
