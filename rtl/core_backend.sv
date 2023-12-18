@@ -497,7 +497,7 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
         .DATA_WIDTH($bits(dcache_tag_t)),
         .DATA_DEPTH(1 << 8             ),
         .BYTE_SIZE($bits(dcache_tag_t)),
-        .AUTO_RESET(0)
+        .AUTO_RESET(1)
       ) tag_ram (
         .clk    (clk             ),
         .rst_n  (rst_n           ),
