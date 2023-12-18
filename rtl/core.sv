@@ -5,7 +5,17 @@ module core #(parameter bit ENABLE_TLB = 1'b0)(
     input clk,
     input rst_n,
     input [7:0] int_i,
-    LA_AXI_BUS.Master mem_bus
+    LA_AXI_BUS.Master mem_bus,
+    output [31:0] debug0_wb_pc,
+    output [ 3:0] debug0_wb_rf_wen,
+    output [ 4:0] debug0_wb_rf_wnum,
+    output [31:0] debug0_wb_rf_wdata,
+    output [31:0] debug0_wb_inst,
+    output [31:0] debug1_wb_pc,
+    output [ 3:0] debug1_wb_rf_wen,
+    output [ 4:0] debug1_wb_rf_wnum,
+    output [31:0] debug1_wb_rf_wdata,
+    output [31:0] debug1_wb_inst
   );
 
 
@@ -44,7 +54,18 @@ module core #(parameter bit ENABLE_TLB = 1'b0)(
                   .frontend_req_i(frontend_req),
                   .frontend_resp_o(frontend_resp),
                   .bus_resp_i(dbus_resp),
-                  .bus_req_o(dbus_req)
+                  .bus_req_o(dbus_req),
+                  .debug0_wb_pc,
+                  .debug0_wb_rf_wen,
+                  .debug0_wb_rf_wnum,
+                  .debug0_wb_rf_wdata,
+                  .debug0_wb_inst,
+                
+                  .debug1_wb_pc,
+                  .debug1_wb_rf_wen,
+                  .debug1_wb_rf_wnum,
+                  .debug1_wb_rf_wdata,
+                  .debug1_wb_inst
                 );
 
 endmodule

@@ -54,13 +54,23 @@ endfunction
   endfunction
 
 module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
-  input  logic            clk            ,
-  input  logic            rst_n          ,
-  input  logic [7:0]      int_i          , // 中断输入
-  input  frontend_req_t   frontend_req_i ,
-  output frontend_resp_t  frontend_resp_o,
-  input  cache_bus_resp_t bus_resp_i     ,
-  output cache_bus_req_t  bus_req_o
+  input  logic            clk                ,
+  input  logic            rst_n              ,
+  input  logic [ 7:0]     int_i              , // 中断输入
+  input  frontend_req_t   frontend_req_i     ,
+  output frontend_resp_t  frontend_resp_o    ,
+  input  cache_bus_resp_t bus_resp_i         ,
+  output cache_bus_req_t  bus_req_o          ,
+  output wire  [31:0]     debug0_wb_pc       ,
+  output wire  [ 3:0]     debug0_wb_rf_wen   ,
+  output wire  [ 4:0]     debug0_wb_rf_wnum  ,
+  output wire  [31:0]     debug0_wb_rf_wdata ,
+  output wire  [31:0]     debug0_wb_inst     ,
+  output wire  [31:0]     debug1_wb_pc       ,
+  output wire  [ 3:0]     debug1_wb_rf_wen   ,
+  output wire  [ 4:0]     debug1_wb_rf_wnum  ,
+  output wire  [31:0]     debug1_wb_rf_wdata ,
+  output wire  [31:0]     debug1_wb_inst
 );
 
     /* -- -- -- -- -- GLOBAL CONTROLLING LOGIC BEGIN -- -- -- -- -- */
@@ -1458,6 +1468,16 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     end
     assign wb_w_id = pipeline_wdata_wb[0].w_flow.w_id;
 
+    assign debug0_wb_pc = pipeline_ctrl_wb_q[0].pc;
+    assign debug0_wb_rf_wen = reg_file_inst.w_en_i[0];
+    assign debug0_wb_rf_wnum = wb_w_addr[0];
+    assign debug0_wb_rf_wdata = wb_w_data[0];
+    assign debug0_wb_inst = pipeline_ctrl_wb_q[0].decode_info.debug_inst;    
+    assign debug1_wb_pc = pipeline_ctrl_wb_q[1].pc;
+    assign debug1_wb_rf_wen = reg_file_inst.w_en_i[1];
+    assign debug1_wb_rf_wnum = wb_w_addr[1];
+    assign debug1_wb_rf_wdata = wb_w_data[1];
+    assign debug1_wb_inst = pipeline_ctrl_wb_q[1].decode_info.debug_inst;
 
 `ifdef _DIFFTEST_ENABLE
     // 接入差分测试

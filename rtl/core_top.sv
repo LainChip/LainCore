@@ -156,33 +156,18 @@ core #(.ENABLE_TLB(ENABLE_TLB)) core (
   .clk    (aclk   ),
   .rst_n  (rst_n  ),
   .int_i  (intrpt ),
-  .mem_bus(mem_bus)
+  .mem_bus(mem_bus),
+  .debug0_wb_pc,
+  .debug0_wb_rf_wen,
+  .debug0_wb_rf_wnum,
+  .debug0_wb_rf_wdata,
+  .debug0_wb_inst,
+
+  .debug1_wb_pc,
+  .debug1_wb_rf_wen,
+  .debug1_wb_rf_wnum,
+  .debug1_wb_rf_wdata,
+  .debug1_wb_inst
 );
-
-assign debug0_wb_pc = core.core_backend_inst.pipeline_ctrl_wb_q[0].pc;
-assign debug0_wb_rf_wen = core.core_backend_inst.reg_file_inst.w_en_i[0];
-assign debug0_wb_rf_wnum = core.core_backend_inst.wb_w_addr[0];
-assign debug0_wb_rf_wdata = core.core_backend_inst.wb_w_data[0];
-assign debug0_wb_inst = core.core_backend_inst.pipeline_ctrl_wb_q[0].decode_info.debug_inst;
-
-assign debug1_wb_pc = core.core_backend_inst.pipeline_ctrl_wb_q[1].pc;
-assign debug1_wb_rf_wen = core.core_backend_inst.reg_file_inst.w_en_i[1];
-assign debug1_wb_rf_wnum = core.core_backend_inst.wb_w_addr[1];
-assign debug1_wb_rf_wdata = core.core_backend_inst.wb_w_data[1];
-assign debug1_wb_inst = core.core_backend_inst.pipeline_ctrl_wb_q[1].decode_info.debug_inst;
-
-// 全部赋值为0，权宜之计
-// assign debug0_wb_pc = 32'h0;
-// assign debug0_wb_rf_wen = 4'h0;
-// assign debug0_wb_rf_wnum = 5'h0;
-// assign debug0_wb_rf_wdata = 32'h0;
-// assign debug0_wb_inst = 32'h0;
-
-// assign debug1_wb_pc = 32'h0;
-// assign debug1_wb_rf_wen = 4'h0;
-// assign debug1_wb_rf_wnum = 5'h0;
-// assign debug1_wb_rf_wdata = 32'h0;
-// assign debug1_wb_inst = 32'h0;
-
 
 endmodule
