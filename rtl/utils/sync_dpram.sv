@@ -55,7 +55,7 @@ module sync_dpram #(
     .rst_n0  (rst_n   ),
     .addr0_i (rst_addr_q[$clog2(DATA_DEPTH)] ? raddr_i : rst_addr_q[$clog2(DATA_DEPTH)-1:0]),
     .en0_i   (re || !rst_addr_q[$clog2(DATA_DEPTH)]),
-    .we0_i   (!rst_addr_q[$clog2(DATA_DEPTH)]),
+    .we0_i   ({(DATA_WIDTH/BYTE_SIZE){!rst_addr_q[$clog2(DATA_DEPTH)]}}),
     .wdata0_i('0      ),
     .rdata0_o(rdata0_q),
     // PORT 1 FOR WRITE
