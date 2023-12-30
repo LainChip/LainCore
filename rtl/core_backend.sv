@@ -432,9 +432,6 @@ module core_backend #(parameter bit ENABLE_TLB = 1'b1) (
     end
 
     // DM 模块实例化
-    // dram_manager_req_t[1:0] dm_req;
-    // dram_manager_resp_t[1:0] dm_resp;
-    // dram_manager_snoop_t dm_snoop;
     rport_state_t [1:0] rstate   ;
     wport_state_t [1:0] wstate   ;
     wport_wreq_t        wport_req;

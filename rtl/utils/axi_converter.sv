@@ -163,7 +163,7 @@ module axi_converter#(
 		axi_bus_if.ar_addr = sel_req_r.addr;
 		axi_bus_if.ar_len = sel_req_r.burst_size;
 		axi_bus_if.ar_size = {1'b0,sel_req_r.data_size};
-		axi_bus_if.ar_burst = 2'b01; // WARP TYPE
+		axi_bus_if.ar_burst = 2'b01; // INCR TYPE
 		axi_bus_if.ar_lock = 1'b0;
 		// axi_bus_if.ar_cache = {2'b00,sel_req_r.cached,1'b0};
 		axi_bus_if.ar_cache = 4'b0000;
@@ -178,7 +178,7 @@ module axi_converter#(
 		axi_bus_if.aw_addr = sel_req_r.addr;
 		axi_bus_if.aw_len = sel_req_r.burst_size;
 		axi_bus_if.aw_size = {1'b0,sel_req_r.data_size};
-		axi_bus_if.aw_burst = 2'b01; // WARP TYPE
+		axi_bus_if.aw_burst = 2'b01; // INCR TYPE
 		axi_bus_if.aw_lock = 1'b0;
 		// axi_bus_if.aw_cache = {2'b00,sel_req_r.cached,1'b0};
 		axi_bus_if.aw_cache = 4'b0000;

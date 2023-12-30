@@ -44,48 +44,12 @@ typedef struct packed{
           logic data_ok  ; // 拉高时说明总线数据有效
           logic data_last; // 最后一个有效数据
           logic[31:0] r_data; // 总线返回的数据
-        }cache_bus_resp_t;
+        } cache_bus_resp_t;
 
 typedef struct packed {
           logic valid;
           logic[`_DTAG_LEN - 1 : 0] addr;
         } dcache_tag_t;
-
-typedef struct packed {
-          logic pending_write;
-
-          logic rvalid;
-          logic[31:0] raddr;
-
-          logic we_valid;
-          logic uncached;
-          logic[3:0] strobe;
-          logic[1:0] size;
-          logic[`_DWAY_CNT - 1 : 0] we_sel;
-          logic[31:0] wdata;
-
-          logic op_valid;
-          logic[3:0]  op_type;
-          logic[31:0] op_addr;
-          dcache_tag_t[`_DWAY_CNT - 1 : 0] old_tags;
-        } dram_manager_req_t;
-
-typedef struct packed {
-          logic pending_write; // means that rdata_d1 is not the most newest value now.
-
-          // dcache_tag_t[`_DWAY_CNT - 1 : 0] tag_d0; // NO USAGE NOW
-          dcache_tag_t[`_DWAY_CNT - 1 : 0] tag_d1;
-          // dcache_tag_t etag_d0; // TODO
-          // dcache_tag_t etag_d1;
-
-          logic[`_DWAY_CNT - 1 : 0][31:0] rdata_d1;
-          logic r_valid_d1;
-
-          logic we_ready;
-          logic[31:0] r_uncached;
-
-          logic op_ready;
-        } dram_manager_resp_t;
 
 typedef struct packed {
           // 仅有这两个请求有可能同时出现
@@ -135,17 +99,6 @@ typedef struct packed {
           logic[31:0] data_wdata; // c
           logic[`_DWAY_CNT - 1 : 0][3:0] data_we; // c
         } wport_wreq_t;
-
-// 有 256 个 CACHE 行
-typedef struct packed {
-          logic [ `_DWAY_CNT-1:0]                                          tag_we    ;
-          logic [            7:0]                                          tag_waddr ;
-          dcache_tag_t                                                tag_wdata ;
-
-          logic [`_DBANK_CNT-1:0][                    `_DWAY_CNT-1:0][3:0] data_we   ;
-          logic [`_DBANK_CNT-1:0][`_DIDX_LEN-1:2+$clog2(`_DBANK_CNT)]      data_waddr;
-          logic [`_DBANK_CNT-1:0][                              31:0]      data_wdata;
-        } dram_manager_snoop_t;
 
 function automatic logic[`_DTAG_LEN - 1 : 0] tagaddr(input logic[31:0] va);
   return va[`_DTAG_LEN + `_DIDX_LEN - 1: `_DIDX_LEN];
