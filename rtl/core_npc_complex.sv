@@ -30,7 +30,7 @@ function automatic logic[1:0] gen_next_lphr(input logic[1:0] old, input logic di
   endcase
 endfunction
 function automatic logic[5:0] get_tag(input logic[31:0] addr);
-  return addr[16:11];
+  return addr[16:10];
 endfunction
 
 // 8.7 还是只做 8 对齐的 npc 模块
@@ -164,8 +164,8 @@ module core_npc (
 
   // 分支信息 ram 使用 lutram 存储
   // 注意：lutram 大小受限，不可以存储过多表项
-  // 目前使用 2 * 256 entry 的配置，共 512 entry。
-  // 表格中存储 2bits 分支类型, 1bits 条件跳转, 5bits 历史信息, 6bits tag 信息。
+  // 目前使用 2 * 128 entry 的配置，共 256 entry。
+  // 表格中存储 2bits 分支类型, 1bits 条件跳转, 5bits 历史信息, 7bits tag 信息。
   // 也即是说，可以在 17位 == 128KB 的代码中区别开两个分支
   // 这一点已经足够使用了。
   //
@@ -173,7 +173,7 @@ module core_npc (
     logic [1:0] target_type; // 0 npc, 1 call, 2 return, 3 imm
     logic conditional_jmp;   // 0 / 1 condition
     logic [4:0] history;
-    logic [5:0] tag;
+    logic [6:0] tag;
   } branch_info_t;
   logic[8:0] btb_waddr,btb_raddr;
   logic[1:0] btb_we;
@@ -189,13 +189,13 @@ module core_npc (
       (correct_i.true_target_type == `_BPU_TARGET_CALL ||correct_i.true_target_type == `_BPU_TARGET_IMM);
   end
 
-  logic[7:0] info_waddr,info_raddr;
+  logic[6:0] info_waddr,info_raddr;
   logic[1:0] info_we;
   branch_info_t winfo;
   branch_info_t [1:0]rinfo_q;
   // 注意：这个 rinfo_q 实际上是对应 PC 持有的预测信息
   // 也就是在这之后的有效域，转为 PC 了。
-  assign info_raddr = npc[10:3];
+  assign info_raddr = npc[9:3];
   assign info_waddr = correct_i.pc[10:3];
   always_comb begin
     info_we = '0;
@@ -239,25 +239,38 @@ module core_npc (
       .ready_o (btb_ready[p])
     );
     assign btb_rdata[p][1:0] = '0;
-    // branch_info_t raw_rinfo;
-    sync_dpram #(
-      .DATA_WIDTH($bits(branch_info_t)),
-      .DATA_DEPTH(256                 ),
-      .BYTE_SIZE ($bits(branch_info_t)),
-      .AUTO_RESET(1)
-    ) info_table (
-      .clk     (clk                    ),
-      .rst_n   (rst_n                  ),
-      .waddr_i (info_waddr             ),
-      .we_i    (info_we[p]             ),
-      .raddr_i (info_raddr             ),
-      .re_i    ('1                     ),
-      .wdata_i (winfo                  ),
-      .rdata_o (rinfo_q[p]           )
-    );
-    // always_ff @(posedge clk) begin
-    //   rinfo_q[p] <= raw_rinfo;
-    // end
+    branch_info_t raw_rinfo;
+    sync_regram #(
+                  .DATA_WIDTH($bits(branch_info_t)),
+                  .DATA_DEPTH(128),
+                  .NEED_RESET(0)
+                ) info_table (
+                  .clk     (clk        ),
+                  .rst_n   (rst_n      ),
+                  .waddr_i (info_waddr  ),
+                  .we_i    (info_we[p]  ),
+                  .raddr_i (info_raddr  ),
+                  .wdata_i (winfo       ),
+                  .rdata_o (raw_rinfo  )
+                );
+    always_ff @(posedge clk) begin
+      rinfo_q[p] <= raw_rinfo;
+    end
+    // sync_dpram #(
+    //   .DATA_WIDTH($bits(branch_info_t)),
+    //   .DATA_DEPTH(256                 ),
+    //   .BYTE_SIZE ($bits(branch_info_t)),
+    //   .AUTO_RESET(1)
+    // ) info_table (
+    //   .clk     (clk                    ),
+    //   .rst_n   (rst_n                  ),
+    //   .waddr_i (info_waddr             ),
+    //   .we_i    (info_we[p]             ),
+    //   .raddr_i (info_raddr             ),
+    //   .re_i    ('1                     ),
+    //   .wdata_i (winfo                  ),
+    //   .rdata_o (rinfo_q[p]           )
+    // );
   end
 
   // 预测逻辑
