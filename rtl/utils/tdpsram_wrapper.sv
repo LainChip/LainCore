@@ -185,73 +185,19 @@ module tdpsram_wrapper #(
     end
 
     else if (DATA_DEPTH == 256 && DATA_WIDTH == 14 && BYTE_SIZE == DATA_WIDTH) begin
-      wire [1:0][13:0] rdata0_raw;
-      wire [1:0][13:0] rdata1_raw;
-      reg rdata0_sel_q;
-      always_ff @(posedge clk0) begin
-        if(~en0_i) rdata0_sel_q <= ~addr0_i[0];
-      end
-      reg rdata1_sel_q;
-      always_ff @(posedge clk1) begin
-        if(~en1_i) rdata1_sel_q <= ~addr1_i[0];
-      end
-      assign rdata0_o = rdata0_raw[rdata0_sel_q];
-      assign rdata1_o = rdata1_raw[rdata1_sel_q];
-      S018DP_RAM_DP_W128_B7_M4 S018DP_RAM_DP_W128_B7_M4_INST_0_0 (
-      .QA      (rdata0_raw[0][13:7]),
-      .QB      (rdata1_raw[0][13:7]),
+      S018DP_RAM_DP_W256_B14_M4 S018DP_RAM_DP_W256_B14_M4_INST (
+      .QA      (rdata0_o),
+      .QB      (rdata1_o),
       .CLKA    (clk0    ),
       .CLKB    (clk1    ),
       .CENA    (~en0_i),
       .CENB    (~en1_i),
-      .WENA    (~we0_i | addr0_i[0]),
-      .WENB    (~we1_i | addr1_i[0]),
-      .AA      (addr0_i[7:1]),
-      .AB      (addr1_i[7:1]),
-      .DA      (wdata0_i[13:7]),
-      .DB      (wdata1_i[13:7])
-      );
-      S018DP_RAM_DP_W128_B7_M4 S018DP_RAM_DP_W128_B7_M4_INST_0_1 (
-      .QA      (rdata0_raw[0][6:0]),
-      .QB      (rdata1_raw[0][6:0]),
-      .CLKA    (clk0    ),
-      .CLKB    (clk1    ),
-      .CENA    (~en0_i),
-      .CENB    (~en1_i),
-      .WENA    (~we0_i | addr0_i[0]),
-      .WENB    (~we1_i | addr1_i[0]),
-      .AA      (addr0_i[7:1]),
-      .AB      (addr1_i[7:1]),
-      .DA      (wdata0_i[6:0]),
-      .DB      (wdata1_i[6:0])
-      );
-      S018DP_RAM_DP_W128_B7_M4 S018DP_RAM_DP_W128_B7_M4_INST_1_0 (
-      .QA      (rdata0_raw[1][13:7]),
-      .QB      (rdata1_raw[1][13:7]),
-      .CLKA    (clk0    ),
-      .CLKB    (clk1    ),
-      .CENA    (~en0_i),
-      .CENB    (~en1_i),
-      .WENA    (~we0_i | ~addr0_i[0]),
-      .WENB    (~we1_i | ~addr1_i[0]),
-      .AA      (addr0_i[7:1]),
-      .AB      (addr1_i[7:1]),
-      .DA      (wdata0_i[13:7]),
-      .DB      (wdata1_i[13:7])
-      );
-      S018DP_RAM_DP_W128_B7_M4 S018DP_RAM_DP_W128_B7_M4_INST_1_1 (
-      .QA      (rdata0_raw[1][6:0]),
-      .QB      (rdata1_raw[1][6:0]),
-      .CLKA    (clk0    ),
-      .CLKB    (clk1    ),
-      .CENA    (~en0_i),
-      .CENB    (~en1_i),
-      .WENA    (~we0_i | ~addr0_i[0]),
-      .WENB    (~we1_i | ~addr1_i[0]),
-      .AA      (addr0_i[7:1]),
-      .AB      (addr1_i[7:1]),
-      .DA      (wdata0_i[6:0]),
-      .DB      (wdata1_i[6:0])
+      .WENA    (~we0_i),
+      .WENB    (~we1_i),
+      .AA      (addr0_i),
+      .AB      (addr1_i),
+      .DA      (wdata0_i),
+      .DB      (wdata1_i)
       );
     end
 
