@@ -530,7 +530,7 @@ end
 assign csr_o.badv = badv_q;
 
 // eentry
-logic eentry_we,eentry_re;
+logic eentry_we, eentry_re;
 assign eentry_we = csr_we && (csr_w_addr_i == `_CSR_EENTRY);
 always_ff @(posedge clk) begin
   if(!rst_n) begin

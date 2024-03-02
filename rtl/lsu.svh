@@ -19,7 +19,7 @@
 `define _IIDX_LEN 12
 `define _ITAG_LEN 20
 
-        typedef struct packed{
+typedef struct packed{
           // 请求信号
           logic       valid     ; // 拉高时说明cache的请求有效，请求有效后，valid信号应该被拉低
           logic       write     ; // 拉高时说明cache请求进行写入
@@ -34,7 +34,7 @@
           logic data_last; // 拉高时标记最后一个元素，只有读到此信号才认为传输事务结束
           logic[3 :0] data_strobe;
           logic[31:0] w_data; // cache请求的写数据
-        }cache_bus_req_t;
+        } cache_bus_req_t;
 
 typedef struct packed{
           // 响应信号

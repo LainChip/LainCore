@@ -45,7 +45,7 @@ module core_jmp(
 
   logic true_conditional_jmp,miss_dir_type,miss_target_type;
   logic[1:0] true_target_type;
-  assign true_conditional_jmp = |cmp_result[3:1]/*JUMPABLE*/ && !(&cmp_result[3:1]) /*BUT NOT ALWAYS JUMP*/;
+  assign true_conditional_jmp = |cmp_type_i[3:1]/*JUMPABLE*/ && !(&cmp_type_i[3:1]) /*BUT NOT ALWAYS JUMP*/;
   assign miss_dir_type = bpu_predict_i.dir_type != true_conditional_jmp;
   assign miss_target_type = true_target_type != bpu_predict_i.target_type;
   assign true_target_type = target_type_i;
