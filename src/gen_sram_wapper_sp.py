@@ -124,7 +124,7 @@ end
 
 name_format = "{HEAD}_RAM_SP_W{W}_B{B}_M{M}"
 
-head = 'S018SP'
+head = 'SP'
 prefix = ''
 
 for ram in smic_spram_config:

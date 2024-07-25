@@ -132,7 +132,7 @@ module tdpsram_wrapper #(
       end
 
     if (DATA_DEPTH == 1024 && DATA_WIDTH == 32 && BYTE_SIZE != DATA_WIDTH) begin
-      S018DP_RAM_DP_W1024_B32_M4_BW S018DP_RAM_DP_W1024_B32_M4_BW_INST (
+      DP_RAM_DP_W1024_B32_M4_BW DP_RAM_DP_W1024_B32_M4_BW_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
       .CLKA    (clk0    ),
@@ -151,7 +151,7 @@ module tdpsram_wrapper #(
     end
 
     else if (DATA_DEPTH == 512 && DATA_WIDTH == 30 && BYTE_SIZE == DATA_WIDTH) begin
-      S018DP_RAM_DP_W512_B30_M4 S018DP_RAM_DP_W512_B30_M4_INST (
+      DP_RAM_DP_W512_B30_M4 DP_RAM_DP_W512_B30_M4_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
       .CLKA    (clk0    ),
@@ -168,7 +168,7 @@ module tdpsram_wrapper #(
     end
 
     else if (DATA_DEPTH == 256 && DATA_WIDTH == 21 && BYTE_SIZE == DATA_WIDTH) begin
-      S018DP_RAM_DP_W256_B21_M4 S018DP_RAM_DP_W256_B21_M4_INST (
+      DP_RAM_DP_W256_B21_M4 DP_RAM_DP_W256_B21_M4_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
       .CLKA    (clk0    ),
@@ -185,7 +185,7 @@ module tdpsram_wrapper #(
     end
 
     else if (DATA_DEPTH == 256 && DATA_WIDTH == 14 && BYTE_SIZE == DATA_WIDTH) begin
-      S018DP_RAM_DP_W256_B14_M4 S018DP_RAM_DP_W256_B14_M4_INST (
+      DP_RAM_DP_W256_B14_M4 DP_RAM_DP_W256_B14_M4_INST (
       .QA      (rdata0_o),
       .QB      (rdata1_o),
       .CLKA    (clk0    ),

@@ -99,7 +99,7 @@ end
 
 
     if (DATA_DEPTH == 512 && DATA_WIDTH == 64 && BYTE_SIZE != DATA_WIDTH) begin
-      S018SP_RAM_SP_W512_B64_M4_BW S018SP_RAM_SP_W512_B64_M4_BW_INST (
+      RAM_SP_W512_B64_M4_BW RAM_SP_W512_B64_M4_BW_INST (
       .Q(rdata_o ),
       .CLK(clk   ),
       .CEN(~en_i ),
@@ -111,7 +111,7 @@ end
     end
 
     else if (DATA_DEPTH == 256 && DATA_WIDTH == 21 && BYTE_SIZE == DATA_WIDTH) begin
-      S018SP_RAM_SP_W256_B21_M4 S018SP_RAM_SP_W256_B21_M4_INST (
+      RAM_SP_W256_B21_M4 RAM_SP_W256_B21_M4_INST (
       .Q(rdata_o),
       .CLK(clk  ),
       .CEN(~en_i),

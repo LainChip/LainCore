@@ -185,9 +185,9 @@ module tdpsram_wrapper #(
       end
 '''
 
-name_format = "{HEAD}_RAM_DP_W{W}_B{B}_M{M}"
+name_format = "{HEAD}_DP_RAM_DP_W{W}_B{B}_M{M}"
 
-head = 'S018DP'
+head = 'DP'
 prefix = ''
 
 for ram in smic_tdpram_config:
